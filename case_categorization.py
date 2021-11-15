@@ -3,10 +3,10 @@
 
 This code goes through all the PDFs in one folder and sorts them into 4 categories: 
     
-1217 A - ƒktenskapsskillnad\domar; divorce/custody battles (ideal case)
-1217 B - ƒktenskapsskillnad\domar utan v‰rdnadstvist; divorce with no custody battles
-1216 A - VÂrdnad\domar; custody battles of non-divorcing parents
-1216 B - VÂrdnad\domar d‰r socialf‰rvaltning ‰r k‰rande eller svarande; legal guardian cases
+1217 A - √Ñktenskapsskillnad\domar; divorce/custody battles (ideal case)
+1217 B - √Ñktenskapsskillnad\domar utan v√§rdnadstvist; divorce with no custody battles
+1216 A - V√•rdnad\domar; custody battles of non-divorcing parents
+1216 B - V√•rdnad\domar d√§r socialf√§rvaltning √§r k√§rande eller svarande; legal guardian cases
 
 
 """
@@ -24,15 +24,15 @@ import io
 
 #Define Paths
 #Where to find PDFs that code should loop through
-pdf_dir = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar" 
+pdf_dir = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar" 
 
 #Different output folders 
-path_1217A = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/1217 ƒktenskapsskillnad/Domar"
-path_1217B = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/1217 ƒktenskapsskillnad/Domar utan vÂrdnadstvist"
-path_1216A = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/1216 VÂrdnad/Domar"
-path_1216B = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/1216 VÂrdnad/Domar d‰r socialtj‰nst ‰r k‰rande eller svarande"
-path_unassigned = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/Unassigned"
-path_other = "P:/2020/14/Tingsr‰tter/÷÷_Case_Sorting_SC/Domar/Other"
+path_1217A = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/1217 √Ñktenskapsskillnad/Domar"
+path_1217B = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/1217 √Ñktenskapsskillnad/Domar utan v√•rdnadstvist"
+path_1216A = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/1216 V√•rdnad/Domar"
+path_1216B = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/1216 V√•rdnad/Domar d√§r socialtj√§nst √§r k√§rande eller svarande"
+path_unassigned = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/Unassigned"
+path_other = "P:/2020/14/Tingsr√§tter/√ñ√ñ_Case_Sorting_SC/Domar/Other"
 
 #Automatically read in all pdfs in folder
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -68,7 +68,7 @@ for file in pdf_files:
     fullText = fullText.lower()  
         
     #Other docs
-    otherDocs1 = "slutligt\s+beslut|tingsr‰tt.?(\w+ ){0,3}protokoll"
+    otherDocs1 = "slutligt\s+beslut|tingsr√§tt.?(\w+ ){0,3}protokoll"
     otherDocs2 = re.compile(otherDocs1)
     otherDocs = otherDocs2.search(fullText)
     
@@ -100,7 +100,7 @@ for file in pdf_files:
     rulingOnly = re.split('yrkanden', rulingString)[0]
     split1 = re.split('svarande|motpart', firstString)[0]
     
-    parentsString = "d?e? ‰r (\w+ ){1,4}fˆr‰ldrar"
+    parentsString = "d?e? √§r (\w+ ){1,4}f√∂r√§ldrar"
     parentsSearch = re.compile(parentsString)
     parentsSearchRes = parentsSearch.search(fullText)
     
@@ -110,7 +110,7 @@ for file in pdf_files:
 
     ## Analytics for categoriying files   
     #Check if plaintiff or defendant lack personal ID (legal guardian case indicator)
-    searchPlaintNo = 'k‰rande.*?[,]\s+\d*.?.?\d{4}'
+    searchPlaintNo = 'k√§rande.*?[,]\s+\d*.?.?\d{4}'
     searchPlaintRes = re.compile(searchPlaintNo)
     plaintNo = searchPlaintRes.search(firstString)
     searchDefNo = '(svarande|motpart).*?[,]\s+\d*.?.?\d{4}'
@@ -119,16 +119,16 @@ for file in pdf_files:
     
     svarandeString = re.split('(svarande|motpart)', firstString)[1]          
     split1 = re.split('(svarande|motpart)', firstString)[0]              
-    k‰randeString = re.split('k‰rande', split1)[1] 
+    k√§randeString = re.split('k√§rande', split1)[1] 
     
     ## Assign cases to 4 folders according to search terms; program loops thorugh text and at first True if statement moves file and doesn't execute other elifs, if statements are hierarchical 
     
     # 1216 B: legal guardian cases
-    if 's‰rskilt fˆrordnad vÂrdnadshavare' in fullText:
+    if 's√§rskilt f√∂rordnad v√•rdnadshavare' in fullText:
         shutil.move(file, path_1216B)
         print("1")
         continue
-    elif "social" in svarandeString or "social" in k‰randeString or "kommun" in svarandeString or "kommun" in k‰randeString or "n‰mnden" in svarandeString or "n‰mnden" in k‰randeString or "stadsjurist" in svarandeString or "stadsjurist" in k‰randeString:             
+    elif "social" in svarandeString or "social" in k√§randeString or "kommun" in svarandeString or "kommun" in k√§randeString or "n√§mnden" in svarandeString or "n√§mnden" in k√§randeString or "stadsjurist" in svarandeString or "stadsjurist" in k√§randeString:             
         shutil.move(file, path_1216B)
         print("2")
         continue
@@ -155,12 +155,12 @@ for file in pdf_files:
     elif "deldom" in firstString:
         shutil.move(file, path_1217A)
         print("7")  
-    elif '‰ktenskapsskillnad' in rulingOnly:
-        if "vÂrdn" in rulingOnly:
-            custodySentence = [sentence + "." for sentence in rulingOnly.split(".") if "vÂrdn" in sentence]
+    elif '√§ktenskapsskillnad' in rulingOnly:
+        if "v√•rdn" in rulingOnly:
+            custodySentence = [sentence + "." for sentence in rulingOnly.split(".") if "v√•rdn" in sentence]
             custodyString = "".join(custodySentence)
             print("8")
-            if "pÂminner" in custodyString:
+            if "p√•minner" in custodyString:
                 shutil.move(file, path_1217B)
                 print("9")
                 continue
@@ -175,7 +175,7 @@ for file in pdf_files:
             continue
     
     #1216 A: custody without divorce
-    elif 'vÂrdn' in rulingOnly:
+    elif 'v√•rdn' in rulingOnly:
         shutil.move(file, path_1216A)
         print("12")
         continue
@@ -183,7 +183,7 @@ for file in pdf_files:
         shutil.move(file, path_1216A)
         print("13")
         continue
-    elif "umg‰nge" or "umgÂs" in rulingOnly:
+    elif "umg√§nge" or "umg√•s" in rulingOnly:
         #Physical custody cases
         shutil.move(file, path_1216A)
         print("13a")
