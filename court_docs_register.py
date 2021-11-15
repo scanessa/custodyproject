@@ -29,20 +29,20 @@ rootdir = "P:/2020/14/Tingsrätter/"
 output_path = r'P:/2020/14/Kodning/court_docs_register1.csv'
 
 pdf_files = []
-
+"""
 exclude = set(["Alingsås",	"Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	"Falu",	"Gotland",	"Gällivare",	
                "Gävle",	"Göteborg",	"Halmstad",	"Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholm",	"Jönköping",	
                "Kalmar",	"Kristianstad",	"Linköping",	"Luleå",	"Lycksele",	"Malmö",	"Mora",	"Nacka",	
                "Norrköping",	"Norrtälje",	"Nyköping",	"Skaraborg",	"Skellefteå",	"Solna",	"Stockholm",	
                "Sundsvall",	"Södertälje",	"Södertörn",	"Umeå",	"Uppsala",	"Varberg",	"Vänersborg",	
                "Värmland",	"Västmanland",	"Växjö",	"Ystad",		"Örebro",	"Östersund"
-
                ])
-includes = 'all_cases'
+"""
+includes = 'all_cases'  #change back to all cases to loop over all files
 for subdir, dirs, files in os.walk(rootdir, topdown=True):
-    for term in exclude:
-        if term in dirs:
-            dirs.remove(term)
+    #for term in exclude:
+        #if term in dirs:
+            #dirs.remove(term)
     for file in files:
         if includes in subdir:
             pdf_dir = (os.path.join(subdir, file))
@@ -83,6 +83,7 @@ appendixStart = '(Bilaga [1-9]|Bilaga A|sida\s+1\s+av)'
 
 #Define search word lists
 falseJudgeName = ['domskäl', 'yrkanden', 'avgörandet', 'överklagar', 'tingsrätt']
+remindTerms = ["erinrar", "påminn"]
 
 for file in pdf_files: 
     print("Currently reading:")
@@ -164,7 +165,7 @@ for file in pdf_files:
     #Document type
     if 'deldom' in filename:
         docType = 1
-    elif ' dom ' in filename:
+    elif ' dom ' in filename or ' dom.' in filename or ' dom;' in filename:
         docType = 2
     elif 'slutligt beslut' in filename:
         docType = 3
@@ -258,42 +259,47 @@ for file in pdf_files:
     #Get additional info from Doms
     if len(splitTextOG) > 1:
         rulingString = splitTextOG[1].lower() 
+        print(fullText)
         rulingOnly = re.split('(_{15,35}|-{15,35}|yrkanden)', rulingString)[0]   
         
         #Case type
         # 1216 B: legal guardian cases
-        if 'särskilt förordnad vårdnadshavare' in fullText:
-            caseType = "1216B"
-        elif "social" in svarandeString or "social" in kärandeString or "kommun" in svarandeString or "kommun" in kärandeString or "nämnden" in svarandeString or "nämnden" in kärandeString or "stadsjurist" in svarandeString or "stadsjurist" in kärandeString:             
-            caseType = "1216B"
-        elif "overflyttas" in fullText:
-           caseType = "1216B"
-        elif "ensamkommande flyktingbarn" in fullText:
+        print(rulingOnly)
+
+        if "social" in svarandeString or "social" in kärandeString or "kommun" in svarandeString or "kommun" in kärandeString or "nämnden" in svarandeString or "nämnden" in kärandeString or "stadsjurist" in svarandeString or "stadsjurist" in kärandeString:             
+            print("2")
             caseType = "1216B"
         #1217 B: divorce without custody battle
         elif 'de har inga gemensamma barn' in fullText:
+            print("5")
             caseType = "1217B"
         #1217 A: divorce with custody
-        elif "deldom" in firstString:
-            caseType = "1217A"
-        elif 'äktenskapsskillnad' in rulingOnly:
-            if "vårdn" in rulingOnly:
-                if "påminner" in findSentence("vårdn", rulingOnly):
-                    caseType = "1217B"
-                else:
-                    #1217 A: divorce and custody in same case/ruling
-                    caseType = "1217A"
+        elif 'äktenskapsskillnad' in rulingOnly or 'äktenskapsskillnad' in firstPage:
+            if "vårdn" in rulingOnly or "vårdn" in firstPage: 
+                for term in remindTerms:
+                    if term in findSentence("vårdn", firstPage):
+                        print("7")
+                        caseType = "1217B"
+                    else:
+                        #1217 A: divorce and custody in same case/ruling
+                        print("8")
+                        caseType = "1217A"
             else:
-                 caseType = "1217B"
+                print("9") 
+                caseType = "1217B"
         #1216 A: custody without divorce
         elif 'vårdn' in rulingOnly:
-             caseType = "1216A"
+            print("10") 
+            caseType = "1216A"
         elif "umgänge" or "umgås" in rulingOnly:
             #Physical custody cases
-             caseType = "1216A"
+            print("11")
+            caseType = "1216A"
         else:
+            print("12")
             caseType = "Not found"
     else:
+        print("13")
         caseType = "Not found"
     data['case_type'].append(caseType)
 

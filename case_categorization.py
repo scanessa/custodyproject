@@ -9,6 +9,7 @@ This code goes through all the PDFs in one folder and sorts them into 4 categori
 1216 B - Vårdnad\domar där socialfärvaltning är kärande eller svarande; legal guardian cases
 
 
+
 """
 
 #Set Up
