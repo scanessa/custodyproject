@@ -15,6 +15,10 @@ Categories for case type:
 
 Courts: "Alingsås",	"Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	"Falu",	"Gotland",	"Gällivare",	"Gävle",	"Göteborg",	"Halmstad",	"Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholm",	"Jönköping",	"Kalmar",	"Kristianstad",	"Linköping",	"Luleå",	"Lund",	"Lycksele",	"Malmö",	"Mora",	"Nacka",	"Norrköping",	"Norrtälje",	"Nyköping",	"Skaraborg",	"Skellefteå",	"Solna",	"Stockholm",	"Sundsvall",	"Södertälje",	"Södertörn",	"Uddevalla",	"Umeå",	"Uppsala",	"Varberg",	"Vänersborg",	"Värmland",	"Västmanland",	"Växjö",	"Ystad",	"Ångermanland",	"Örebro",	"Östersund",
 
+
+
+
+
 """
 
 import re, io, os, pandas as pd 
@@ -84,6 +88,7 @@ appendixStart = '(Bilaga [1-9]|Bilaga A|sida\s+1\s+av)'
 #Define search word lists
 falseJudgeName = ['domskäl', 'yrkanden', 'avgörandet', 'överklagar', 'tingsrätt']
 remindTerms = ["erinrar", "påminn"]
+legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist"]
 
 for file in pdf_files: 
     print("Currently reading:")
@@ -265,9 +270,15 @@ for file in pdf_files:
         #Case type
         # 1216 B: legal guardian cases
         print(rulingOnly)
-
-        if "social" in svarandeString or "social" in kärandeString or "kommun" in svarandeString or "kommun" in kärandeString or "nämnden" in svarandeString or "nämnden" in kärandeString or "stadsjurist" in svarandeString or "stadsjurist" in kärandeString:             
-            print("2")
+        for term in legalGuardingTerms:
+            if term in svarandeString or term in kärandeString:
+                print("2")
+                caseType = "1216B"
+        if "overflyttas" in fullText:
+            print("3")
+            caseType = "1216B"
+        elif "ensamkommande flyktingbarn" in fullText:
+            print("4")
             caseType = "1216B"
         #1217 B: divorce without custody battle
         elif 'de har inga gemensamma barn' in fullText:
