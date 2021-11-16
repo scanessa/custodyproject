@@ -46,8 +46,10 @@ def searchKey(string, part, g):
     match = finder.search(part)
     if match is not None:
         searchResult = match.group(g)
-        return searchResult
-    
+    else:
+        searchResult = None
+    return searchResult
+        
 def searchLoop(searchDict, part, g):
     for i in searchDict:
         result = searchKey(searchDict[i], part, g)
@@ -90,7 +92,7 @@ defendantNationality = 'medborgare i (\w+ )+sekretess'
 party ='((\w+\s?-?(\w+\s?-?)+?){1}((\w+\s?-?)*\w+))\s*[,]\s*(\d{6,10}.?\s*(\d{4})?[,]?\s)?' 
 nameCaps = '[A-Z]{2,}'
 idNo ='(\d{6,10}.?.?(\d{4})?[,]?\s)'
-appendixStart = '(Bilaga [1-9]|Bilaga A|sida\s+1\s+av)'
+appendixStart = '((?<!se )Bilaga [1-9]|(?<!se )Bilaga A|sida\s+1\s+av)'
 searchCaseNo = 'mål\s*(nr)?[.]?\s*t\s*(\d*.?.?\d*)'
 namePlaceHolder = '(?i)((\w+\s?-?(\w+\s?-?)+?){1}((\w+\s?-?)*\w+))'
 
@@ -104,11 +106,17 @@ courtSearch = {
     '2' : '((\w+){1})[.]?.?tingsratt'
     }
 judgeSearch = {
-    '1' : '(?i)på (tings)?rättens vägnar\s*/i' + namePlaceHolder,
-    '2' : '(?i)prövningstillstånd krävs.\s*(som ovan,|å rättens vägnar)?\s*' + namePlaceHolder,
-    '3' : 'ÖVERKLAGANDE ([\w+ ]+\w+[.]\s?)+\s?' + namePlaceHolder,
-    '4' : '(Hovrätten över Skåne och Blekinge|[(]?Svea hovrätt[)]?|Göta hovrätt|Hovrätten för Västra Sverige|Hovrätten för Nedre Norrland|Hovrätten för Övre Norrland)[.]?\s*(([A-Z]\w+\s?-?(\w+\s?-?)+?){1}((\w+\s?-?)*\w+))',
-    '5' : '(?i)(\sför tingsrätten\s|för västra sverige)[.]?\s*' + namePlaceHolder
+    '1': '\n\s*\n\s*(([A-ZÅÄÖ][a-zåäöé]+\s+){2,4})\n\s*\n', #normal names
+    '2': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n\s*\n', #first name hyphenated
+    '3': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n\s*\n', #last name hypthenated
+    '4': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n\s*\n', #first and last name hyphenated
+    '5': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n\s*\n', #name with initial as second name
+    #if there is a note in the line following the judge's name
+    '6': '\n\s*\n\s*(([A-ZÅÄÖ][a-zåäöé]+\s+){2,4})\n', #normal names
+    '7': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #first name hyphenated
+    '8': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #last name hypthenated
+    '9': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #first and last name hyphenated
+    '10': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n' #name with initial as second name
     }
 
 #Define keys for simple word search
@@ -126,6 +134,7 @@ data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[],
 
 #Loop over files and extract data
 for file in pdf_files:
+    print(" ")
     print("Currently reading:")
     print(file)
         
@@ -137,6 +146,7 @@ for file in pdf_files:
     device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
     interpreter = PDFPageInterpreter(rsrcmgr, device)
     pages_text = []
+    pages_text_formatted = []
     with open(file, 'rb') as fh:
         for page in PDFPage.get_pages(fh,caching=True,check_extractable=True):
             read_position = retstr.tell()
@@ -145,6 +155,7 @@ for file in pdf_files:
             page_text = retstr.read()
             page_text_clean = ' '.join((''.join(page_text)).split())
             pages_text.append(page_text_clean)
+            pages_text_formatted.append(page_text)
             pageCount += 1
              
     #Convert full text to clean string
@@ -167,11 +178,15 @@ for file in pdf_files:
             appendixPageNo = len(pages_text)
         else:
             appendixPageNo = appendixPage[0]
+        lastPageFormatted1 = '.'.join((pages_text_formatted[appendixPageNo-1]).split("."))
+        lastPageFormatted2 = '.'.join((pages_text_formatted[appendixPageNo-2]).split("."))
+        lastPageFormatted = lastPageFormatted1 + lastPageFormatted2
+        lastPageFormatted3 = (pages_text_formatted[appendixPageNo-1]).split(".")
         lastPageOG = pages_text[appendixPageNo-1]
         lastPage = lastPageOG.lower()                       
         fullText = (re.split(appendixStart, fullTextOG)[0]).lower()   
         rulingOnly = re.split('(_{15,35}|-{15,35}|yrkanden)', rulingString)[0]   
-        fullTextList = fullText.split(".")            
+        fullTextList = fullText.split(".")   
         
         try:
             svarandeStringOG = re.split(svarandeSearch, headerOG)[1] 
@@ -474,26 +489,10 @@ for file in pdf_files:
             data['Huvudförhandling'].append(dummyMainHear)
 
             #Name of judge
-            judgeName = searchLoop(judgeSearch, lastPageOG, 2)
-            print(judgeName)
-            if judgeName is None:
-                judgeName = findSentence('nämndemännen', lastPageOG) #check if these two lines of code return the same thing
-                if judgeName == '':
-                    judgeName = fullTextList[-1] #check if these two lines of code return the same thing, if so, keep only this
-            for term in falseJudgeName:
-                if term in judgeName:
-                    judgeName = fullTextList[-1]
-                    print(judgeName)
-                    for term in falseJudgeName:
-                        if term in judgeName:
-                            judgeName = ' '.join(fullTextList[-1].split()[-2:])
-            #Clean judge name
-            for term in cleanJudgeKey:
-                cleanJudge = searchKey(term, judgeName, 0)
-                if cleanJudge is not None:
-                    cleanJudgeList.append(cleanJudge)
-            for term in cleanJudgeList:
-                judgeName = re.sub(term, '', judgeName).strip('_ ')
+            try:
+                judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
+            except:
+                judgeName = 'Not found'
             data['Domare'].append(judgeName.lower())
     else:
         print('Error: PDF at path %s not readable!' %(file))
