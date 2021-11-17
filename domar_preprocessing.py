@@ -32,7 +32,7 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
 #Define Paths
-pdf_dir = "P:/2020/14/Kodning/Test-round-1/files"
+pdf_dir = "P:/2020/14/Kodning/Test-round-1/check_cases"
 output_path = 'P:/2020/14/Kodning/Test-round-1/custody_data_test1.csv'
 
 #Define key functions
@@ -64,8 +64,10 @@ def termLoop(termList, part):
     for term in termList:
         if term in part:
             dummy = 1
+            break
         else:
             dummy = 0
+            continue
     return dummy
 
 def city(string,i):
@@ -116,7 +118,24 @@ judgeSearch = {
     '7': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #first name hyphenated
     '8': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #last name hypthenated
     '9': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #first and last name hyphenated
-    '10': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n' #name with initial as second name
+    '10': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)\n', #name with initial as second name
+    #For documents where judge didnt sign
+    '11': 'rådmannen\s*(([A-ZÅÄÖ][a-zåäöé]+\s+){2,4})',
+    '12': 'rådmannen\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)', #first name hyphenated
+    '13': 'rådmannen\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)', #last name hypthenated
+    '14': 'rådmannen\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)', #first and last name hyphenated
+    '15': 'rådmannen\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)', #name with initial as second name
+    '16': 'tingsfiskalen\s*(([A-ZÅÄÖ][a-zåäöé]+\s+){2,4})',
+    '17': 'tingsfiskalen\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)', #first name hyphenated
+    '18': 'tingsfiskalen\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)', #last name hypthenated
+    '19': 'tingsfiskalen\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)', #first and last name hyphenated
+    '20': 'tingsfiskalen\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)', #name with initial as second name
+    #when judge's name ends with . 
+    '21': '\n\n(([A-ZÅÄÖ][a-zåäöé]+\s+){1,3}[A-ZÅÄÖ][a-zåäöé]+).\s*\n\n', #normal names
+    '22': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+).\s*\n', #first name hyphenated
+    '23': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+).\s*\n', #last name hypthenated
+    '24': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]).\s*\n', #first and last name hyphenated
+    '25': '\n\s*\n\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+).\s*\n' #name with initial as second name
     }
 
 #Define keys for simple word search
@@ -125,9 +144,6 @@ corpTalksKey = ['samarbetssamtal','medlingssamtal','medling', 'medlare']
 mainHearingKey = ['huvudförhandling' , 'rättegång' , 'sakframställning' , 'förhör' , 'nämnd']
 lawyerKey = ["ombud", 'god man',  'advokat']
 investigationKey = ['vårdnadsutredning','boendeutredning','umgängesutredning']
-falseJudgeName = ['domskäl', 'yrkanden', 'avgörandet',  'tingsrätt'] #'överklag',
-cleanJudgeKey = ["(?i)(i avgörandet|i målets|i avgrandet|tingsrätt)\s*(\w+\s*)+","(?i)domskäl"]
-cleanJudgeList = []
 
 #Intiialize lists and dictionary to fill
 data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'Enl överenskommelse':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'Domare':[], "Page Count": [], 'Rättelse': [], "File Path": []}
@@ -361,10 +377,10 @@ for file in pdf_files:
             elif vardnInGemensam and 'skall tillkomma' in rulingOnly: 
                 dummyOut = 1
                 print("aa")
-            elif 'vårdn' in findEnsam and plaintNameFirst in findEnsam:
+            elif 'vårdn' in findEnsam and plaintNameFirst in findEnsam and 'utan' not in findEnsam:
                 dummyOut = 2
                 print("bb")
-            elif 'vårdn' in findEnsam and svNameFirst in findEnsam:
+            elif 'vårdn' in findEnsam and svNameFirst in findEnsam and 'utan' not in findEnsam:
                 dummyOut = 3
                 print("cc")
             elif 'käromalet ogillas' in rulingOnly or "lämnas utan bifall" in rulingOnly:
@@ -449,21 +465,30 @@ for file in pdf_files:
             #Ruling by agreement
             i = findSentence('överenskommelse', fullText)
             k = findSentence('överens', fullText)
-            if 'överenskommelse' in fullText:
-                if 'dom' and 'parterna' in i or 'framgår' and 'dom' in i or 'enlighet' and 'dom' in i or 'enligt' and 'dom' in i or 'följer' and 'dom' in i or 'fastställa' and 'dom' in i:
-                    dummyAgree = 1
-                else:
-                    dummyAgree = 0
-            elif "överens" in fullText:
-                if 'parterna' in k and 'kommit' in k and 'barnets' in k and 'bästa' in k:
-                    dummyAgree = 1
-                else:
-                    dummyAgree = 0
+            if 'dom' in i and 'parterna' in i:
+                dummyAgree = 1
+            elif 'dom' in i  and 'framgår' in i: 
+                dummyAgree = 1
+            elif 'dom' in i  and 'enlighet' in i: 
+                dummyAgree = 1
+            elif 'dom' in i  and 'enligt' in i:
+                dummyAgree = 1
+            elif 'dom' in i  and 'följer' in i: 
+                dummyAgree = 1
+            elif 'dom' in i  and 'fastställa' in i:
+                dummyAgree = 1
+            elif 'parterna' in k and 'kommit' in k and 'barnets' in k and 'bästa' in k:
+                dummyAgree = 1
+            elif svNameFirst in findSentence('yrkandet', fullText) and 'medger' in findSentence('yrkandet', fullText):
+                dummyAgree = 1
+            elif svNameFirst in findSentence('yrkandet', fullText) and 'medgett' in findSentence('yrkandet', fullText):
+                dummyAgree = 1
             else:
                 dummyAgree = 0 
             data['Enl överenskommelse'].append(dummyAgree)
             
             #Fast information (snabbupplysningar)
+            print(fullText)
             dummyInfo = termLoop(fastInfoKey, fullText)
             data['Snabbupplysning'].append(dummyInfo)
             
@@ -505,7 +530,7 @@ with pd.option_context('display.max_rows', None, 'display.max_columns', None):  
     print(df)
 
 #Save to csv
-df.to_csv(output_path, sep = ',', encoding='utf-8-sig')
+#df.to_csv(output_path, sep = ',', encoding='utf-8-sig')
 
 print("---Saved as CSV---")
 
