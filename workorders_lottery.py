@@ -6,133 +6,141 @@ Created on Wed Oct 20 11:14:05 2021
 
 Code loops thorugh court work orders and checks for mention of lotteries, saves the outcome as a binary variable and the respective year to a csv file
 """
-import re
-import pandas as pd
-import glob
+import re, io, os, pandas as pd
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
-import io
+#import docx 
 
-#Define Paths
-#Where to find PDFs that code should loop through
-pdf_dir = "P:/2020/14/Tingsrätter/ÖÖ_Case_Sorting_SC/Work orders" 
-#Where to output CSV to
-output_path = r'/P:/2020/14/Kodning/lottery_data.csv'
+#Read in PDFs
+rootdir = "P:/2020/14/Tingsrätter/"
+output_path = 'P:/2020/14/Kodning/lottery_data.csv'
 
-#Automatically read in all pdfs in folder
-pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
+pdf_files = []
+unreadable_files = []
+
+"""
+exclude = set(["Alingsås",	"Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	"Falu",	"Gotland",	"Gällivare"
+               ])
+"""
+includes = 'Arbetsordningar'  
+for subdir, dirs, files in os.walk(rootdir, topdown=True):
+    #for term in exclude:
+        #if term in dirs:
+            #dirs.remove(term)
+    for file in files:
+        if includes in subdir and file.endswith('.pdf'):
+            filepath = (os.path.join(subdir, file))
+            pdf_files.append(filepath)
+            print(f"Dealing with file {subdir}/{file}")
+            continue
 
 #Intiialize lists and dictionary to fill
-data = {"Court":[], "Date": [], "Lottery": [], "File name": [] }
+data = {"court":[], "date": [], "lottery": [], "file": [] }
 countUnreadable = 0
-countDateError = 0
-countCourtError = 0
+unreadableDocs = []
 countFiles = 0
+
+#Initialize key function
+def searchKey(string, part, g):
+    finder = re.compile(string)
+    match = finder.search(part)
+    if match is not None:
+        searchResult = match.group(g)
+    else:
+        searchResult = None
+    return searchResult
+        
+def searchLoop(searchDict, part, g):
+    for i in searchDict:
+        result = searchKey(searchDict[i], part, g)
+        if result is None:
+            continue
+        else: 
+            print(i)
+            break
+    return result
+"""
+def getText(filename):
+    doc = docx.Document(filename)
+    fullText = []
+    for para in doc.paragraphs:
+        fullText.append(para.text)
+    return '\n'.join(fullText)
+"""
+#Initialize search terms
+dateSearch = {
+    '1': "\d{4}-\s?\d{2}\s?-\s?\d{2}",
+    '2': "\d+\s+((\w+ ){1})\s?\d{4}"
+    }
         
 #Loop over files and extract data
 for file in pdf_files:
-    #Read in text from each PDF  
-    countFiles += 1
-    resource_manager = PDFResourceManager()
-    fake_file_handle = io.StringIO()
-    converter = TextConverter(resource_manager, fake_file_handle, laparams=LAParams())
-    page_interpreter = PDFPageInterpreter(resource_manager, converter)
-
+    print(" ")
+    print("Currently reading:")
+    print(file)
+            
+    pageCount = 0
+    rsrcmgr = PDFResourceManager()
+    retstr = io.StringIO()
+    codec = 'utf-8-sig'
+    laparams = LAParams()
+    device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+    interpreter = PDFPageInterpreter(rsrcmgr, device)
+    pages_text = []
+    pages_text_formatted = []
     with open(file, 'rb') as fh:
-
-        for page in PDFPage.get_pages(fh,
-                                      caching=True,
-                                      check_extractable=True):
-            page_interpreter.process_page(page)
-
-        text = fake_file_handle.getvalue()
-
-    # close open handles
-    converter.close()
-    fake_file_handle.close()
+        for page in PDFPage.get_pages(fh,caching=True,check_extractable=True):
+            read_position = retstr.tell()
+            interpreter.process_page(page)
+            retstr.seek(read_position, 0)
+            page_text = retstr.read()
+            page_text_clean = ' '.join((''.join(page_text)).split())
+            pages_text.append(page_text_clean)
+            pages_text_formatted.append(page_text)
+            pageCount += 1
 
     #Convert full text to clean string
-    fullText = ''.join(text)
-    fullText = ' '.join(fullText.split())    
-    fullTextOG = fullText
-    fullText = fullText.lower()  
+    fullTextOG = ' '.join(''.join(pages_text).split())    
+    fullText = fullTextOG.lower()  
 
     #Check if doc is readable
     if fullText == "":
-        errorMessage = "File at path %s not readable." %(file)
-        print("-")
         countUnreadable += 1
         #Generate empty row to check manually
-        data["Court"].append("-")
-        data["Date"].append("-")
-        data["Lottery"].append(999)
-        data["File name"].append(file)
+        data["court"].append("-")
+        data["date"].append("-")
+        data["lottery"].append(999)
+        data["file"].append(file)
     else:
-        #Eliminate irrelevant docs 
-        print(".")
-        
         #Get district court name
-        try:
-            courtSearchKey = "((\w+ ){1})tingsr?.?ätt"
-            courtSearch = re.compile(courtSearchKey)
-            courtSearchRes = courtSearch.search(fullText).group(0)
-            data["Court"].append(courtSearchRes)
-        except AttributeError:
-            try:
-                #Get court name from email
-                courtSearchKey = "((\w+){1})[.]?.?tingsratt"
-                courtSearch = re.compile(courtSearchKey)
-                courtSearchRes = courtSearch.search(fullText).group(0)
-                data["Court"].append(courtSearchRes)
-            except AttributeError:
-                print("Court name error in file %s" %(file))
-                print(fullText)
-                courtSearchRes = "Error, not found"
-                data["Court"].append(courtSearchRes)
-                countCourtError += 1
-        
+        courtName = searchKey('Tingsrätter/(\w+)', file, 1)
+        data["court"].append(courtName)
+   
         #Get date 
-        try:
-            dateKey = "\d{4}-\s?\d{2}\s?-\s?\d{2}"
-            dateSearch = re.compile(dateKey)
-            dateSearchRes = dateSearch.search(fullText).group(0)
-            data["Date"].append(dateSearchRes)
-        except AttributeError:
-            try:
-                dateKey = "\d+\s+((\w+ ){1})\s?\d{4}"
-                dateSearch = re.compile(dateKey)
-                dateSearchRes = dateSearch.search(fullText).group(0)
-                data["Date"].append(dateSearchRes)
-            except AttributeError:
-                print("Date error in file %s" %(file))
-                print(fullText)
-                dateSearchRes = "Error, not found"
-                data["Date"].append(dateSearchRes)
-                countDateError += 1
-        
+        date = searchLoop(dateSearch, fullText, 0)
+        data["date"].append(date)
+
         #Lottery
         if "lotteri" in fullText or "lottas" in fullText or "lottning" in fullText:
             dummy = 1
-            data["Lottery"].append(dummy)
+            data["lottery"].append(dummy)
         else:
             dummy = 0
-            data["Lottery"].append(dummy)
+            data["lottery"].append(dummy)
         
         #File name
-        data["File name"].append(file)
+        data["file"].append(file)
         
 #Dataframe created from dictionary
 df = pd.DataFrame(data)
-print(df)
-print("Files where the court name is not detected: %s" %(countCourtError))
-print("Files where the date is not detected: %s" %(countDateError))
-print("Files that are not readable: %s" %(countUnreadable))
+with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+    print(df)
 
 #Save to csv
-#df.to_csv(output_path, sep = ';', encoding='utf-8-sig')
+df.to_csv(output_path, sep = ',', encoding='utf-8-sig')
 
 
     
