@@ -231,7 +231,6 @@ for file in pdf_files:
             rulingOnly = re.split('(_{15,35}|-{15,35})', rulingString)[0].lower() 
         except AttributeError:
             rulingOnly = re.split('YRKANDEN', rulingString)[0].lower()
-        fullTextList = fullText.split(".")   
         
         try:
             svarandeStringOG = re.split(svarandeSearch, headerOG)[1] 
