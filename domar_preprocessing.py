@@ -72,7 +72,7 @@ def searchLoop(searchDict, part, g):
 
 def termLoop(termList, part):
     for term in termList:
-        if term in part:
+        if term in part and not any([x in part for x in rejectKey]):
             dummy = 1
             break
         else:
@@ -167,7 +167,7 @@ agreementAdd = ['parterna' ,'framgår' ,'enlighet' ,'följer','fastställa', 'ko
 agreementHelper = ['umgänge', 'boende']
 socialOffice = ['social', 'nämnden', 'kommun', 'familjerätt']
 umgangeKey = ['umgänge', 'umgås']
-rejectKey = ['avskriv','käromalet ogillas','lämnas utan bifall','avslå','inte längre','skrivs']  
+rejectKey = ['avskriv','käromalet ogillas','lämnas utan bifall','avslå',' inte ','skrivs']  
 
 #Intiialize lists and dictionary to fill
 data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'Enl överenskommelse':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'Domare':[], "Page Count": [], 'Rättelse': [], "File Path": []}
@@ -226,11 +226,11 @@ for file in pdf_files:
         lastPage = lastPageOG.lower()                       
         fullTextOG = (re.split(appendixStart, fullTextOG)[0])  
         fullText = fullTextOG.lower()
-        rulingString = ''.join(re.split('_{10,40}',fullTextOG)[1:])
+        rulingString = ''.join(re.split('_{10,40}\s*DOMSLUT',fullTextOG)[1:])
         try:
-            rulingOnly = re.split('YRKANDEN', rulingString)[0].lower()
-        except AttributeError:
             rulingOnly = re.split('(_{15,35}|-{15,35})', rulingString)[0].lower() 
+        except AttributeError:
+            rulingOnly = re.split('YRKANDEN', rulingString)[0].lower()
         fullTextList = fullText.split(".")   
         
         try:
@@ -400,9 +400,7 @@ for file in pdf_files:
             transferToDef = 'till ' + svNameFirst
             transferToPlaint = 'till ' + plaintNameFirst
             vardnInRuling = 'vårdn' in rulingOnly
-            
-            print(rulingOnly)
-                        
+                                                
             if 'vårdn' not in rulingOnly or vardnInRuling and 'påminn' in findVardn or vardnInRuling and 'erinra' in findVardn or vardnInRuling and 'upplyser' in findVardn:
                 #No custody ruling in this court record
                 print("out1")
@@ -458,7 +456,8 @@ for file in pdf_files:
             elif vardnInRuling and 'anförtro' in findVardn and plaintNameFirst in findSentence('anförtro', rulingOnly) and not any([x in findVardn for x in rejectKey]):
                 dummyOut = 2
                 print("out15")
-            elif 'käromalet ogillas' in rulingOnly or "lämnas utan bifall" in rulingOnly or 'avskriv' in findVardn:
+            elif 'käromalet ogillas' in rulingOnly or "lämnas utan bifall" in findVardn or 'avskriv' in findVardn:
+                #"lämnas utan bifall" in findVard because if I search in ruling only it picks up when umgange claims or so are dismissed
                 dummyOut = 4  
                 print("out9")
             elif findTwoWords('avslås', 'vårdn', rulingOnly):
@@ -472,8 +471,11 @@ for file in pdf_files:
                 print("out17")
             
             #Visitation rights
+            print(rulingOnly)
+            
             for key in umgangeKey:
                 findUmg = findTwoWords(key, childNameFirst, rulingOnly)
+                print(findUmg)
                 if childNameFirst == 'not found':
                     dummyVisit = 999
                     print('umg1')
@@ -559,13 +561,17 @@ for file in pdf_files:
                
             #Fast information (snabbupplysningar)
             if termLoop(socialOffice, findSentence('yttra', fullText)):
+                print("snabbupply 1")
                 dummyInfo = 1
             elif termLoop(socialOffice, findSentence('uppgett', fullText)):
                 dummyInfo = 1
+                print("snabbupply 2 " )
             elif '6 kap. 20 § andra stycket föräldrabalken' in fullText:
                 dummyInfo = 1 
+                print("snabbupply 3 ")
             else:
                 dummyInfo = termLoop(fastInfoKey, fullText)
+                print("snabbupply 4" )
                   
             #Cooperation talks
             for term in corpTalksKey:
@@ -580,23 +586,28 @@ for file in pdf_files:
                
             #Investigation
             dummyInvest = termLoop(investigationKey, fullText)
-            print('invest0')
+            print(findSentence('utredning', fullText))
             if dummyInvest == 0:
                 if 'tingsrätt' in findSentence('utredning', fullText):
                     print('invest1')
                     dummyInvest = 1
-                else:
+                elif any([x in findSentence('utredning', fullText) for x in socialOffice]):
                     print('invest2')
-                    dummyInvest = 0
-                for term in investigationHelper:
-                    if term in findSentence('utredning', fullText):
-                        print('invest3')
-                        dummyInvest = 1
-                        break
-                    else:
-                        print('invest4')
-                        dummyInvest = 0
-                        continue
+                    dummyInvest = 1
+                elif "11 kap. 1 § socialtjänstlagen" in fullText:
+                    print('invest3')
+                    dummyInvest = 1
+                else:
+                    print('invest4')
+                    for term in investigationHelper:
+                        if term in findSentence('utredning', fullText):
+                            print('invest5')
+                            dummyInvest = 1
+                            break
+                        else:
+                            print('invest6')
+                            dummyInvest = 0
+                            continue
             
             #Main hearing 
             for term in mainHearingKey:
