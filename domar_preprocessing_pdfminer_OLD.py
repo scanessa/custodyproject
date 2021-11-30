@@ -32,13 +32,30 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
 #Define Paths
-pdf_dir = "P:/2020/14/Kodning/Test-round-2/check_cases"
+pdf_dir = "P:/2020/14/Kodning/Test-round-3/files"
 output_path = 'P:/2020/14/Kodning/Test-round-3/custody_data_test3.csv'
 
 #Define key functions
 def findSentence(string, part):
     sentenceRes = [sentence + '.' for sentence in part.split('.') if string in sentence]
     sentenceString = ''.join(sentenceRes)
+    return sentenceString
+
+def findFirstOccur(string, part):
+    sentenceRes = [sentence + '.' for sentence in part.split('.') if string in sentence]
+    if sentenceRes:
+        sentenceString = sentenceRes[0]
+    else:
+        sentenceString = ''
+    return sentenceString
+    return sentenceString
+
+def findTwoWordsFirstOccur(string1, string2, part):
+    sentenceRes = [sentence + '.' for sentence in part.split('.') if string1 in sentence and string2 in sentence]
+    if sentenceRes:
+        sentenceString = sentenceRes[0]
+    else:
+        sentenceString = ''
     return sentenceString
 
 def findTwoWords(string1, string2, part):
@@ -204,9 +221,11 @@ for file in pdf_files:
         if "Rättelse" in firstPage:
             fullTextOG = ''.join(pages_text[1:])
             firstPage = ''.join(pages_text[1])
+            fullTextFormatted = ''.join(pages_text_formatted[1:])
             dummyRat = 1
         else:
             fullTextOG = ''.join(pages_text)
+            fullTextFormatted = '.'.join(pages_text_formatted)
             dummyRat = 0
     
         splitTextOG = re.split('_{10,40}', fullTextOG)
@@ -225,11 +244,23 @@ for file in pdf_files:
         lastPage = lastPageOG.lower()                       
         fullTextOG = (re.split(appendixStart, fullTextOG)[0])  
         fullText = fullTextOG.lower()
-        rulingString = ''.join(re.split('_{10,40}\s*DOMSLUT',fullTextOG)[1:])
         try:
-            rulingOnly = re.split('(_{15,35}|-{15,35})', rulingString)[0].lower() 
+            rulingString = ''.join(re.split('DOMSLUT',fullTextOG)[1:])
+            rulingStringFormatted = ''.join(re.split('DOMSLUT', fullTextFormatted)[1:])
+        except:
+            rulingString = ''.join(re.split('_{10,40}\s*',fullTextOG)[1:])
+            rulingStringFormatted = ''.join(re.split('_{10,40}\s*', fullTextFormatted)[1:])
+      
+        try:
+            rulingOnly = re.split('\n\s*\n\s*[A-ZÅÄÖ.,]{4,}\s{0,1}[A-ZÅÄÖ.,]{0,4}\s*\n\s*\n\s*', rulingStringFormatted)[0].lower()
+            rulingOnly = ' '.join(''.join(rulingOnly).split())
         except AttributeError:
-            rulingOnly = re.split('YRKANDEN', rulingString)[0].lower()
+            rulingOnly = re.split('(YRKANDEN)', rulingStringFormatted)[0].lower() 
+            rulingOnly = ' '.join(''.join(rulingOnly).split())
+            
+        print("FULL TEXT OG : " + fullTextOG) 
+        print(" ")
+        print("HEADER: " + headerOG)
         
         try:
             svarandeStringOG = re.split(svarandeSearch, headerOG)[1] 
@@ -253,7 +284,7 @@ for file in pdf_files:
                         
         svarandeString = svarandeStringOG.lower()
         kärandeString = kärandeStringOG.lower()
-
+    
         #List of children's numbers
         childNoRes = []
         childNo = set(re.findall('\d{6,8}\s?-\d{4}', rulingString))   
@@ -269,8 +300,6 @@ for file in pdf_files:
             #Get child's name
             childNameKey = ('([A-ZÅÄÖ][a-zåäöé]+)[,]?\s*[(]?\s*' + i )
             childNameFirst = searchKey(childNameKey, fullTextOG, 1)
-            print(fullTextOG)
-            print(childNameFirst)
             if childNameFirst is not None:
                 childKey1 = re.compile("(([A-ZÅÄÖÉ][a-zåäöéA-ZÅÄÖÉ-]+\s*){1,4})"+ childNameFirst + '[,]?[)]?\s*' + i)
                 childNameFull = childKey1.search(fullTextOG)
@@ -293,7 +322,7 @@ for file in pdf_files:
             
             #District Court
             courtName = searchLoop(courtSearch, fullText, 0)
-
+    
             #Year Closed
             date = searchLoop(dateSearch, header, 1)
             year = date.split('-')[0]
@@ -314,7 +343,7 @@ for file in pdf_files:
                 plaintNo = ''.join(searchKey(idNo, kärandeString, 2).split())
             except AttributeError:
                 plaintNo = "-"
-
+    
             # Defendant
             svNameFull = svarandeStringOG.split(",")[0]
             try:
@@ -331,7 +360,7 @@ for file in pdf_files:
                 dummyOmbPlaint = 1
             else:
                 dummyOmbPlaint = 0 
-
+    
             #Dummy defendant representative
             for term in lawyerKey:
                 if term in svarandeString:
@@ -348,7 +377,7 @@ for file in pdf_files:
                     cityString = ''.join(city(svarandeString, 1))
                     svGodMan = 0
                     continue
-
+    
             #Defendant abroad 
             print('Defendant city string: ' + cityString)
             if any([x in cityString for x in countries]):
@@ -389,55 +418,68 @@ for file in pdf_files:
             else:
                 print('unreach9')
                 dummyUnreach = 0
-
+    
             #Outcome
             try:
-                findGemensam = findSentence(searchKey('(gemensam)[^m]',rulingOnly,1), rulingOnly)
+                findGemensam = findFirstOccur(searchKey('(gemensam)[^m]',rulingOnly,1), rulingOnly)
             except TypeError:
-                findGemensam = findSentence('gemen-', rulingOnly)
+                findGemensam = findFirstOccur('gemen-', rulingOnly)
             vardnInGemensam = 'vårdn' in findGemensam
-            findEnsam = findSentence('ensam', rulingOnly)
-            findVardn = findSentence('vårdn', rulingOnly)
-            findVardnBarn = findTwoWords('vårdn', 'barn', rulingOnly)
+            findEnsam = findFirstOccur('ensam', rulingOnly)
+            findVardn = findFirstOccur('vårdn', rulingOnly)
+            findEnsamVardn = findTwoWordsFirstOccur('ensam','vårdn',rulingOnly)
+            findGemensamVardn = findTwoWordsFirstOccur('gemensam', 'vårdn', rulingOnly)
+            findVardnBarn = findTwoWordsFirstOccur('barn', 'vårdn', rulingOnly)
             transferToDef = 'till ' + svNameFirst
             transferToPlaint = 'till ' + plaintNameFirst
             vardnInRuling = 'vårdn' in rulingOnly
-                                                
-            if 'vårdn' not in rulingOnly or vardnInRuling and 'påminn' in findVardn or vardnInRuling and 'erinra' in findVardn or vardnInRuling and 'upplyser' in findVardn:
+            
+            print(rulingOnly)       
+                    
+            if 'vård' not in rulingOnly: #reduced to vård to account for vårdanden
                 #No custody ruling in this court record
-                print("out1")
+                print("out1a")
                 dummyOut = 0
-            elif 'ska' in findGemensam and 'om' in findGemensam and vardnInGemensam and not any([x in findVardn for x in rejectKey]):
+            elif vardnInRuling and 'påminn' in findVardn:
+                print("out1c")
+                dummyOut = 0
+            elif vardnInRuling and 'erinra' in findVardn:
+                print("out1d")
+                dummyOut = 0
+            elif vardnInRuling and 'upply' in findVardn:
+                print("out1e")
+                dummyOut = 0
+            elif 'ska' in findGemensam and 'om' in findGemensam and vardnInGemensam and not any([x in findGemensamVardn for x in rejectKey]):
                 dummyOut = 1
                 print("out2")
-            elif 'vårdn' in rulingOnly and 'fortsätt' in findGemensam and 'ska' in findGemensam and not any([x in findVardn for x in rejectKey]):
+            elif 'vårdn' in rulingOnly and 'fortsätt' in findGemensam and 'ska' in findGemensam and not any([x in findGemensamVardn for x in rejectKey]):
                 dummyOut = 1
                 print("out3")
-            elif vardnInGemensam and findTwoWords('alltjämt','ska' , findGemensam) and not any([x in findVardn for x in rejectKey]):
+            elif vardnInGemensam and findTwoWords('alltjämt','ska' , findGemensam) and not any([x in findGemensamVardn for x in rejectKey]):
                 dummyOut = 1
                 print("out4")
-            elif vardnInGemensam and findTwoWords('alltjämt', 'är', rulingOnly) and not any([x in findVardn for x in rejectKey]):
+            elif vardnInGemensam and findTwoWords('alltjämt', 'är', rulingOnly) and not any([x in findGemensamVardn for x in rejectKey]):
                 dummyOut = 1
                 print("out5")
-            elif vardnInGemensam and 'skall tillkomma' in rulingOnly and not any([x in findVardn for x in rejectKey]): 
+            elif vardnInGemensam and 'skall tillkomma' in rulingOnly and not any([x in findGemensamVardn for x in rejectKey]): 
                 dummyOut = 1
                 print("out6")
-            elif 'vårdn' in findEnsam and plaintNameFirst in findEnsam and 'utan' not in findEnsam and not any([x in findVardn for x in rejectKey]):
+            elif 'vårdn' in findEnsam and plaintNameFirst in findEnsam and 'utan' not in findEnsamVardn and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 2
                 print("out7")
-            elif 'vårdn' in findEnsam and svNameFirst in findEnsam and 'utan' not in findEnsam and not any([x in findVardn for x in rejectKey]):
+            elif 'vårdn' in findEnsam and svNameFirst in findEnsam and 'utan' not in findEnsamVardn and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 3
                 print("out8")
-            elif 'ensam' in rulingOnly and vardnInRuling and plaintNameFirst in findVardn and not any([x in findVardn for x in rejectKey]):
+            elif 'ensam' in rulingOnly and vardnInRuling and plaintNameFirst in findVardn and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 2
                 print("out10a")
-            elif plaintNameFirst in findEnsam and not any([x in findVardn for x in rejectKey]):
+            elif plaintNameFirst in findEnsam and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 2
                 print("out10")
-            elif 'ensam' in rulingOnly and vardnInRuling and  svNameFirst in findVardn and not any([x in findVardn for x in rejectKey]):
+            elif 'ensam' in rulingOnly and vardnInRuling and  svNameFirst in findVardn and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 3
                 print("out11a")    
-            elif svNameFirst in findEnsam and not any([x in findVardn for x in rejectKey]):
+            elif svNameFirst in findEnsam and not any([x in findEnsamVardn for x in rejectKey]):
                 dummyOut = 3
                 print("out11")
             elif vardnInRuling and 'överflytt' in rulingOnly and transferToDef in findVardn and not any([x in findVardn for x in rejectKey]):
@@ -472,12 +514,9 @@ for file in pdf_files:
                 dummyOut = 999
                 print("out17")
             
-            #Visitation rights
-            print(rulingOnly)
-            
+            #Visitation rights            
             for key in umgangeKey:
                 findUmg = findTwoWords(key, childNameFirst, rulingOnly)
-                print(findUmg)
                 if childNameFirst == 'not found':
                     dummyVisit = 999
                     print('umg1')
@@ -498,35 +537,37 @@ for file in pdf_files:
                     print('umg5')
                     dummyVisit = 0
                     continue
-
+    
             #N. Physical custody 
-            if childNameFirst == 'not found':
-                dummyPhys = 999
-                print("phsical custody 1")
-            elif childNameFirst in findTwoWords('boende', plaintNameFirst, rulingOnly) and 'skyddat' not in findTwoWords('boende', plaintNameFirst, rulingOnly):
-                dummyPhys = 1
-                print("phsical custody 2")
-            elif childNameFirst in findTwoWords('boende', svNameFirst, rulingOnly):
-                dummyPhys = 2
-                print("phsical custody 3")
-            elif childNameFirst in findTwoWords('bo tillsammans', plaintNameFirst, fullText):
-                dummyPhys = 1
-                print("phsical custody 4")
-            elif childNameFirst in findTwoWords('bo tillsammans', svNameFirst, fullText):
-                dummyPhys = 2
-                print("phsical custody 5")
-            elif childNameFirst in findTwoWords('bo', plaintNameFirst, findSentence('stadigvarande', fullText)):
-                dummyPhys = 1  
-                print("phsical custody 6")
-            elif childNameFirst in findTwoWords('bo', svNameFirst, findSentence('stadigvarande', fullText)):
-                dummyPhys = 2
-                print("phsical custody 7")
-            elif findTwoWords('bilaga', 'sidorna', rulingOnly):
-                dummyPhys = 999
-                print("phsical custody 8")
-            else:
-                dummyPhys = 0
-                print("phsical custody 9")
+            childTerms = [childNameFirst, 'barn']
+            for term in childTerms:
+                if childNameFirst == 'not found':
+                    dummyPhys = 999
+                    print("phsical custody 1")
+                elif term in findTwoWords('boende', plaintNameFirst, rulingOnly) and 'skyddat' not in findTwoWords('boende', plaintNameFirst, rulingOnly):
+                    dummyPhys = 1
+                    print("phsical custody 2")
+                elif term in findTwoWords('boende', svNameFirst, rulingOnly):
+                    dummyPhys = 2
+                    print("phsical custody 3")
+                elif term in findTwoWords('bo tillsammans', plaintNameFirst, rulingOnly):
+                    dummyPhys = 1
+                    print("phsical custody 4")
+                elif term in findTwoWords('bo tillsammans', svNameFirst, rulingOnly):
+                    dummyPhys = 2
+                    print("phsical custody 5")
+                elif term in findTwoWords('bo', plaintNameFirst, findSentence('stadigvarande', rulingOnly)):
+                    dummyPhys = 1  
+                    print("phsical custody 6")
+                elif term in findTwoWords('bo', svNameFirst, findSentence('stadigvarande', rulingOnly)):
+                    dummyPhys = 2
+                    print("phsical custody 7")
+                elif findTwoWords('bilaga', 'sidorna', rulingOnly):
+                    dummyPhys = 999
+                    print("phsical custody 8")
+                else:
+                    dummyPhys = 0
+                    print("phsical custody 9")
             
             #Alimony
             for term in rejectKey:
@@ -539,15 +580,15 @@ for file in pdf_files:
                         
             #Ruling by agreement
             for termAgree in agreementKey:
-                if svNameFirst in findTwoWords('yrkande', term, fullText):
+                if svNameFirst in findTwoWords('yrkande', termAgree, fullText):
+                    print('agree1: ' + termAgree)
                     dummyAgree = 1
                     dummyUnreach = 0
                     break
                 for termHelper in agreementAdd:
                     findAgree = findTwoWords(termAgree, termHelper, fullText)
-                    if findAgree is not emptyString and not any([x in findAgree for x in agreementHelper]):
-                        print('agree1')
-                        print(termAgree + termHelper)
+                    if findAgree is not emptyString:
+                        print('agree2: '+ termAgree + termHelper)
                         dummyAgree = 1
                         dummyUnreach = 0
                         break
@@ -558,6 +599,7 @@ for file in pdf_files:
                     continue
                 break
             if dummyAgree == 0 and 'förlikning' in findTwoWords('framgå', 'träff', fullText):
+                print('agree4')
                 dummyAgree = 1
                 dummyUnreach = 0
                
@@ -576,19 +618,10 @@ for file in pdf_files:
                 print("snabbupply 4" )
                   
             #Cooperation talks
-            for term in corpTalksKey:
-                if term in fullText and 'avslå' not in findSentence(term, fullText):
-                    print('coop2')
-                    dummyCoop = 1
-                    break
-                else:
-                    print('coop3')
-                    dummyCoop = 0  
-                    break
+            dummyCoop = termLoop(corpTalksKey, fullText)
                
             #Investigation
             dummyInvest = termLoop(investigationKey, fullText)
-            print(findSentence('utredning', fullText))
             if dummyInvest == 0:
                 if 'tingsrätt' in findSentence('utredning', fullText):
                     print('invest1')
@@ -613,16 +646,12 @@ for file in pdf_files:
             
             #Main hearing 
             for term in mainHearingKey:
-                if findSentence(term, fullText) and 'utan' not in findSentence(term, fullText):
+                if findSentence(term, fullText) and 'utan' not in findSentence(term, fullText) and 'ingen' not in findSentence(term, fullText):
                     print('mainhear1: ' + term)
                     dummyMainHear = 1
                     break
-                elif findSentence(term, fullText) and 'ingen' not in findSentence(term, fullText):
-                    print('mainhear2: ' + term)
-                    dummyMainHear = 1
-                    break
                 else:
-                    print('mainhear3: ' + term)
+                    print('mainhear2: ' + key)
                     dummyMainHear = 0
                     continue
                             
@@ -631,7 +660,6 @@ for file in pdf_files:
                 judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
             except:
                 judgeName = 'Not found'
-            
             
             print('Family names:')
             print("Child first name: "+childNameFirst)
@@ -665,10 +693,9 @@ for file in pdf_files:
             data['Utredning'].append(dummyInvest)
             data['Huvudförhandling'].append(dummyMainHear)
     except:
-        print('Error: PDF at path %s not readable!' %(file))
         noUnreadable += 1
         data['Barn'].append('error')
-        data["File Path"].append(file)
+        data["File Path"].append('error')
         data["Page Count"].append('error')
         data['Rättelse'].append('error')
         data['Målnr'].append('error')
@@ -690,7 +717,7 @@ for file in pdf_files:
         data['Snabbupplysning'].append('error')          
         data['Samarbetssamtal'].append('error')
         data['Utredning'].append('error')
-        data['Huvudförhandling'].append('error')
+        data['Huvudförhandling'].append('error')  
 
 #Dataframe created from dictionary
 df = pd.DataFrame(data)
@@ -698,7 +725,7 @@ with pd.option_context('display.max_rows', None, 'display.max_columns', None):  
     print(df)
 
 #Save to csv
-#df.to_csv(output_path, sep = ',', encoding='utf-8-sig')
+df.to_csv(output_path, sep = ',', encoding='utf-8-sig')
 
 print("---Saved as CSV---")
 print('Unreadable: ')
