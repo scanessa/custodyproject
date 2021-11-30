@@ -33,7 +33,7 @@ from pdfminer.converter import TextConverter
 
 #Define Paths
 pdf_dir = "P:/2020/14/Kodning/Test-round-2/check_cases"
-output_path = 'P:/2020/14/Kodning/Test-round-2/custody_data_test2.csv'
+output_path = 'P:/2020/14/Kodning/Test-round-3/custody_data_test3.csv'
 
 #Define key functions
 def findSentence(string, part):
@@ -67,18 +67,17 @@ def searchLoop(searchDict, part, g):
             continue
         else: 
             break
-    print(i)
     return result
 
 def termLoop(termList, part):
     for term in termList:
-        if term in part and not any([x in part for x in rejectKey]):
+        sentence = findSentence(term, part)
+        if term in part and not any([x in sentence for x in rejectKey]):
             dummy = 1
             break
         else:
             dummy = 0
             continue
-    print(term)
     return dummy
 
 def city(string,i):
@@ -156,62 +155,62 @@ judgeSearch = {
     }
 
 #Define keys for simple word search
-fastInfoKey = ['snabbupplysning', 'upplysning', 'upplysningar', 'snabbyttrande']
+fastInfoKey = ['snabbupplysning', 'upplysning', 'snabbyttrande']
 corpTalksKey = ['samarbetssamtal','medlingssamtal','medling', 'medlare']
 mainHearingKey = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , 'förhör' ]
 lawyerKey = ["ombud:", 'god man:',  'advokat:', "ombud", 'god man',  'advokat']
 investigationKey = ['vårdnadsutredning','boendeutredning','umgängesutredning']
 investigationHelper = ["vårdn", "umgänge", "boende"]
-agreementKey = ['samförståndslösning',  'överenskommelse', 'överens', 'medger', 'medgett']
+agreementKey = ['samförståndslösning',  'överens', 'medger', 'medgett']
 agreementAdd = ['parterna' ,'framgår' ,'enlighet' ,'följer','fastställa', 'kommit','barnets','bästa']
 agreementHelper = ['umgänge', 'boende']
 socialOffice = ['social', 'nämnden', 'kommun', 'familjerätt']
 umgangeKey = ['umgänge', 'umgås']
-rejectKey = ['avskriv','käromalet ogillas','lämnas utan bifall','avslå',' inte ','skrivs']  
+rejectKey = ['avskriv','käromalet ogillas','lämnas utan bifall','avslå',' inte ','skrivs', 'kvarstå']  
 
 #Intiialize lists and dictionary to fill
 data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'Enl överenskommelse':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'Domare':[], "Page Count": [], 'Rättelse': [], "File Path": []}
 
 #Loop over files and extract data
 for file in pdf_files:
-    print(" ")
-    print("Currently reading:")
-    print(file)
-        
-    pageCount = 0
-    rsrcmgr = PDFResourceManager()
-    retstr = io.StringIO()
-    codec = 'utf-8-sig'
-    laparams = LAParams()
-    device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
-    interpreter = PDFPageInterpreter(rsrcmgr, device)
-    pages_text = []
-    pages_text_formatted = []
-    with open(file, 'rb') as fh:
-        for page in PDFPage.get_pages(fh,caching=True,check_extractable=True):
-            read_position = retstr.tell()
-            interpreter.process_page(page)
-            retstr.seek(read_position, 0)
-            page_text = retstr.read()
-            page_text_clean = ' '.join((''.join(page_text)).split())
-            pages_text.append(page_text_clean)
-            pages_text_formatted.append(page_text)
-            pageCount += 1
-             
-    #Convert full text to clean string
-    firstPage = pages_text[0]
-    firstPageFormatted = (pages_text_formatted[0]).split(".")
-    if "Rättelse" in firstPage:
-        fullTextOG = ''.join(pages_text[1:])
-        firstPage = ''.join(pages_text[1])
-        dummyRat = 1
-    else:
-        fullTextOG = ''.join(pages_text)
-        dummyRat = 0
-
-    splitTextOG = re.split('_{10,40}', fullTextOG)
-        
-    if len(splitTextOG) > 1: 
+    try:
+        print(" ")
+        print("Currently reading:")
+        print(file)
+            
+        pageCount = 0
+        rsrcmgr = PDFResourceManager()
+        retstr = io.StringIO()
+        codec = 'utf-8-sig'
+        laparams = LAParams()
+        device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        pages_text = []
+        pages_text_formatted = []
+        with open(file, 'rb') as fh:
+            for page in PDFPage.get_pages(fh,caching=True,check_extractable=True):
+                read_position = retstr.tell()
+                interpreter.process_page(page)
+                retstr.seek(read_position, 0)
+                page_text = retstr.read()
+                page_text_clean = ' '.join((''.join(page_text)).split())
+                pages_text.append(page_text_clean)
+                pages_text_formatted.append(page_text)
+                pageCount += 1
+                 
+        #Convert full text to clean string
+        firstPage = pages_text[0]
+        firstPageFormatted = (pages_text_formatted[0]).split(".")
+        if "Rättelse" in firstPage:
+            fullTextOG = ''.join(pages_text[1:])
+            firstPage = ''.join(pages_text[1])
+            dummyRat = 1
+        else:
+            fullTextOG = ''.join(pages_text)
+            dummyRat = 0
+    
+        splitTextOG = re.split('_{10,40}', fullTextOG)
+            
         noOfFiles += 1                                                      
         headerOG = re.split('_{10,40}', firstPage)[0]   
         header = headerOG.lower()    
@@ -245,8 +244,13 @@ for file in pdf_files:
                 svarandeStringOG = re.split('_{10,40}', (re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[1]))[0]
                 kärandeStringOG = re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[0]
             except IndexError:
-                svarandeStringOG = re.split("Hustrun|HUSTRUN", headerOG)[1] 
-                kärandeStringOG = re.split('Mannen|MANNEN', (re.split("Hustrun|HUSTRUN", headerOG)[0]))[1]
+                try:
+                    svarandeStringOG = re.split("Hustrun|HUSTRUN", headerOG)[1] 
+                    kärandeStringOG = re.split('Mannen|MANNEN', (re.split("Hustrun|HUSTRUN", headerOG)[0]))[1]
+                except IndexError:
+                    svarandeStringOG = re.split("Mannen|MANNEN", headerOG)[1] 
+                    kärandeStringOG = re.split('Hustrun|HUSTRUN', (re.split("Mannen|MANNEN", headerOG)[0]))[1]
+                        
         svarandeString = svarandeStringOG.lower()
         kärandeString = kärandeStringOG.lower()
 
@@ -261,7 +265,6 @@ for file in pdf_files:
         #Loop to create dictionary with one row per child
         for i in childNoRes:   
             i = ''.join(i.split())
-            data['Barn'].append(i)
             
             #Get child's name
             childNameKey = ('([A-ZÅÄÖ][a-zåäöé]+)[,]?\s*[(]?\s*' + i )
@@ -619,7 +622,7 @@ for file in pdf_files:
                     dummyMainHear = 1
                     break
                 else:
-                    print('mainhear2: ' + key)
+                    print('mainhear3: ' + term)
                     dummyMainHear = 0
                     continue
                             
@@ -628,7 +631,7 @@ for file in pdf_files:
                 judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
             except:
                 judgeName = 'Not found'
-            data['Domare'].append(judgeName.lower())
+            
             
             print('Family names:')
             print("Child first name: "+childNameFirst)
@@ -637,10 +640,12 @@ for file in pdf_files:
             print('sv adress: '+ cityString)
             
             #Fill dataframe with search results
+            data['Barn'].append(i)
             data["File Path"].append(file)
             data["Page Count"].append(pageCount)
             data['Rättelse'].append(dummyRat)
             data['Målnr'].append(caseNo)
+            data['Domare'].append(judgeName.lower())
             data["Tingsrätt"].append(courtName)
             data['År avslutat'].append(date)
             data['Deldom'].append(dummyDel)
@@ -659,10 +664,34 @@ for file in pdf_files:
             data['Samarbetssamtal'].append(dummyCoop)
             data['Utredning'].append(dummyInvest)
             data['Huvudförhandling'].append(dummyMainHear)
-
-    else:
+    except:
         print('Error: PDF at path %s not readable!' %(file))
         noUnreadable += 1
+        data['Barn'].append('error')
+        data["File Path"].append(file)
+        data["Page Count"].append('error')
+        data['Rättelse'].append('error')
+        data['Målnr'].append('error')
+        data['Domare'].append('error')
+        data["Tingsrätt"].append('error')
+        data['År avslutat'].append('error')
+        data['Deldom'].append('error')
+        data['Kärande förälder'].append('error') 
+        data['Svarande förälder'].append('error')   
+        data['Kär advokat'].append('error')
+        data['Sv advokat'].append('error')
+        data['Sv utlandet'].append('error')
+        data['Sv okontaktbar'].append('error')
+        data['Utfall'].append('error')   
+        data['Umgänge'].append('error')
+        data['Stadigvarande boende'].append('error')
+        data['Underhåll'].append('error')                
+        data['Enl överenskommelse'].append('error')           
+        data['Snabbupplysning'].append('error')          
+        data['Samarbetssamtal'].append('error')
+        data['Utredning'].append('error')
+        data['Huvudförhandling'].append('error')
+
 #Dataframe created from dictionary
 df = pd.DataFrame(data)
 with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
