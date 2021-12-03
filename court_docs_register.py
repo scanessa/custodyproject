@@ -25,9 +25,11 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
 #Read in PDFs
-rootdir = "P:/2020/14/Tingsrätter/"
+#rootdir = "P:/2020/14/Tingsrätter/"
 output_path = "P:/2020/14/Kodning/court_docs_register1.csv"
-pdf_dir = "P:/2020/14/Tingsrätter/"
+#pdf_dir = "P:/2020/14/Tingsrätter/"
+pdf_dir = "P:/2020/14/Kodning/Test-round-3/check"
+rootdir = "P:/2020/14/Kodning/Test-round-3/check"
 
 pdf_files = []
 unreadable_files = []
@@ -43,13 +45,13 @@ for file in sample_files:
 exclude = set(["Case_Sorting_SC"
                ])
 
-includes = 'all_cases'  #change back to all cases to loop over all files
+#includes = 'all_cases'  #change back to all cases to loop over all files
 for subdir, dirs, files in os.walk(rootdir, topdown=True):
     for term in exclude:
         if term in dirs:
             dirs.remove(term)
     for file in files:
-        if includes in subdir and file.endswith('.pdf'):
+        #if includes in subdir and file.endswith('.pdf'):
             pdf_dir = (os.path.join(subdir, file))
             pdf_files.append(pdf_dir)
             print(f"Dealing with file {subdir}/{file}")
@@ -83,6 +85,16 @@ def searchLoop(searchDict, part, g):
             print(i)
             break
     return result
+
+def findTwoWords(string1, string2, part):
+    sentenceRes = [sentence + '.' for sentence in part.split('.') if string1 in sentence and string2 in sentence]
+    sentenceString = ''.join(sentenceRes)
+    return sentenceString
+
+def findThreeWords(string1, string2, string3, part):
+    sentenceRes = [sentence + '.' for sentence in part.split('.') if string1 in sentence and string2 in sentence and string3 in sentence]
+    sentenceString = ''.join(sentenceRes)
+    return sentenceString
 
 #Define search terms
 svarandeSearch = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE '
@@ -149,7 +161,7 @@ judgeSearchProtokoll = {
 #Define search word lists
 falseJudgeName = ['domskäl', 'yrkanden', 'avgörandet', 'överklagar', 'tingsrätt']
 remindTerms = ["erinrar", "påminn"]
-legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist"]
+legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel']
 
 #Loop over files and extract data
 for file in pdf_files:
@@ -365,6 +377,9 @@ for file in pdf_files:
             elif "ensamkommande flyktingbarn" in fullText:
                 print("4")
                 caseType = "1216B"
+            elif 'vårdnadshavare' in findTwoWords('förordnad', 'förordnad', fullText):
+                print("4a")
+                caseType = "1216B"
             elif 'de har inga gemensamma barn' in fullText:
                 print("5")
                 caseType = "1217B"
@@ -401,10 +416,10 @@ for file in pdf_files:
         df = pd.DataFrame(data)
         with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
             print(df) 
-        if pageCount == 1 and noOfFiles == 1:
-            df.to_csv(output_path, sep = ',', encoding='utf-8-sig', header=True)
-        else:
-            df.to_csv(output_path, mode = 'a', sep = ',', encoding='utf-8-sig', header=False)
+        #if pageCount == 1 and noOfFiles == 1:
+            #df.to_csv(output_path, sep = ',', encoding='utf-8-sig', header=True)
+        #else:
+            #df.to_csv(output_path, mode = 'a', sep = ',', encoding='utf-8-sig', header=False)
         
         #Delete variables
         allvars = [caseNo, caseType, filename, docType, courtName, year, plaintNo, defNo, judgeName, svarandeStringOG, kärandeStringOG]
