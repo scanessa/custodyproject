@@ -126,13 +126,13 @@ print(pdf_files)
 #Initialize variables
 noOfFiles = 0
 noUnreadable = 0
-countries = ['saknas', 'okänd', 'adress', 'u.s.a.', 'u.s.a', 'usa', 'sekretess', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'sverige', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
+countries = ['saknas', 'okänd', 'adress', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'sverige', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
 
 emptyString = ''
                 
 #Define search terms
 svarandeSearch = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE '
-defendantNationality = 'medborgare i (\w+ )+sekretess'
+defendantNationality = 'medborgare i (\w+ )'
 party ='((\w+\s?-?(\w+\s?-?)+?){1}((\w+\s?-?)*\w+))\s*[,]\s*(\d{6,10}.?\s*(\d{4})?[,]?\s)?' 
 nameCaps = '[A-ZÅÄÖ]{3,}'
 idNo ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
@@ -245,12 +245,13 @@ for file in pdf_files:
     headerOG = re.split('_{10,40}', firstPage)[0]   
     header = headerOG.lower()    
     appendixPage = [i for i, item in enumerate(pages_text) if re.search(appendixStart, item)]
+    print(appendixPage)
     if not appendixPage:
         appendixPageNo = len(pages_text)
     else:
         appendixPageNo = appendixPage[0]
-    lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split("."))
-    lastPageFormatted3 = (pages_text_formatted[appendixPageNo-2]).split(".")
+    lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-3]).split("."))
+    lastPageFormatted3 = (pages_text_formatted[appendixPageNo-1]).split(".")
     lastPageOG = pages_text[appendixPageNo-1]
     lastPage = lastPageOG.lower()                       
     fullTextOG = (re.split(appendixStart, fullTextOG)[0])  
@@ -299,7 +300,7 @@ for file in pdf_files:
 
     #List of children's numbers
     childNoRes = []
-    childNo = set(re.findall('\d{6,8}\s?-\d{4}', rulingString))   
+    childNo = set(re.findall('\d{6,8}\s?-\s?\d{4}', rulingString))   
     for i in childNo:
         mistakeChilNos = searchKey("\A197|\A198|\A5|\A6|\A7|\A8", i, 0)
         if mistakeChilNos is None: # child ID should not start with 197 or 198, or 5,6,7,8  
@@ -307,14 +308,14 @@ for file in pdf_files:
     
     #Loop to create dictionary with one row per child
     for i in childNoRes:   
-        i = ''.join(i.split())
-                
+                        
         #Get child's name
         childNameKey = ('([A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞa-zåäïüóöéæøßþîčćžđšžůúýëçâêè]+)[,]?\s*[(]?\s*' + i )
         childNameFirst = searchKey(childNameKey, rulingOnlyOG, 1)
         if childNameFirst is not None:
-            childKey1 = re.compile("(([A-ZÅÐÄÖÉÜÆØÞ][a-zåäïüóöéæøßþîčćžđšžůúýëçâêèA-ZÅÐÄÖÉÜÆØÞ-]+\s*){1,4})"+ childNameFirst + '[,]?[)]?\s*' + i)
+            childKey1 = re.compile("(([A-ZÅÐÄÖÉÜÆØÞ][a-zåäïüóöéæøßþîčćžđšžůúýëçâêèA-ZÅÐÄÖÉÜÆØÞ-]+\s*){1,4})"+ childNameFirst + '\s*[,]?[(]?\s*' + i)
             childNameFull = childKey1.search(rulingOnlyOG)
+            print(childNameFull)
             if childNameFull is not None:
                 childNameFull = childNameFull.group(1)
                 childKey2 = re.compile('[A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞ]+')
@@ -400,20 +401,17 @@ for file in pdf_files:
             dummyAbroad = 1
         elif 'utomlands' in findTwoWords('befinn', 'sig', fullText):
             dummyAbroad = 1 #didnt include svNameFirst because sv might be referred to by Han
+        elif searchKey(defendantNationality, svarandeString, 0) and 'sverige' not in searchKey(defendantNationality, svarandeString, 0):
+            dummyAbroad = 1
         else:
             dummyAbroad = 0
         
         #Defendant unreachable
-        svUnreach1 = (re.compile(('(han|hon) har inte kunnat få kontakt med ' + svNameFirst))).search(fullText)
-        svUnreach2 = (re.compile(('(han|hon) har inte lyckats etablera kontakt med ' + svNameFirst))).search(fullText)
-        if 'okontaktbar' in fullText or 'förordnat god man' in fullText:
-            if svNameFirst in findSentence('förordnat god man', fullText):
-                print('unreach1')
-                dummyUnreach = 1
-            else:
-                print('unreach2')
-                dummyUnreach = 0
-        elif svUnreach1 is not None or svUnreach2 is not None:
+        print(findSentence('förordnat god man', fullText))
+        if 'okontaktbar' in fullText or 'förordnat god man' in fullText and svNameFirst in findSentence('förordnat god man', fullText):
+            print('unreach1')
+            dummyUnreach = 1
+        elif svNameFirst in findTwoWords('inte', 'kontakt', fullText):
             print('unreach3')
             dummyUnreach = 1
         elif 'varken kan bestrida eller medge' in fullText:
@@ -588,11 +586,11 @@ for file in pdf_files:
                 dummyPhys = 2
                 print("phsical custody 5")
                 break
-            elif term in findThreeWords('ska','bo', plaintNameFirst, findSentence('stadigvarande', rulingOnly)):
+            elif term in findThreeWords('ska','bo', plaintNameFirst, rulingOnly):
                 dummyPhys = 1  
                 print("phsical custody 6")
                 break
-            elif term in findThreeWords('ska','bo', svNameFirst, findSentence('stadigvarande', rulingOnly)):
+            elif term in findThreeWords('ska','bo', svNameFirst, rulingOnly):
                 dummyPhys = 2
                 print("phsical custody 7")
                 break
@@ -652,7 +650,7 @@ for file in pdf_files:
             dummyInfo = 1 
             print("snabbupply 3 ")
         else:
-            dummyInfo = termLoop(fastInfoKey, fullText)
+            dummyInfo = termLoopFirstOccur(fastInfoKey, fullText)
             print("snabbupply 4" )
               
         #Cooperation talks
@@ -661,10 +659,10 @@ for file in pdf_files:
         #Investigation
         dummyInvest = termLoop(investigationKey, fullText)
         if dummyInvest == 0:
-            if 'ingsrätt' in findSentence('utredning', fullTextOG): #search for tingsratt or Tingsratt in fullTextOG to not get the TINGSRATT from header
+            if 'ingsrätt' in findSentence(' utredning', fullTextOG): #search for tingsratt or Tingsratt in fullTextOG to not get the TINGSRATT from header
                 print('invest1')
                 dummyInvest = 1
-            elif any([x in findSentence('utredning', fullText) for x in socialOffice]):
+            elif any([x in findSentence(' utredning', fullText) for x in socialOffice]):
                 print('invest2')
                 dummyInvest = 1
             elif "11 kap. 1 § socialtjänstlagen" in fullText:
@@ -673,7 +671,7 @@ for file in pdf_files:
             else:
                 print('invest4')
                 for term in investigationHelper:
-                    if term in findSentence('utredning', fullText):
+                    if term in findSentence(' utredning', fullText):
                         print('invest5')
                         dummyInvest = 1
                         break
@@ -695,6 +693,8 @@ for file in pdf_files:
                 continue
                         
         #Name of judge
+        
+        print(lastPageFormatted3)
         try:
             judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
         except:
@@ -707,6 +707,7 @@ for file in pdf_files:
         print('sv adress: '+ cityString)
         
         #Fill dataframe with search results
+        i = ''.join(i.split())
         data['Barn'].append(i)
         data["File Path"].append(file)
         data["Page Count"].append(pageCount)
