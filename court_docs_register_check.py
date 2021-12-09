@@ -25,11 +25,9 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
 #Read in PDFs
-rootdir = "P:/2020/14/Tingsrätter/"
 output_path = "P:/2020/14/Kodning/court_docs_register1.csv"
-pdf_dir = "P:/2020/14/Tingsrätter/"
-#pdf_dir = "P:/2020/14/Kodning/Test-round-3/check"
-#rootdir = "P:/2020/14/Kodning/Test-round-3/check"
+pdf_dir = "P:/2020/14/Kodning/Test-round-3/check"
+rootdir = "P:/2020/14/Kodning/Test-round-3/check"
 
 pdf_files = []
 unreadable_files = []
@@ -41,21 +39,12 @@ for file in sample_files:
     shutil.copy(file,pdf_dir)
 """
 
-
-exclude = set(["Case_Sorting_SC"
-               ])
-
-includes = 'all_cases'  #change back to all cases to loop over all files
 for subdir, dirs, files in os.walk(rootdir, topdown=True):
-    for term in exclude:
-        if term in dirs:
-            dirs.remove(term)
     for file in files:
-        if includes in subdir and file.endswith('.pdf'):
-            pdf_dir = (os.path.join(subdir, file))
-            pdf_files.append(pdf_dir)
-            print(f"Dealing with file {subdir}/{file}")
-            continue
+        pdf_dir = (os.path.join(subdir, file))
+        pdf_files.append(pdf_dir)
+        print(f"Dealing with file {subdir}/{file}")
+        continue
 
 #Initialize variables
 noOfFiles = 0
@@ -416,11 +405,6 @@ for file in pdf_files:
         df = pd.DataFrame(data)
         with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
             print(df) 
-        if pageCount == 1 and noOfFiles == 1:
-            df.to_csv(output_path, sep = ',', encoding='utf-8-sig', header=True)
-        else:
-            df.to_csv(output_path, mode = 'a', sep = ',', encoding='utf-8-sig', header=False)
-        
         #Delete variables
         allvars = [caseNo, caseType, filename, docType, courtName, year, plaintNo, defNo, judgeName, svarandeStringOG, kärandeStringOG]
         for var in allvars:
