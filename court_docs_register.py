@@ -25,9 +25,9 @@ from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
 #Read in PDFs
-rootdir = "P:/2020/14/Tingsrätter/"
+rootdir = "P:/2020/14/Tingsrätter/Värmland"
 output_path = "P:/2020/14/Kodning/court_docs_register1.csv"
-pdf_dir = "P:/2020/14/Tingsrätter/"
+pdf_dir = "P:/2020/14/Tingsrätter/Värmland"
 #pdf_dir = "P:/2020/14/Kodning/Test-round-3/check"
 #rootdir = "P:/2020/14/Kodning/Test-round-3/check"
 
