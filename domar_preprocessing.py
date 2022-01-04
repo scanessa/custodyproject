@@ -343,8 +343,15 @@ for file in pdf_files:
             parse_obj(layout._objs)
     boldWordsAllPages = uniqueList(boldWords)  
     
+    print('BOLD WORDS')
+    print(boldWordsFirstPage)
+    
     noOfFiles += 1      
-    headerFormatted = re.split(boldWordsFirstPage[0], re.split('_{10,40}', firstPageFormatted)[0])[1]                        
+    try:
+        headerFormatted = re.split(boldWordsFirstPage[0], re.split('_{10,40}', firstPageFormatted)[0])[1]                        
+    except IndexError:
+        #When no bold words are recognized on first page
+        headerFormatted = re.split('Mål', re.split('_{10,40}', firstPageFormatted)[0])[1]                        
     headerOG = re.split('_{10,40}', firstPage)[0]
     header = headerOG.lower()    
     appendixPage = [i for i, item in enumerate(pages_text) if re.search(appendixStart, item)]
@@ -372,7 +379,6 @@ for file in pdf_files:
         rulingOnlyOG = ' '.join(''.join(re.split('(YRKANDEN)', rulingStringFormatted)[0].lower() ).split())
         rulingOnly = rulingOnlyOG.lower()
     
-    sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
     print(firstPageFormattedView)
     
     nameList = []
@@ -382,22 +388,24 @@ for file in pdf_files:
         if svarandeStringOG == "":
             svarandeStringOG = re.split(svarandeSearch, headerOG)[2] 
         elif len(kärandeStringOG.split()) < 4:
-            for i in nameSearch:
-                result = re.finditer(nameSearch[i], headerFormatted)
-                for n in result:
-                    if n.group(0) and not any([x in n.group(0).lower() for x in lawyerKey]):
-                        nameList.append(n.group(0))    
+            sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
+            sectionsFirstPage = list(filter(None, sectionsFirstPage))
+            print('SECTIONS FIRST PAGE')
+            print(sectionsFirstPage)
+            kärandeStringOG = ' '.join(sectionsFirstPage[0].split('\n'))
+            svarandeStringOG = ' '.join(sectionsFirstPage[1].split('\n'))
     except IndexError:
         try:
             svarandeStringOG = re.split('_{10,40}', (re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[1]))[0]
             kärandeStringOG = re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[0]
         except IndexError:
             try:
-                for i in nameSearch:
-                    result = re.finditer(nameSearch[i], headerFormatted)
-                    for n in result:
-                        if n.group(0) and not any([x in n.group(0).lower() for x in lawyerKey]):
-                            nameList.append(n.group(0))
+                sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
+                sectionsFirstPage = list(filter(None, sectionsFirstPage))
+                print('SECTIONS FIRST PAGE')
+                print(sectionsFirstPage)
+                kärandeStringOG = ' '.join(sectionsFirstPage[0].split('\n'))
+                svarandeStringOG = ' '.join(sectionsFirstPage[1].split('\n'))
             except IndexError:
                 svarandeStringOG = 'not found'
                 kärandeStringOG = 'not found'
@@ -681,12 +689,6 @@ for file in pdf_files:
             dummyOut = 999
             print("out17")
         
-        #Divorce dummy
-        if dummyOut == 0 and 'äktenskapsskill' in rulingOnly: #potentially also include mellan
-            dummyDivorce = 1
-        else:
-            dummyDivorce = 0
-                        
         #Visitation rights  
         for term in childTerms:
             for key in umgangeKey:
@@ -879,6 +881,15 @@ for file in pdf_files:
             else:
                 dummyMainHear = 0
                 continue
+        
+        #Divorce dummy
+        if dummyOut == 0 and 'äktenskapsskill' in rulingOnly: #potentially also include mellan
+            dummyDivorce = 1
+            dummyVisit = 0
+            dummyPhys = 0
+        else:
+            dummyDivorce = 0
+               
                         
         #Name of judge
         try:
