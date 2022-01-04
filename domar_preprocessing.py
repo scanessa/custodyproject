@@ -192,8 +192,9 @@ print(pdf_files)
 noOfFiles = 0
 noUnreadable = 0
 countries = ['saknas', 'okänd', 'adress', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'sverige', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
-
 emptyString = ''
+judgeNamesDict = {
+    }
                 
 #Define search terms
 svarandeSearch = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE '
@@ -280,7 +281,7 @@ remindKey = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå']
 footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
 
 #Intiialize lists and dictionary to fill
-data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Divorce_only': [] ,'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Defendant_address_secret': [], 'Plaintiff_address_secret':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'agreement_legalcustody':[], 'agreement_any':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'SeparationYear': [], 'Domare':[], "Page Count": [], 'Rättelse': [], 'Flag': [],"File Path": []}
+data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Divorce_only': [] , 'Joint_Application_Custody': [],'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Defendant_address_secret': [], 'Plaintiff_address_secret':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'agreement_legalcustody':[], 'agreement_any':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'SeparationYear': [], 'Domare':[], "Page Count": [], 'Rättelse': [], 'Flag': [],"File Path": []}
 
 #Loop over files and extract data
 for file in pdf_files:
@@ -379,9 +380,9 @@ for file in pdf_files:
         rulingOnlyOG = ' '.join(''.join(re.split('(YRKANDEN)', rulingStringFormatted)[0].lower() ).split())
         rulingOnly = rulingOnlyOG.lower()
     
-    print(firstPageFormattedView)
-    
+    #Get plaintiff and defendant strings    
     nameList = []
+    strangePartyLabel = 0
     try:
         svarandeStringOG = re.split(svarandeSearch, headerOG)[1] 
         kärandeStringOG = re.split('Kärande|KÄRANDE', (re.split(svarandeSearch, headerOG)[0]))[1]
@@ -390,11 +391,11 @@ for file in pdf_files:
         elif len(kärandeStringOG.split()) < 4:
             sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
             sectionsFirstPage = list(filter(None, sectionsFirstPage))
-            print('SECTIONS FIRST PAGE')
-            print(sectionsFirstPage)
             kärandeStringOG = ' '.join(sectionsFirstPage[0].split('\n'))
             svarandeStringOG = ' '.join(sectionsFirstPage[1].split('\n'))
+            strangePartyLabel = 1
     except IndexError:
+        strangePartyLabel = 1
         try:
             svarandeStringOG = re.split('_{10,40}', (re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[1]))[0]
             kärandeStringOG = re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[0]
@@ -402,8 +403,6 @@ for file in pdf_files:
             try:
                 sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
                 sectionsFirstPage = list(filter(None, sectionsFirstPage))
-                print('SECTIONS FIRST PAGE')
-                print(sectionsFirstPage)
                 kärandeStringOG = ' '.join(sectionsFirstPage[0].split('\n'))
                 svarandeStringOG = ' '.join(sectionsFirstPage[1].split('\n'))
             except IndexError:
@@ -475,7 +474,7 @@ for file in pdf_files:
             dummyDel = 1
         else:
             dummyDel = 0
-        
+            
         #Plaintiff
         plaintNameFull = kärandeStringOG.split(",")[0]
         try:
@@ -770,14 +769,22 @@ for file in pdf_files:
         #Ruling by agreement
         for termAgree in agreementKey:
             findAgree1 = findThreeWords(svNameFirst,'yrkande', termAgree, domskal)
-            if svNameFirst in findTwoWords('yrkande', termAgree, domskal) and not any([x in findAgree1 for x in agreementHelper]):
+            if svNameFirst in findTwoWords('yrkande', termAgree, domskal) and not any([x in findAgree1 for x in agreementHelper]) and 'bestr' not in findTwoWords('yrkande', termAgree, domskal):
                 print('agree1: ' + termAgree)
                 dummyAgree = 1
                 dummyUnreach = 0
                 break
             for termHelper in agreementAdd:
                 findAgree2 = findTwoWords(termAgree, termHelper, domskal)
-                if findAgree2 is not emptyString and not any([x in findAgree2 for x in agreementHelper]):
+                if 'kommit' in findAgree2 and 'överens' in findAgree2:
+                        if 'med sin' in findAgree2:
+                            dummyAgreeAny = 0
+                            continue
+                        else:
+                            dummyAgreeAny = 1
+                            dummyUnreach = 0
+                            break
+                elif findAgree2 is not emptyString and not any([x in findAgree2 for x in agreementHelper]):
                     print('agree2: '+ termAgree + termHelper)
                     dummyAgree = 1
                     dummyUnreach = 0
@@ -808,7 +815,15 @@ for file in pdf_files:
                     break
                 for termHelper in agreementAdd:
                     findAgree2 = findTwoWords(termAgree, termHelper, fullText)
-                    if findAgree2 is not emptyString:
+                    if 'kommit' in findAgree2 and 'överens' in findAgree2:
+                        if 'med sin' in findAgree2:
+                            dummyAgreeAny = 0
+                            continue
+                        else:
+                            dummyAgreeAny = 1
+                            dummyUnreach = 0
+                            break
+                    elif findAgree2 is not emptyString:
                         print('agree any 2: '+ termAgree + termHelper)
                         dummyAgreeAny = 1
                         dummyUnreach = 0
@@ -832,7 +847,13 @@ for file in pdf_files:
             dummyAgree = 0
         if dummyAgree == 1 and pageCount >= 10:
             dummyAgree = 0
-           
+        
+        #Joint application
+        if 'sökande' in firstPage and 'motpart' not in firstPage and dummyOut != 0:
+            jointApp = 1
+        else:
+            jointApp = 0
+        
         #Fast information (snabbupplysningar)
         if termLoop(socialOffice, findSentence('yttra', fullText)):
             print("snabbupply 1")
@@ -889,13 +910,16 @@ for file in pdf_files:
             dummyPhys = 0
         else:
             dummyDivorce = 0
-               
                         
         #Name of judge
         try:
             judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
+            judgeName = judgeName.lower()
+            judgeName = judgeName.strip()
+            
         except:
             judgeName = 'Not found'
+        
             
         #Flag cases
         flag = []
@@ -917,6 +941,8 @@ for file in pdf_files:
             flag.append('utfall')
         if svGodMan == 1 and not findTwoWords(svNameFirst, 'genom', findTwoWords('sin', 'gode man', fullText)):
             flag.append('Sv okontaktbar')
+        if strangePartyLabel == 1:
+            flag.append('party_labelling')
 
         print('Family names:')
         print("Child first name: "+childNameFirst)
@@ -931,11 +957,12 @@ for file in pdf_files:
         data["Page Count"].append(pageCount)
         data['Rättelse'].append(dummyRat)
         data['Målnr'].append(caseNo)
-        data['Domare'].append(judgeName.lower())
+        data['Domare'].append(judgeName)
         data["Tingsrätt"].append(courtName)
         data['År avslutat'].append(date)
         data['Deldom'].append(dummyDel)
         data['Divorce_only'].append(dummyDivorce)
+        data['Joint_Application_Custody'].append(jointApp)
         data['Kärande förälder'].append(plaintNo) 
         data['Svarande förälder'].append(svNo)   
         data['Defendant_address_secret'].append(dummyDefSecret)  
