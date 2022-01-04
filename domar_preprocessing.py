@@ -31,11 +31,13 @@ from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
 from pdfminer.converter import PDFPageAggregator
 
+
 #Define Paths
 pdf_dir = "P:/2020/14/Kodning/Test-round-3/check"
 output_path = 'P:/2020/14/Kodning/Test-round-4/custody_data_test4.csv'
 
 #Define key functions
+
 #PDF characteristics
 def createPDFDoc(fpath):
     fp = open(fpath, 'rb')
@@ -77,7 +79,13 @@ def uniqueList(seq):
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
 
-#Text Search
+def split(txt, seps):
+    default_sep = seps[0]
+    for sep in seps[1:]:
+        txt = txt.replace(sep, default_sep)
+    return [i.strip() for i in txt.split(default_sep)]
+
+#Text search
 def findSentence(string, part):
     sentenceRes = [sentence + '.' for sentence in part.split('.') if string in sentence]
     sentenceString = ''.join(sentenceRes)
@@ -201,6 +209,7 @@ word = '(\w+ )+'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
 lowerLetters = '[a-zåäïüóöéæøßþîčćžđšžůúýëçâêè]'
 allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäïüóöéæøßþîčćžđšžůúýëçâêè]'
+anyLetters = '[A-ZÅÐÄÖÉÜÆØÞa-zåäïüóöéæøßþîčćžđšžůúýëçâêè]'
 
 dateSearch = {
     '1' : 'dom\s+(\d*-\d*-\d*)',
@@ -243,6 +252,15 @@ judgeSearch = {
     '25': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+).\s*\n' #name with initial as second name
     }
 
+nameSearch = {
+    '1': '\n((' + allLetters + '+\s+){1,3}' + allLetters + '+)', #normal names
+    '2': '\n(' + allLetters + '+-' + allLetters + '+\s' + allLetters + '+)', #first name hyphenated
+    '3': '\n(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+)', #last name hypthenated
+    '4': '\n(' + allLetters + '+-' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+)', #first and last name hyphenated
+    '5': '\n(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+)', #name with initial as second name
+    '6': '\n(' + capLetters + '+\s' + allLetters + '+\s' + allLetters + '+)', #preferred name capitalized, first
+    }
+
 #Define keys for simple word search
 fastInfoKey = ['snabbupplysning', 'upplysning', 'snabbyttrande']
 corpTalksKey = ['samarbetssamtal','medlingssamtal','medling', 'medlare']
@@ -259,7 +277,7 @@ separationKey = ['separera', 'relationen tog slut', 'förhållandet tog slut', '
 rejectKey = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ']  
 excludePhysical = ['jämna' , 'växelvis', 'skyddat']
 remindKey = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå']
-footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'parter', 'dom']
+footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
 
 #Intiialize lists and dictionary to fill
 data = {'Barn':[], 'Målnr':[], 'Tingsrätt':[], 'År avslutat':[], 'Deldom':[], 'Divorce_only': [] ,'Kärande förälder':[], 'Svarande förälder':[], 'Kär advokat':[], 'Sv advokat':[], 'Defendant_address_secret': [], 'Plaintiff_address_secret':[], 'Sv utlandet':[], 'Sv okontaktbar':[], 'Utfall':[], 'Umgänge':[], 'Stadigvarande boende':[], 'Underhåll':[], 'agreement_legalcustody':[], 'agreement_any':[], 'Snabbupplysning':[], 'Samarbetssamtal':[], 'Utredning':[], 'Huvudförhandling':[], 'SeparationYear': [], 'Domare':[], "Page Count": [], 'Rättelse': [], 'Flag': [],"File Path": []}
@@ -309,7 +327,24 @@ for file in pdf_files:
 
     splitTextOG = re.split('_{10,40}', fullTextOG)
         
-    noOfFiles += 1                                                      
+    #Get headings in bold
+    print(firstPageFormattedView)
+    boldWords = []
+    document=createPDFDoc(file)
+    device,interpreter=createDeviceInterpreter()
+    pages=PDFPage.create_pages(document)
+    for i, page in enumerate(PDFPage.create_pages(document)): 
+        interpreter.process_page(page)
+        layout = device.get_result()
+        if i == 0:
+            parse_obj(layout._objs)
+            boldWordsFirstPage = uniqueList(boldWords)
+        else:
+            parse_obj(layout._objs)
+    boldWordsAllPages = uniqueList(boldWords)  
+    
+    noOfFiles += 1      
+    headerFormatted = re.split(boldWordsFirstPage[0], re.split('_{10,40}', firstPageFormatted)[0])[1]                        
     headerOG = re.split('_{10,40}', firstPage)[0]
     header = headerOG.lower()    
     appendixPage = [i for i, item in enumerate(pages_text) if re.search(appendixStart, item)]
@@ -337,41 +372,32 @@ for file in pdf_files:
         rulingOnlyOG = ' '.join(''.join(re.split('(YRKANDEN)', rulingStringFormatted)[0].lower() ).split())
         rulingOnly = rulingOnlyOG.lower()
     
-    #Get the plaintiff and defendant parts
+    sectionsFirstPage = split(headerFormatted, boldWordsFirstPage)
     print(firstPageFormattedView)
-    boldWords = []
-    document=createPDFDoc(file)
-    device,interpreter=createDeviceInterpreter()
-    pages=PDFPage.create_pages(document)
-    for i, page in enumerate(PDFPage.create_pages(document)): 
-        interpreter.process_page(page)
-        layout = device.get_result()
-        if i == 0:
-            parse_obj(layout._objs)
-            boldWordsFirstPage = uniqueList(boldWords)
-        else:
-            parse_obj(layout._objs)
-    boldWordsAllPages = uniqueList(boldWords)     
     
+    nameList = []
     try:
         svarandeStringOG = re.split(svarandeSearch, headerOG)[1] 
         kärandeStringOG = re.split('Kärande|KÄRANDE', (re.split(svarandeSearch, headerOG)[0]))[1]
         if svarandeStringOG == "":
             svarandeStringOG = re.split(svarandeSearch, headerOG)[2] 
         elif len(kärandeStringOG.split()) < 4:
-            svarandeStringOG = re.split("(?i)SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", headerOG)[1]
-            kärandeStringOG = re.split('(?i)KÄRANDE och SVARANDE|KÄRANDE OCH GENSVARANDE', (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", headerOG)[0]))[1]
+            for i in nameSearch:
+                result = re.finditer(nameSearch[i], headerFormatted)
+                for n in result:
+                    if n.group(0) and not any([x in n.group(0).lower() for x in lawyerKey]):
+                        nameList.append(n.group(0))    
     except IndexError:
         try:
             svarandeStringOG = re.split('_{10,40}', (re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[1]))[0]
             kärandeStringOG = re.split('2[.]\s*', (re.split('1[.]\s*', (re.split('PARTER|Parter', headerOG)[1]))[1]))[0]
         except IndexError:
             try:
-                for word in boldWordsFirstPage:
-                    print(word)
-                    a = re.compile(word + allLetters)
-                    b = a.search(firstPageFormatted)
-                    print(b)
+                for i in nameSearch:
+                    result = re.finditer(nameSearch[i], headerFormatted)
+                    for n in result:
+                        if n.group(0) and not any([x in n.group(0).lower() for x in lawyerKey]):
+                            nameList.append(n.group(0))
             except IndexError:
                 svarandeStringOG = 'not found'
                 kärandeStringOG = 'not found'
