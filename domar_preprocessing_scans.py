@@ -4,18 +4,11 @@ Created on Mon Oct 18 17:50:55 2021
 
 @author: ifau-SteCa
 
-
 Purpose of the code is to read in all pdfs from a specified folder path, extract information (child ID, case ID, etc.),
 save the extracted info as a dictionary and output it as a dataframe/csv file
 
 Note: For uncertain cases a variable is set to 999 (eg. if it is not clear whether the plaintiff or defendant was granted physical custody, Stadigvarande boende = 999)
 
-Outcome overview:
-    1: joint
-    2: sole with plaintiff (karande)
-    3: sole with defendant (svarande)
-    4: dismissed
-    
 """
 
 import re, shutil, glob, io, pdfminer, pandas as pd
@@ -49,7 +42,7 @@ def filereader_params():
         rsrcmgr = PDFResourceManager()
         retstr = io.StringIO()
         codec = 'utf-8-sig'
-        laparams = LAParams(line_margin=3)
+        laparams = LAParams(line_margin=0.2,word_margin = 0.1)
         device1 = PDFPageAggregator(rsrcmgr, laparams=laparams)
         device2 = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
         interpreter1 = PDFPageInterpreter(rsrcmgr, device1)
@@ -196,7 +189,7 @@ noUnreadable = 0
 nameCaps = '[A-ZÅÄÖ]{3,}'
 idNo ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
 appendixStart = '((?<!se )Bilaga [1-9]|(?<!se )Bilaga A|sida\s+1\s+av)'
-searchCaseNo = 'mål\s*(nr)?[.]?\s*t\s*(\d*.?.?\d*)'
+searchCaseNo = 'm(å|ä|â|a)l\s*(nr)?[.]?\s*t\s*(\d*.?.?\d*)'
 word = '(\w+ )+'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
 allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäïüóöéæøßþîčćžđšžůúýëçâêè]'
@@ -305,7 +298,14 @@ for file in pdf_files:
         firstPageFormatted = pages_text_formatted[0]
         dummyRat = 0
     
+    
+    
+    
     print('Text: \n', (firstPageFormatted).split("."))
+    
+    
+    
+    
     
     #Get headings in bold
     boldWords = []
@@ -319,13 +319,21 @@ for file in pdf_files:
             parse_obj(layout._objs)
     boldWordsAllPages = uniqueList(boldWords)  
     
+    
+    
+    
+    
     print('Bold Words: \n', boldWordsFirstPage)
+    
+    
+    
+    
     
     #Get header
     try:
         headerFormatted = re.split(boldWordsFirstPage[0], re.split('_{10,40}', firstPageFormatted)[0])[1]                        
     except IndexError:
-        headerFormatted = re.split('Mål', re.split('_{10,40}', firstPageFormatted)[0])[1]                        
+        headerFormatted = re.split('PARTER', re.split('DOMSLUT}', firstPageFormatted)[0])[1]                        
     headerOG = re.split('_{10,40}', firstPage)[0]
     header = headerOG.lower()    
     
@@ -341,6 +349,15 @@ for file in pdf_files:
     #Full text
     fullTextOG = (re.split(appendixStart, fullTextOG)[0])  
     fullText = fullTextOG.lower()
+    
+    
+    
+    
+    print('Full text:\n', fullTextOG)
+    
+    
+    
+    
     
     #Get ruling
     try:
@@ -386,13 +403,13 @@ for file in pdf_files:
     
     #List of children's numbers
     childNoRes = []
-    childNo = set(re.findall('\d{6,8}\s?-\s?\d{4}', rulingOnly))   
+    childNo = set(re.findall('(\d\s*){6,8}-\s?\d{4}', rulingOnly))   
     for i in childNo:
-        mistakeChilNos = searchKey("\A197|\A198|\A5|\A6|\A7|\A8", i, 0)
+        mistakeChilNos = searchKey("\A197|\A196|\A5|\A4|\A6|\A7", i, 0)
         if mistakeChilNos is None: 
             childNoRes.append(i)  
     if not childNoRes:
-        childNoRes = ['not found']    
+        childNoRes = ['not found']
     
     #Loop to create dictionary with one row per child
     for i in childNoRes:   
@@ -419,7 +436,7 @@ for file in pdf_files:
         childNameFirst = childNameFirst.lower()
         
         #Variables that are constant for all children in court doc       
-        caseNo = ''.join((searchKey(searchCaseNo, header, 2)).split())
+        caseNo = ''.join((searchKey(searchCaseNo, header, 3)).split())
         date = searchLoop(dateSearch, header, 1)     
         courtName = searchLoop(courtSearch, fullTextOG, 0).lower()
         dummyDel = 1 if 'deldom' in header else 0
@@ -768,6 +785,7 @@ for file in pdf_files:
         print("Plaint first name: "+plaintNameFirst)
         print('Defendant adress: '+ cityString)
         print('Defendant city string: ' + cityString)
+        print('Text:\n', fullTextOG)
         print('\n')
         
 
