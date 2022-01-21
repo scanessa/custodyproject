@@ -34,8 +34,8 @@ import time
 start_time = time.time()
 
 #Define Paths
-pdf_dir = 'P:/2020/14/Tingsrätter/Stockholms/Domar/Leverans/Scanned_at_court'
-output_path = 'P:/2020/14/Kodning/Test-round-4/custody_data_test4.csv'
+pdf_dir = 'P:/2020/14/Kodning/Test-round-3/check/'
+output_path = 'P:/2020/14/Kodning/custody_data_errorfiles.csv'
 
 #Define key functions
 #PDF characteristics
@@ -108,10 +108,11 @@ def searchKey(string, part, g):
         searchResult = None
     return searchResult
         
-def searchLoop(searchDict, part, g):
+def searchLoop(searchDict, part, g, excludeTerms):
     for i in searchDict:
         result = searchKey(searchDict[i], part, g)
-        if result is None:
+        print('result: ', i, result)
+        if result is None or any([x in result.lower() for x in excludeTerms]):
             continue
         else: 
             break
@@ -171,7 +172,7 @@ def party_strings():
     return kärandeStringOG, svarandeStringOG, strangePartyLabel
 
 """
-with open('P:/2020/14/Kodning/all_files/filepaths.txt','r') as f:
+with open('P:/2020/14/Kodning/all_files/filepaths1.txt','r') as f:
     pdf_files = f.read().splitlines() 
 """
 """
@@ -269,7 +270,7 @@ data = {'child_id':[], 'case_no':[], 'court':[], 'date':[], 'deldom':[], 'divorc
 #Loop over files and extract data
 for file in pdf_files:
     #try:
-        
+
     #Read in PDF
     print("\nCurrently reading: ", file)
     pages_text, pages_text_formatted, nameList = [],[],[]
@@ -292,22 +293,21 @@ for file in pdf_files:
     #Convert full text to clean string
     firstPage = pages_text[0]
     firstPageFormattedView = (pages_text_formatted[0]).split(".")
-    
     if "Rättelse" in firstPage:
         fullTextOG = ''.join(pages_text[1:])
         firstPage = ''.join(pages_text[1])
-        fullTextFormatted = ''.join(pages_text_formatted[1:])
+        fullTextFormatted = pages_text_formatted[1:]
         firstPageFormatted = pages_text_formatted[1]
         dummyRat = 1
+        fullTextFormattedJoined = '.'.join(pages_text_formatted)
     else:
         fullTextOG = ''.join(pages_text)
-        fullTextFormatted = '.'.join(pages_text_formatted)
+        fullTextFormattedJoined = '.'.join(pages_text_formatted)
         firstPageFormatted = pages_text_formatted[0]
         dummyRat = 0
-    
-    print('Text: \n', (firstPageFormatted).split("."))
-    
-    #Get headings in bold
+        fullTextFormatted = pages_text_formatted[0:]
+
+    #Get headings in bold / note: takes a lot of computing time
     boldWords = []
     for i, page in enumerate(PDFPage.create_pages(document)): 
         interpreter1.process_page(page)
@@ -319,8 +319,6 @@ for file in pdf_files:
             parse_obj(layout._objs)
     boldWordsAllPages = uniqueList(boldWords)  
     
-    print('Bold Words: \n', boldWordsFirstPage)
-    
     #Get header
     try:
         headerFormatted = re.split(boldWordsFirstPage[0], re.split('_{10,40}', firstPageFormatted)[0])[1]                        
@@ -328,25 +326,45 @@ for file in pdf_files:
         headerFormatted = re.split('Mål', re.split('_{10,40}', firstPageFormatted)[0])[1]                        
     headerOG = re.split('_{10,40}', firstPage)[0]
     header = headerOG.lower()    
-    
+
     #Get last page of ruling with judge name
-    appendixPage = [i for i, item in enumerate(pages_text) if re.search(appendixStart, item)]
-    if not appendixPage:
-        appendixPageNo = len(pages_text)
-    else:
-        appendixPageNo = appendixPage[0]
-    lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-3]).split("."))                      
+    for page in fullTextFormatted:
+        for m in ['\nÖVERKLAG','\nÖverklag','\nHUR MAN ÖVERKLAG','\nHur man överklag','\nHur Man Överklag']:
+            if m in page:
+                lastPageFormatted = page.split(m)[1]
+                break
+            else:
+                lastPageFormatted = ''
+                continue
+        else:
+            continue
+        break
+    if lastPageFormatted == '':
+        appendixPage = [i for i, item in enumerate(pages_text) if re.search(appendixStart, item)]
+        if not appendixPage:
+            appendixPageNo = len(pages_text)
+        else:
+            appendixPageNo = appendixPage[0]
+        if pageCount > 10: #10 is random, could be any page number, if this statement is not in the code the code will pick up random words for short rulings because then the last page is the full ruling
+            lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-3]).split("."))                      
+        else:
+            lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split("."))
+        if any([x in lastPageFormatted for x in ['ÖVERKLAG','överklag','Överklag']]):
+            pass
+        else:
+            lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-3]).split("."))                      
+
     #Print page formatted with: print((firstPageFormatted).split("."))
-    
+   
     #Full text
     fullTextOG = (re.split(appendixStart, fullTextOG)[0])  
     fullText = fullTextOG.lower()
     
     #Get ruling
     try:
-        rulingStringFormatted = ''.join(re.split('DOMSLUT', fullTextFormatted)[1:])
+        rulingStringFormatted = ''.join(re.split('DOMSLUT', fullTextFormattedJoined)[1:])
     except:
-        rulingStringFormatted = ''.join(re.split('_{10,40}\s*', fullTextFormatted)[1:])
+        rulingStringFormatted = ''.join(re.split('_{10,40}\s*', fullTextFormattedJoined)[1:])
     try:           
         rulingOnlyOG1 = re.split('\n\s*\n\s*[A-ZÅÄÖ., ]{3,}(?!DOM)\s*\n', rulingStringFormatted)[0]
         rulingOnlyOG = ' '.join(''.join(rulingOnlyOG1).split())
@@ -354,7 +372,6 @@ for file in pdf_files:
     except AttributeError:
         rulingOnlyOG = ' '.join(''.join(re.split('(YRKANDEN)', rulingStringFormatted)[0].lower() ).split())
         rulingOnly = rulingOnlyOG.lower() 
-        
     #Get domskäl or yrkanden
     try:
         domStart = re.split('DOMSKÄL', fullTextOG)[1].lower()
@@ -366,7 +383,6 @@ for file in pdf_files:
         except:
             domStart = re.split('yrkanden ', fullText)[1]
             domskal = re.split('överklag', domStart)[0]
-
     #Get plaintiff and defendant strings    
     try:
         svarandeStringOG = re.split('Svarande|SVARANDE', headerOG)[1] 
@@ -393,7 +409,6 @@ for file in pdf_files:
             childNoRes.append(i)  
     if not childNoRes:
         childNoRes = ['not found']    
-    
     #Loop to create dictionary with one row per child
     for i in childNoRes:   
         #Get child's name
@@ -420,8 +435,8 @@ for file in pdf_files:
         
         #Variables that are constant for all children in court doc       
         caseNo = ''.join((searchKey(searchCaseNo, header, 2)).split())
-        date = searchLoop(dateSearch, header, 1)     
-        courtName = searchLoop(courtSearch, fullTextOG, 0).lower()
+        date = searchLoop(dateSearch, header, 1, [])     
+        courtName = file.split('/')[4]
         dummyDel = 1 if 'deldom' in header else 0
         plaintNameFull, plaintNameFirst, plaintNo = party_id(kärandeStringOG, nameCaps, 0, idNo, kärandeString, 2)
         defNameFull, defNameFirst, defNo = party_id(svarandeStringOG, nameCaps, 0, idNo, svarandeString, 2)   
@@ -485,7 +500,6 @@ for file in pdf_files:
             else:
                 dummySeparate = '-'
                 continue
-        
         #Outcome
         try:
             findGemensam = firstOccurance([searchKey('(gemensam)[^m]',rulingOnly,1)], rulingOnly)
@@ -589,7 +603,6 @@ for file in pdf_files:
             dummyAlimon = 999                    
         else:
             dummyAlimon = 0 
-                   
         #Ruling by agreement        
         for termAgree in agreementKey:
             findAgree1 = findTerms([defNameFirst,'yrkande', termAgree], domskal)
@@ -687,7 +700,6 @@ for file in pdf_files:
             else:
                 dummyCoop = 0
                 continue
-
         #Investigation
         dummyInvest = termLoop(investigationKey, fullText)
         if dummyInvest == 0:
@@ -727,17 +739,13 @@ for file in pdf_files:
             dummyPhys = 0
         else:
             dummyDivorce = 0
-        
-        print(rulingOnly)
-                        
         #Name of judge
         try:
-            judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1)).split('\n'))[0]
+            judgeName = ((searchLoop(judgeSearch, lastPageFormatted, 1, ['telefon','telefax', 'svarande'])).split('\n'))[0]
             judgeName = judgeName.lower()
             judgeName = judgeName.strip()
         except:
             judgeName = 'Not found'
-            
         #Flag cases
         flag = []
         livingTerms = [' bo ', 'boende']
@@ -770,7 +778,7 @@ for file in pdf_files:
         print('Defendant city string: ' + cityString)
         print('\n')
         
-
+        print('Text: ', (lastPageFormatted).split(".")) #(lastPageFormatted).split(".")
         
         #Fill dataframe with search results
         i = ''.join(i.split())
@@ -805,37 +813,39 @@ for file in pdf_files:
         data['separation_year'].append(dummySeparate)
         data['mainhearing'].append(dummyMainHear)
         data['flag'].append(flag)
-        
 """
     except:
-        data['Barn'].append('error')
-        data["File Path"].append(file)
-        data["Page Count"].append('error')
-        data['Rättelse'].append('error')
-        data['Målnr'].append('error')
-        data['Domare'].append('error')
-        data["Tingsrätt"].append('error')
-        data['År avslutat'].append('error')
-        data['Deldom'].append('error')
-        data['Divorce_only'].append('error')
-        data['Kärande förälder'].append('error') 
-        data['Svarande förälder'].append('error')   
-        data['Kär advokat'].append('error')
-        data['Sv advokat'].append('error')
-        data['Sv utlandet'].append('error')
-        data['Sv okontaktbar'].append('error')
-        data['Utfall'].append('error')   
-        data['Umgänge'].append('error')
-        data['Stadigvarande boende'].append('error')
-        data['Underhåll'].append('error')                
+        data['child_id'].append('error')
+        data['file_path'].append(file)
+        data['page_count'].append('error')
+        data['correction_firstpage'].append('error')
+        data['case_no'].append('error')
+        data['judge'].append('error')
+        data['court'].append('error')
+        data['date'].append('error')
+        data['deldom'].append('error')
+        data['divorce_only'].append('error')
+        data['joint_application_custody'].append('error')
+        data['plaintiff_id'].append('error') 
+        data['defendant_id'].append('error')   
+        data['defendant_address_secret'].append('error')  
+        data['plaintiff_address_secret'].append('error')  
+        data['plaintiff_lawyer'].append('error')
+        data['defendant_lawyer'].append('error')
+        data['defendant_abroad'].append('error')
+        data['defendant_unreachable'].append('error')
+        data['outcome'].append('error')   
+        data['visitation'].append('error')
+        data['physical_custody'].append('error')
+        data['alimony'].append('error')                
         data['agreement_legalcustody'].append('error')    
         data['agreement_any'].append('error')  
-        data['Snabbupplysning'].append('error')          
-        data['Samarbetssamtal'].append('error')
-        data['Utredning'].append('error')
-        data['SeparationYear'].append('error')
-        data['Huvudförhandling'].append('error')
-        data['Flag'].append('error')
+        data['fastinfo'].append('error')          
+        data['cooperation_talks'].append('error')
+        data['investigation'].append('error')
+        data['separation_year'].append('error')
+        data['mainhearing'].append('error')
+        data['flag'].append('error')
 """        
 #Dataframe created from dictionary
 df = pd.DataFrame(data)
