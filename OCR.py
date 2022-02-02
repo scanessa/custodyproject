@@ -7,7 +7,7 @@ from PIL import Image
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-pdf_dir = 'P:/2020/14/Kodning/Test-round-3/check/'
+pdf_dir = 'P:/2020/14/Kodning/Test-round-4/check4/subcheck'
 #P:/2020/14/Kodning/Test-round-3/check/  
 #P:/2020/14/Kodning/Test_scanned_docs_phone_app/Scanned_from_courts/Photos/New_pictures/
 
