@@ -18,7 +18,7 @@ Outcome overview:
     
 """
 
-import re, glob, io, pdfminer, pandas as pd
+import re, glob, io, pandas as pd
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -153,11 +153,6 @@ def childNos(part, caseyear):
         if age < 18: 
             result.append(i)
     return result
-
-"""
-with open('P:/2020/14/Kodning/all_files/filepaths1.txt','r') as f:
-    pdf_files = f.read().splitlines() 
-"""
 
 #Read in PDFs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -412,6 +407,40 @@ for file in pdf_files:
         #Variables that are constant for all children in court doc
         date = searchLoop(dateSearch, header, 1, [])    
         year = date[:4]
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         #List of children's numbers
         childNoRes = childNos(rulingOnly, year)  
