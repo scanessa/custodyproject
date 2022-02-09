@@ -45,13 +45,23 @@ from pdfminer.converter import TextConverter
 from pdfminer.converter import PDFPageAggregator
 
 #Define Paths
-rootdir = "P:/2020/14/Kodning/Test-round-4/check4/subcheck"
+#Stockholms Örebro Östersunds Södertälje Södertörns Sundsvalls Uddevalla Uppsala Umeå Vänersborgs Varberg Värmland Västmanlands Växjö Ångermanlands Ystads
+rootdir = "P:/2020/14/Tingsrätter/"
 output_register = "P:/2020/14/Kodning/Data/case_register_data.csv"
 output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
 #Specify folders to search PDFs in
-exclude = set(["notdone", 'done'])
-includes = 'subcheck'  #change back to all cases to loop over all files
-save = 0
+exclude = set(["Case_Sorting_SC","Alingsås",	
+               "Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	
+               "Falu",	"Gotlands",	"Gällivare",	"Gävle",	"Göteborgs",	"Halmstads",	
+               "Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholms",	"Jönköping",	
+               "Kalmar",	"Kristianstad",	"Linköpings",	"Luleå",	"Lunds",	"Lycksele",	
+               "Malmö",	"Mora",	"Nacka",	"Norrköpings",	"Norrtälje",	"Nyköping",	
+               "Skaraborgs",	"Skellefteå",	"Solna"
+
+               ])
+includes = 'all_cases'  #change back to all cases to loop over all files
+save = 1
+
 
 #Define key functions
 def filereader_params():
@@ -239,6 +249,7 @@ allOutcomes = ["vård", "umgänge", "boende"]
 umgangeKey = ['umgänge', 'umgås']
 separationKey = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 countries = ['saknas', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
+cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'bollnäs', 'borgholm', 'borlänge', 'borås', 'djursholm', 'eksjö', 'enköping', 'eskilstuna', 'eslöv', 'fagersta', 'falkenberg', 'falköping', 'falsterbo', 'falun', 'filipstad', 'flen', 'gothenburg', 'gränna', 'gävle', 'hagfors', 'halmstad', 'haparanda', 'hedemora', 'helsingborg', 'hjo', 'hudiksvall', 'huskvarna', 'härnösand', 'hässleholm', 'höganäs', 'jönköping', 'kalmar', 'karlshamn', 'karlskoga', 'karlskrona', 'karlstad', 'katrineholm', 'kiruna', 'kramfors', 'kristianstad', 'kristinehamn', 'kumla', 'kungsbacka', 'kungälv', 'köping', 'laholm', 'landskrona', 'lidingö', 'lidköping', 'lindesberg', 'linköping', 'ljungby', 'ludvika', 'luleå', 'lund', 'lycksele', 'lysekil', 'malmö', 'mariefred', 'mariestad', 'marstrand', 'mjölby', 'motala', 'nacka', 'nora', 'norrköping', 'norrtälje', 'nybro', 'nyköping', 'nynäshamn', 'nässjö', 'oskarshamn', 'oxelösund', 'piteå', 'ronneby', 'sala', 'sandviken', 'sigtuna', 'simrishamn', 'skanör', 'skanör med falsterbo', 'skara', 'skellefteå', 'skänninge', 'skövde', 'sollefteå', 'solna', 'stockholm', 'strängnäs', 'strömstad', 'sundbyberg', 'sundsvall', 'säffle', 'säter', 'sävsjö', 'söderhamn', 'söderköping', 'södertälje', 'sölvesborg', 'tidaholm', 'torshälla', 'tranås', 'trelleborg', 'trollhättan', 'trosa', 'uddevalla', 'ulricehamn', 'umeå', 'uppsala', 'vadstena', 'varberg', 'vaxholm', 'vetlanda', 'vimmerby', 'visby', 'vänersborg', 'värnamo', 'västervik', 'västerås', 'växjö', 'ystad', 'åmål', 'ängelholm', 'örebro', 'öregrund', 'örnsköldsvik', 'östersund', 'östhammar']
 excludePhysical = ['jämna' , 'växelvis', 'skyddat']
 rejectKey = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga '] 
 rejectInvest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
@@ -352,9 +363,6 @@ for file in pdf_files:
                 if m in page:
                     lastPageFormatted = page
                     break
-                elif pageCount>10:
-                    lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-2]).split(".")) + '.'.join((pages_text_formatted[appendixPageNo-3]).split("."))   
-                    continue
                 else: 
                     lastPageFormatted = '.'.join((pages_text_formatted[appendixPageNo-1]).split("."))
                     continue
@@ -492,11 +500,21 @@ for file in pdf_files:
             rulingStringFormatted = ''.join(re.split('DELDOM|DOM',rulingStringFormatted))
             try:
                 rulingOnlyOG1 = re.split('\n\s*\n\s*[A-ZÅÄÖ., ]{3,}\s*\n', rulingStringFormatted)[0]
-                rulingOnlyOG1 = re.sub('\s*-\s*','-',rulingOnlyOG1)
-                rulingOnlyOG = ' '.join(''.join(rulingOnlyOG1).split())
+                if searchKey('\d\d\s*–\s*\d\d', rulingOnlyOG1, 0):
+                    rulingOnlyOG1 = re.sub('\s*–\s*','–',rulingOnlyOG1)
+                    rulingOnlyOG2 = re.sub('\s*–\n','–',rulingOnlyOG1)
+                else:
+                    rulingOnlyOG1 = re.sub('\s*-\s*','-',rulingOnlyOG1)
+                    rulingOnlyOG2 = re.sub('\s*-\n','-',rulingOnlyOG1)
+                rulingOnlyOG = ' '.join(''.join(rulingOnlyOG2).split())
             except AttributeError:
                 rulingOnlyOG = ' '.join(''.join(re.split('(YRKANDEN|Yrkanden)', rulingStringFormatted)[0].lower() ).split())
-                rulingOnlyOG = re.sub('\s*-\s*','-',rulingOnlyOG)
+                if searchKey('\d\d\s*–\s*\d\d', rulingOnlyOG1, 0):
+                    rulingOnlyOG = re.sub('\s*–\s*','–',rulingOnlyOG)
+                    rulingOnlyOG = re.sub('\s*–\n','–',rulingOnlyOG)
+                else:
+                    rulingOnlyOG = re.sub('\s*-\s*','-',rulingOnlyOG)
+                    rulingOnlyOG = re.sub('\s*-\n','-',rulingOnlyOG)
             rulingOnly = rulingOnlyOG.lower() 
         
             #Case type
@@ -551,7 +569,7 @@ for file in pdf_files:
                     domStart = re.split('DOMSKÄL|Domskäl', fullTextOG)[1]
                 except IndexError:
                     try:
-                        domStart = re.split('BEDÖMNING|Bedömning', fullTextOG)[1]
+                        domStart = re.split('BEDÖMNING|Tingsrättens bedömning', fullTextOG)[1]
                     except IndexError:
                         try:
                             domStart = re.split('Yrkanden |Parternas Begäran M.M.|Yrkande M.M.|YRKANDEN |YRKANDE M.M.|PARTERNAS BEGÄRAN ', fullTextOG)[1]
@@ -570,7 +588,6 @@ for file in pdf_files:
                         childNoRes = childNos(fullText, year) 
                         if not childNoRes:   
                             try:
-                                print('muhkuh')
                                 b = []
                                 childNames =  []
                                 a = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..', rulingOnlyOG)
@@ -597,6 +614,7 @@ for file in pdf_files:
                         #Get child's name
                         childNameKey = ('([A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞa-zåäïüóöéæøßþîčćžđšžůúýëçâêè]+)\s*[,]?\s*[(]?\s*' + i )
                         childNameFirst = searchKey(childNameKey, rulingOnlyOG, 1)
+                        print('CHILD NAME : ', childNameFirst, i)
                         if childNameFirst is not None:
                             childKey1 = re.compile("(([A-ZÅÐÄÖÉÜÆØÞ][a-zåäïüóöéæøßþîčćžđšžůúýëçâêèA-ZÅÐÄÖÉÜÆØÞ-]+\s*){1,4})"+ childNameFirst + '\s*[,]?[(]?\s*' + i)
                             childNameFull = childKey1.search(rulingOnlyOG)
@@ -626,6 +644,7 @@ for file in pdf_files:
                                 break
                             else:
                                 defOmbud = 0
+                                defAddress = svarandeString
                                 svarandeString = svarandeString.split('\nsaken ')[0] if '\nsaken ' in svarandeString else svarandeString
                                 cityString = ''.join((svarandeString.strip(' _\n')).split(' ')[-1])
                                 svGodMan = 0
@@ -633,9 +652,17 @@ for file in pdf_files:
                 
                         #Defendant abroad
                         svGodMan = 1 if 'c/o' in svarandeString else svGodMan
-                        if any([x in cityString for x in countries]) or 'okänd' in svarandeString:
+
+                        
+                        if any([x in cityString for x in cities]) and not any([x in defAddress.lower() for x in lawyerKey]):
+                            dummyAbroad = 0
+                            print('abroad 0')
+                        elif any([x in cityString for x in countries]) or 'okänd' in svarandeString:
                             dummyAbroad = 1
                             print('abroad 1')
+                        elif svGodMan ==1  and 'saknar kän' in svarandeString:
+                            dummyAbroad = 1
+                            print('abroad 1a')
                         elif cityString.isdecimal() or '@' in cityString:
                             dummyAbroad = 1
                             print('abroad 2')
@@ -647,7 +674,16 @@ for file in pdf_files:
                             print('abroad 4')
                         elif svGodMan == 1 and any([x in findTerms(['befinn', 'sig'], fullTextOG) for x in countries]):
                             dummyAbroad = 1 #didnt include defNameFirst because sv might be referred to by Han
-                            print('abroad 5')    
+                            print('abroad 5')  
+                        elif any([x in findTerms(['befinn', 'sig', 'sedan'], domskalOG) for x in countries]):
+                            dummyAbroad = 1 #didnt include defNameFirst because sv might be referred to by Han
+                            print('abroad 5b')  
+                        elif any(x in findTerms(['flytta', 'till', 'inte', 'sverige'], fullTextOG) for x in defNameFirst):
+                            dummyAbroad = 1
+                            print('abroad 5a')
+                        elif svGodMan == 1 and any([x in findTerms(['återvänt', 'till'], fullTextOG) for x in countries]):
+                            dummyAbroad = 1 
+                            print('abroad 5c')
                         elif any(x in findTerms(['försvunnen'], fullTextOG) for x in defNameFirst):
                             dummyAbroad = 1 
                             print('abroad 6')
@@ -659,7 +695,7 @@ for file in pdf_files:
                             print('abroad 8')
                         else:
                             dummyAbroad = 0
-
+                            
                         #Secret address dummy
                         dummyDefSecret = 1 if 'sekretess' in svarandeString else 0
                         dummyPlaintSecret = 1 if 'sekretess' in kärandeString else 0
@@ -690,7 +726,6 @@ for file in pdf_files:
                             else:
                                 continue
                             break
-                                
                         #Year of Separation of Unmarried Parents
                         dummySeparate = searchKey('separerade under (\d{4})', fullText, 1)
                         if not dummySeparate:
@@ -704,7 +739,9 @@ for file in pdf_files:
                         #Outcome
                         findVardn = findTerms(['vård',i], rulingOnlyOG)
                         findVardn = findTerms(['vård'], rulingOnlyOG) if not findVardn else findVardn
-                        print('FIND VARDN: ', findVardn)
+                        findVardn = findVardn.replace('gemen-sam', 'gemensam') if 'gemen-sam' in findVardn else findVardn
+                        
+                        findVardn = findVardn.strip('2. ') + ' '
                         
                         #Dismissed
                         if 'käromalet ogillas' in rulingOnly or 'käromålet ogillas' in rulingOnly or findTerms(['avslås', 'vårdn'], rulingOnlyOG) or findTerms([' lämna',' utan ',' bifall'], findVardn) or 'avskriv' in findVardn or findTerms(['lämnas utan bifall', 'talan'], rulingOnlyOG): #"lämnas utan bifall" in findVard because if I search in ruling only it picks up when umgange claims or so are dismissed
@@ -728,20 +765,21 @@ for file in pdf_files:
                                 dummyOut = 999
                             
                         #One plaint is dismissed and another installed
-                        if dummyOut == 4 and findTerms([' ensam', 'gemensam ', 'vårdn'], rulingOnlyOG):
+                        if any([ x in findTerms([' ensam', 'gemensam ', 'vårdn'], findVardn) for x in rejectKeyOutcome]):
+                            print('kuhstall')
                             newRuling = []
                             dummyOut = 999
-                            for part in re.split(',|;',findTerms([' ensam', 'gemensam', 'vård'], rulingOnlyOG)):
+                            for part in re.split(',|;',findVardn):
                                 if not any([x in part for x in rejectKeyOutcome]):
                                     newRuling.append(part)
                             findVardn = ''.join(newRuling)
                         
                         anyVardn = not any([x in findVardn for x in rejectKeyOutcome])
-                            
+                        print('FIND VARDN: ', findVardn)
+
                         #Shared custody 
                         if len(childNoRes)> 1:
-                            sharedCustody = [['ska','tillkomma','tillsammans'],[i,'ska','tillkomma', 'gemensam '], [i,'ska','om','gemensam '],[i,'gemensam ','fortsätt','ska'],[i,'alltjämt','ska','gemensam '],[i,'gemensam ','alltjämt', 'är'],[i,'gemensam ','anförtro'],['gemensamma vård',i],
-                                             [i,'ska','tillkomma', 'gemensam.'],[i,'ska','om','gemensam.'],[i,'gemensam.','fortsätt','ska'],[i,'alltjämt','ska','gemensam.'],[i,'gemensam.','alltjämt', 'är'],[i,'gemensam.','anförtro']]
+                            sharedCustody = [['ska','tillkomma','tillsammans'],[i,'ska','tillkomma', 'gemensam '], [i,'ska','om','gemensam '],[i,'gemensam ','fortsätt','ska'],[i,'alltjämt','ska','gemensam '],[i,'gemensam ','alltjämt', 'är'],[i,'gemensam ','anförtro'],['gemensamma vård',i]]
                             if dummyOut not in {0,4}: 
                                 dummyOut = outcome_search(sharedCustody, findVardn, anyVardn, 1)
                             print('Shared1: ', dummyOut)
@@ -882,7 +920,7 @@ for file in pdf_files:
                 
                         for sentence in sentences_domskal:
                             if all(any(term in sentence for term in lst) for lst in (agreementKey, agreementAdd)) and dummyOut not in {0,4}:
-                                
+    
                                 #Take this out for final code
                                 for p in agreementKey:
                                     for j in agreementAdd:
@@ -923,7 +961,7 @@ for file in pdf_files:
                             else:
                                 dummyAgreeAny = 0
                 
-                        print('DUMMYAGREE', dummyAgreeAny)
+                        print('DUMMYAGREE', dummyAgree)
                 
                 
                         #Joint application
@@ -989,8 +1027,8 @@ for file in pdf_files:
                             dummyDivorce = 0
                         
                         #Corrections
-                        dummyAgree = 0 if dummyAgree == 1 and len(domskal.split(' ')) > 500 or dummyAgree == 1 and pageCount > 10 else dummyAgree                          
-                        dummyUnreach = 0 if dummyOut == 3 or dummyMainHear == 1 else dummyUnreach
+                        dummyAgree = 0 if dummyAgree == 1 and len(domskal.split(' ')) > 750 or dummyAgree == 1 and pageCount > 15 else dummyAgree                          
+                        dummyUnreach = 0 if dummyOut == 3 or dummyMainHear == 1 and svGodMan == 0 else dummyUnreach
                         
                         #Flag cases
                         #Loose definition
@@ -1029,7 +1067,7 @@ for file in pdf_files:
                         print('Defendant city string: ', cityString)
                         print('\n')
                         
-                        #print('Text: ', (lastPageFormatted).split(".")) #(lastPageFormatted).split(".")
+                        print('Text: ', rulingOnlyOG) #(lastPageFormatted).split(".")
                         print('\n')
                         
                         #Fill dataframe with search results
