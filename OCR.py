@@ -1,15 +1,12 @@
 import cv2, pytesseract, os, glob
-import numpy as np
 from pdf2image import convert_from_path
-from matplotlib import pyplot as plt
-from PIL import Image                                                                                
+import numpy as np
 
+os.chdir('P:/2020/14/Kodning/Scans')
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-pdf_dir = 'P:/2020/14/Kodning/Test-round-4/check4/subcheck'
-#P:/2020/14/Kodning/Test-round-3/check/  
-#P:/2020/14/Kodning/Test_scanned_docs_phone_app/Scanned_from_courts/Photos/New_pictures/
+pdf_dir = 'P:/2020/14/Kodning/Scans'
 
 #Read in pdfs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -28,31 +25,46 @@ def pdf_to_jpg(pdf):
     return img_files
 
 #OCR
+def preprocess(img_path):
+    image = cv2.imread(img_path)
+    gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.bitwise_not(gray1)
+    thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    coords = np.column_stack(np.where(thresh > 0))
+    angle = cv2.minAreaRect(coords)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+    	angle = -angle
+    (h, w) = image.shape[:2]
+    center = (w // 2, h // 2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(image, M, (w, h),flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+    return rotated
+    
+
 def jpg_to_string(path):
     string_list = []
     for image in path:
         img = cv2.imread(image)
-        
-        """
-        #Image preprocessing
-        kernel = np.ones((5,5),np.uint8)
-        inverted = cv2.bitwise_not(img)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        thresh, im_bw = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
-        erosion = cv2.erode(inverted,kernel,iterations = 1)
-        
-        #Preview image
-        cv2.imwrite('processed_img.jpg', im_bw)
-        img_prev = Image.open('processed_img.jpg')
-        img_prev.show() 
-        """
         custom_config = r'--oem 3 --psm 6'
         img_string = pytesseract.image_to_string(img, config=custom_config, lang='swe')
         string_list.append(img_string) 
     return string_list
 
+def display(_original):
+    print(_original)
+    og = cv2.imread(_original)
+    cv2.imwrite('P:/2020/14/Kodning/Scans/original.jpg', og)
+    cv2.imwrite('P:/2020/14/Kodning/Scans/new.jpg', preprocess(_original))
+
+display(r"P:/2020/14/Kodning/Scans/sample.png")
+
 #Execute
+"""
 for pdf_file in pdf_files:
+    print('Currently reading with OCR: ', pdf_file)
     jpg_paths = pdf_to_jpg(pdf_file)
     full_text = jpg_to_string(jpg_paths)
     print(full_text)
+"""

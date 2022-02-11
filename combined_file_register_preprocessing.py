@@ -13,7 +13,7 @@ Categories for case type:
     1216 A - Vårdnad\domar; custody battles of non-divorcing parents
     1216 B - Vårdnad\domar där socialfärvaltning är kärande eller svarande; legal guardian cases
 
-Courts: "Alingsås",	"Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	"Falu",	"Gotland",	"Gällivare",	"Gävle",	"Göteborg",	"Halmstad",	"Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholm",	"Jönköping",	"Kalmar",	"Kristianstad",	"Linköping",	"Luleå",	"Lund",	"Lycksele",	"Malmö",	"Mora",	"Nacka",	"Norrköping",	"Norrtälje",	"Nyköping",	"Skaraborg",	"Skellefteå",	"Solna",	"Stockholm",	"Sundsvall",	"Södertälje",	"Södertörn",	"Uddevalla",	"Umeå",	"Uppsala",	"Varberg",	"Vänersborg",	"Värmland",	"Västmanland",	"Växjö",	"Ystad",	"Ångermanland",	"Örebro",	"Östersund",
+Courts: "Alingsås",	"Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	"Falu",	"Gotlands",	"Gällivare",	"Gävle",	"Göteborgs",	"Halmstads",	"Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholms",	"Jönköping",	"Kalmar",	"Kristianstad",	"Linköpings",	"Luleå",	"Lunds",	"Lycksele",	"Malmö",	"Mora",	"Nacka",	"Norrköpings",	"Norrtälje",	"Nyköping",	"Skaraborgs",	"Skellefteå",	"Solna",	"Stockholms",	"Sundsvalls",	"Södertälje",	"Södertörns",	"Uddevalla",	"Umeå",	"Uppsala",	"Varberg",	"Vänersborg",	"Värmland",	"Västmanland",	"Växjö",	"Ystad",	"Ångermanland",	"Örebro",	"Östersund",
 
 Paths for full sample:
 rootdir = "P:/2020/14/Tingsrätter/"
@@ -45,23 +45,13 @@ from pdfminer.converter import TextConverter
 from pdfminer.converter import PDFPageAggregator
 
 #Define Paths
-#Stockholms Örebro Östersunds Södertälje Södertörns Sundsvalls Uddevalla Uppsala Umeå Vänersborgs Varberg Värmland Västmanlands Växjö Ångermanlands Ystads
 rootdir = "P:/2020/14/Tingsrätter/"
 output_register = "P:/2020/14/Kodning/Data/case_register_data.csv"
 output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
 #Specify folders to search PDFs in
-exclude = set(["Case_Sorting_SC","Alingsås",	
-               "Attunda",	"Blekinge",	"Borås",	"Eksjö",	"Eskilstuna",	
-               "Falu",	"Gotlands",	"Gällivare",	"Gävle",	"Göteborgs",	"Halmstads",	
-               "Haparanda",	"Helsingborg",	"Hudiksvall",	"Hässleholms",	"Jönköping",	
-               "Kalmar",	"Kristianstad",	"Linköpings",	"Luleå",	"Lunds",	"Lycksele",	
-               "Malmö",	"Mora",	"Nacka",	"Norrköpings",	"Norrtälje",	"Nyköping",	
-               "Skaraborgs",	"Skellefteå",	"Solna"
-
-               ])
-includes = 'all_cases'  #change back to all cases to loop over all files
+exclude = set(["Örebro", 'Umeå', 'Uppsala', 'Värmland', 'Västmanlands', 'Växjö'])
+includes = 'all_scans'  #change back to all cases to loop over all files
 save = 1
-
 
 #Define key functions
 def filereader_params():
@@ -350,7 +340,6 @@ for file in pdf_files:
                     headerFormatted = ''.join(firstPageFormatted)
         headerOG = re.split('_{10,40}', firstPage)[0]
         header = headerOG.lower()  
-        print('HEADER FORMATTED: ',headerFormatted.split('.'))
 
         try:
             topwords = ' '.join(firstPage.split()[0:20].lower())
@@ -378,34 +367,34 @@ for file in pdf_files:
         try:
             svarandeStringOG = re.split('Svarande|SVARANDE', headerFormatted)[1] 
             kärandeStringOG = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', headerFormatted)[0]))[1]
-            print('PARTY1: ',svarandeStringOG.split('.'))
+            #print('PARTY1: ',svarandeStringOG.split('.'))
             if svarandeStringOG == "":
                 svarandeStringOG = re.split('Svarande|SVARANDE', headerFormatted)[2] 
-                print('PARTY2: ',svarandeStringOG.split('.'))
+                #print('PARTY2: ',svarandeStringOG.split('.'))
             elif len(kärandeStringOG.split()) < 4:
                 None.split()
-                print('PARTY3: ',svarandeStringOG.split('.'))
+                #print('PARTY3: ',svarandeStringOG.split('.'))
         except IndexError:
             try:
                 svarandeStringOG = re.split(svarandeSearch, headerFormatted)[1] 
                 kärandeStringOG = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(svarandeSearch, headerFormatted)[0]))[1]
-                print('PARTY5: ',svarandeStringOG.split('.'))
+                #print('PARTY5: ',svarandeStringOG.split('.'))
                 if svarandeStringOG == "":
                     svarandeStringOG = re.split(svarandeSearch, headerFormatted)[2] 
-                    print('PARTY6: ',svarandeStringOG.split('.'))
+                    #print('PARTY6: ',svarandeStringOG.split('.'))
                 elif len(kärandeStringOG.split()) < 4:
                     svarandeStringOG = re.split("(?i)SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", headerFormatted)[1]
                     kärandeStringOG = re.split('(?i)KÄRANDE och SVARANDE|KÄRANDE OCH GENSVARANDE', (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", headerFormatted)[0]))[1]
-                    print('PARTY7: ',svarandeStringOG.split('.'))
+                    #print('PARTY7: ',svarandeStringOG.split('.'))
             except IndexError:
                 try:
                     s1 = headerFormatted.split('1.')[1]
                     svarandeStringOG = s1.split('2.')[1]
                     kärandeStringOG = s1.split('2.')[0]
-                    print('PARTY8: ',svarandeStringOG.split('.'))
+                    #print('PARTY8: ',svarandeStringOG.split('.'))
                 except IndexError:
                     svarandeStringOG, kärandeStringOG = 'not found, not found', 'not found, not found'
-                    print('PARTY9: ',svarandeStringOG.split('.'))
+                    #print('PARTY9: ',svarandeStringOG.split('.'))
         svarandeString = svarandeStringOG.lower()
         kärandeString = kärandeStringOG.lower()
     
@@ -413,8 +402,12 @@ for file in pdf_files:
         try:
             caseNo = ''.join((searchKey(searchCaseNo, fullText, 2)).split())
         except AttributeError:
-            caseNo = "Not found"
-          
+            try:
+                caseNo = searchKey('T.?\s*(\d*-\d*)', file, 1)
+            except:
+                caseNo = "Not found"
+        print('CASE NO: ',caseNo, file)
+        
         #Document type
         filename = file.lower() 
         if "dagbok" in topwords:
@@ -435,7 +428,7 @@ for file in pdf_files:
             docType = "Not found"
         
         #District Court
-        courtName = file.split('/')[4]
+        courtName = re.split('\W',file.split('/')[4])[0]
         
         #Year Closed
         try:
@@ -472,7 +465,6 @@ for file in pdf_files:
                 judgeName = judgeName.strip()
             except AttributeError:
                 try:
-                    print((lastPageFormatted).split("."))
                     lastPageFormatted = re.split('ÖVERKLAG|Överklag|överklag', lastPageFormatted)[-1]
                     judgeName = ((searchLoop(judgeSearchNoisy, lastPageFormatted, 1, ['telefon','telefax', 'svarande', 't'])).split('\n'))[0]
                     judgeName = re.split('\s{4,}|,', judgeName)[0]
@@ -766,7 +758,6 @@ for file in pdf_files:
                             
                         #One plaint is dismissed and another installed
                         if any([ x in findTerms([' ensam', 'gemensam ', 'vårdn'], findVardn) for x in rejectKeyOutcome]):
-                            print('kuhstall')
                             newRuling = []
                             dummyOut = 999
                             for part in re.split(',|;',findVardn):
@@ -1067,8 +1058,8 @@ for file in pdf_files:
                         print('Defendant city string: ', cityString)
                         print('\n')
                         
-                        print('Text: ', rulingOnlyOG) #(lastPageFormatted).split(".")
-                        print('\n')
+                        #print('Text: ', rulingOnlyOG) #(lastPageFormatted).split(".")
+                        #print('\n')
                         
                         #Fill dataframe with search results
                         i = ''.join(i.split())
