@@ -52,7 +52,7 @@ output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
 exclude = set([])
 includes = 'all_scans'  #change back to all cases to loop over all files
 save = 1
-print('test')
+
 #Define key functions
 def filereader_params():
     rsrcmgr = PDFResourceManager()
