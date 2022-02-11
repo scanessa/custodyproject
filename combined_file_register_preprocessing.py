@@ -49,10 +49,10 @@ rootdir = "P:/2020/14/Tingsrätter/"
 output_register = "P:/2020/14/Kodning/Data/case_register_data.csv"
 output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
 #Specify folders to search PDFs in
-exclude = set(["Örebro", 'Umeå', 'Uppsala', 'Värmland', 'Västmanlands', 'Växjö'])
+exclude = set([])
 includes = 'all_scans'  #change back to all cases to loop over all files
 save = 1
-
+print('test')
 #Define key functions
 def filereader_params():
     rsrcmgr = PDFResourceManager()
