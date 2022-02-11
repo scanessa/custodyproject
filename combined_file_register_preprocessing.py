@@ -406,7 +406,6 @@ for file in pdf_files:
                 caseNo = searchKey('T.?\s*(\d*-\d*)', file, 1)
             except:
                 caseNo = "Not found"
-        print('CASE NO: ',caseNo, file)
         
         #Document type
         filename = file.lower() 
