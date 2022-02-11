@@ -25,3 +25,4 @@ with pd.option_context('display.max_rows', None, 'display.max_columns', None):  
     print(df)
 df.to_csv(output_path, mode = 'a', sep = ',', encoding='utf-8-sig')
        
+print('Test')
