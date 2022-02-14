@@ -30,17 +30,7 @@ def preprocess(img_path):
     gray1 = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     gray = cv2.bitwise_not(gray1)
     thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-    coords = np.column_stack(np.where(thresh > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-    	angle = -angle
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(image, M, (w, h),flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    return rotated
+    return thresh
     
 
 def jpg_to_string(path):
@@ -58,13 +48,14 @@ def display(_original):
     cv2.imwrite('P:/2020/14/Kodning/Scans/original.jpg', og)
     cv2.imwrite('P:/2020/14/Kodning/Scans/new.jpg', preprocess(_original))
 
-display(r"P:/2020/14/Kodning/Scans/sample.png")
+#display(r"P:/2020/14/Kodning/Scans/sample1.jpg")
 
+full_text = jpg_to_string(['P:/2020/14/Kodning/Scans/sample1_pg1.jpg'])
 #Execute
 """
 for pdf_file in pdf_files:
     print('Currently reading with OCR: ', pdf_file)
     jpg_paths = pdf_to_jpg(pdf_file)
     full_text = jpg_to_string(jpg_paths)
-    print(full_text)
 """
+print(full_text)

@@ -6,8 +6,8 @@ Created on Wed Feb  2 14:49:04 2022
 """
 import shutil, pathlib, os.path
 
-pdf_dir = 'P:/2020/14/Kodning/Test-round-4/check4/subcheck/notdone'
-filepaths_doc = 'P:/2020/14/Kodning/Test-round-4/check4/subcheck/filepaths.txt' 
+pdf_dir = 'P:/2020/14/Kodning/Scans/Sample'
+filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 noCopy = 0 
 error_paths = []  
 
