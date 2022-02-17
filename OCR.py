@@ -1,5 +1,6 @@
 import cv2, pytesseract, os, glob, subprocess, time
 from pdf2image import convert_from_path
+import numpy as np
 
 os.chdir('P:/2020/14/Kodning/Scans')
 start_time = time.time()
@@ -11,6 +12,8 @@ pdf_dir = 'P:/2020/14/Kodning/Scans'
 #General settings
 custom_config = r'--oem 3 --psm 6'
 language = 'swe'
+kernel3 = np.ones((3,3), np.uint8)
+kernel5 = np.ones((5,5), np.uint8)
 
 #Read in pdfs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -36,8 +39,10 @@ def preprocess(img_path):
     thresh = cv2.adaptiveThreshold(blurred, 255,
     	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
     inverted = cv2.bitwise_not(thresh)
-    median = cv2.medianBlur(inverted, 7)
-    return inverted
+    median = cv2.medianBlur(inverted, 7)   
+    dilate = cv2.dilate(median, kernel3, iterations=1)
+    erode = cv2.erode(dilate, kernel5, iterations=1)
+    return erode
 
 def tesseract_text(file_thresh_straight, string_list):    
     img = cv2.imread(file_thresh_straight)
@@ -57,6 +62,9 @@ def jpg_to_string(path):
             ])
 
         tesseract_text(filename + '_thresh_straight.png', string_list)
+        
+        for file in [filename + '.jpg', filename + '_thresh.jpg']:
+            os.remove(file)
 
     return string_list
 
