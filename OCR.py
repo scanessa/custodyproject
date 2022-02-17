@@ -35,14 +35,17 @@ def pdf_to_jpg(pdf):
 def preprocess(img_path):
     image = cv2.imread(img_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-    thresh = cv2.adaptiveThreshold(blurred, 255,
-    	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
-    inverted = cv2.bitwise_not(thresh)
-    median = cv2.medianBlur(inverted, 7)   
-    dilate = cv2.dilate(median, kernel3, iterations=1)
-    erode = cv2.erode(dilate, kernel5, iterations=1)
-    return erode
+    blur = cv2.GaussianBlur(gray, (7, 7), 0)
+    thresh = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,61,5)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
+    close = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=5)
+    cnts = cv2.findContours(close, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area > 250000:
+            cv2.drawContours(image, [c], -1, (255,255,255), -1)
+    return image
 
 def tesseract_text(file_thresh_straight, string_list):    
     img = cv2.imread(file_thresh_straight)
@@ -63,8 +66,8 @@ def jpg_to_string(path):
 
         tesseract_text(filename + '_thresh_straight.png', string_list)
         
-        for file in [filename + '.jpg', filename + '_thresh.jpg']:
-            os.remove(file)
+        # for file in [filename + '.jpg', filename + '_thresh.jpg']:
+        #     os.remove(file)
 
     return string_list
 
