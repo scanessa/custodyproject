@@ -1,6 +1,5 @@
 import cv2, pytesseract, os, glob, subprocess, time
 from pdf2image import convert_from_path
-import numpy as np
 
 os.chdir('P:/2020/14/Kodning/Scans')
 start_time = time.time()
@@ -12,8 +11,7 @@ pdf_dir = 'P:/2020/14/Kodning/Scans'
 #General settings
 custom_config = r'--oem 3 --psm 6'
 language = 'swe'
-kernel3 = np.ones((3,3), np.uint8)
-kernel5 = np.ones((5,5), np.uint8)
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
 
 #Read in pdfs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -35,17 +33,30 @@ def pdf_to_jpg(pdf):
 def preprocess(img_path):
     image = cv2.imread(img_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7, 7), 0)
-    thresh = cv2.adaptiveThreshold(blur,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,61,5)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
-    close = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=5)
-    cnts = cv2.findContours(close, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
+    thresh = cv2.adaptiveThreshold(blurred, 255,
+    	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
+    inverted = cv2.bitwise_not(thresh)
+    median = cv2.medianBlur(inverted, 7)   
+    return median
+
+def bounding_boxes(subprocess_output):
+    img = cv2.imread(subprocess_output)
+    height, width, channels = img.shape 
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (7,7), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
+    dilate = cv2.dilate(thresh,kernal,iterations = 1)
+    cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cnts = sorted(cnts, key = lambda x: cv2.boundingRect(x)[0])
     for c in cnts:
-        area = cv2.contourArea(c)
-        if area > 250000:
-            cv2.drawContours(image, [c], -1, (255,255,255), -1)
-    return image
+        x,y,w,h = cv2.boundingRect(c)
+        if 50 < h < 700 and w > 200 and y > 10 and y+h < height-35:
+            cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
+        if 700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35:
+            cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
+    return img
 
 def tesseract_text(file_thresh_straight, string_list):    
     img = cv2.imread(file_thresh_straight)
@@ -64,6 +75,7 @@ def jpg_to_string(path):
             filename + '_thresh.jpg'
             ])
 
+        cv2.imwrite(filename + "boxes.jpg", bounding_boxes(filename + '_thresh_straight.png')) 
         tesseract_text(filename + '_thresh_straight.png', string_list)
         
         # for file in [filename + '.jpg', filename + '_thresh.jpg']:
