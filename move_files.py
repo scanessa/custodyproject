@@ -4,15 +4,20 @@ Created on Wed Feb  2 14:49:04 2022
 
 @author: ifau-SteCa
 """
-import shutil, pathlib, os.path
+import shutil, pathlib, os.path, re
 
-#pdf_dir = "P:/2020/14/Tingsrätter/"
+pdf_dir = "P:/2020/14/Tingsrätter/Stockholms/Domar/all_scans/Test"
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'Test'
 
 noCopy = 0 
 i = 0
-error_paths = []  
+error_paths = [] 
+
+def searchKey(string, part):
+    finder = re.compile(string)
+    match = finder.search(part)
+    return match
 
 def read_filepaths(doc):
     with open(doc,'r') as f:
@@ -43,7 +48,7 @@ def rename_file(rootdir):
         court = subdir.split('/')[4]
         for file in files:
             counter = str(i)
-            if includes in subdir and file.endswith('.pdf'):
+            if includes in subdir and file.endswith('.pdf') and not searchKey(court+'\d',file):
                 file_new = court + counter + '.pdf'
                 os.rename(os.path.join(rootdir, file), os.path.join(rootdir, file_new))
                 i += 1
@@ -52,7 +57,7 @@ def rename_file(rootdir):
 #Execute
 #sample = read_filepaths(filepaths_doc)
 #copy_files(sample, noCopy, error_paths)
-#rename_file(pdf_dir)
+rename_file(pdf_dir)
 
 #Output
 print('%d files threw an error: ' %(noCopy), error_paths)
