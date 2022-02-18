@@ -5,18 +5,38 @@ Created on Wed Feb 16 16:08:06 2022
 @author: ifau-SteCa
 """
 
-import cv2, os, numpy as np
-import pytesseract
-
-pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
+import cv2,os, subprocess
+import numpy as np
 os.chdir('P:/2020/14/Kodning/Scans')
 
-img = cv2.imread('Dom T 212-08_pg1_thresh.jpg')
-kernel = np.ones((5,5), np.uint8)
-img_dilation = cv2.dilate(img, kernel, iterations=1)
-img_erosion = cv2.erode(img_dilation, kernel, iterations=1)
- 
-cv2.imwrite('img.jpg', img_erosion) # Display img with median filter
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (35,35))
+
+subprocess.call([
+            'python', 
+            'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py', 
+            "P:/2020/14/Kodning/Scans/Dom T 531-07_pg1.jpg"
+            ])
+
+img = cv2.imread("P:/2020/14/Kodning/Scans/Dom T 531-07_pg1_thresh_straight.png")
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+blur = cv2.GaussianBlur(gray, (7,7), 0)
+thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
+dilate = cv2.dilate(thresh,kernal,iterations = 1)
+cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+cnts = sorted(cnts, key = lambda x: cv2.boundingRect(x)[0])
+for c in cnts:
+    x,y,w,h = cv2.boundingRect(c)
+    if 50 < h < 400 and w > 150:
+        cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
+
+
+cv2.imwrite("gray.jpg", gray)
+cv2.imwrite("blur.jpg", blur)
+cv2.imwrite("thresh.jpg", thresh)
+cv2.imwrite("dilate.jpg", dilate)
+cv2.imwrite("bbox.jpg", img)
+
 
 """
 #CONTOURING

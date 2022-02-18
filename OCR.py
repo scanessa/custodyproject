@@ -1,5 +1,6 @@
 import cv2, pytesseract, os, glob, subprocess, time
 from pdf2image import convert_from_path
+import numpy as np
 
 os.chdir('P:/2020/14/Kodning/Scans')
 start_time = time.time()
@@ -9,9 +10,10 @@ pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesserac
 pdf_dir = 'P:/2020/14/Kodning/Scans'
 
 #General settings
-custom_config = r'--oem 3 --psm 6'
 language = 'swe'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
+kernel3 = np.ones((3,3), np.uint8)
+kernel5 = np.ones((5,5), np.uint8)
 
 #Read in pdfs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -37,10 +39,17 @@ def preprocess(img_path):
     thresh = cv2.adaptiveThreshold(blurred, 255,
     	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
     inverted = cv2.bitwise_not(thresh)
-    median = cv2.medianBlur(inverted, 7)   
-    return median
+    median = cv2.medianBlur(inverted, 3)
+    erode = cv2.erode(median, kernel3, iterations=1)
+    return erode
+
+def get_contour_precedence(contour, cols):
+    tolerance_factor = 10
+    origin = cv2.boundingRect(contour)
+    return ((origin[1] // tolerance_factor) * tolerance_factor) * cols + origin[0]
 
 def bounding_boxes(subprocess_output):
+    string_list = []
     img = cv2.imread(subprocess_output)
     height, width, channels = img.shape 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -49,22 +58,22 @@ def bounding_boxes(subprocess_output):
     dilate = cv2.dilate(thresh,kernal,iterations = 1)
     cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-    cnts = sorted(cnts, key = lambda x: cv2.boundingRect(x)[0])
+    cnts = sorted(cnts, key=lambda x:get_contour_precedence(x, img.shape[1]))
     for c in cnts:
         x,y,w,h = cv2.boundingRect(c)
-        if 50 < h < 700 and w > 200 and y > 10 and y+h < height-35:
+        if 50 < h < 700 and w > 200 and y > 10 and y+h < height-35 or (700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35):
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-        if 700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35:
+            roi = img[y:y+h, x:x+w]
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-    return img
+            img_string = pytesseract.image_to_string(roi, lang=language)
+            string_list.append(img_string) 
+            
+    cv2.imwrite("bbox.jpg", img)
 
-def tesseract_text(file_thresh_straight, string_list):    
-    img = cv2.imread(file_thresh_straight)
-    img_string = pytesseract.image_to_string(img, config=custom_config, lang=language)
-    string_list.append(img_string) 
+    return string_list
 
 def jpg_to_string(path):
-    string_list = []
+    page_list = []
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
@@ -75,13 +84,16 @@ def jpg_to_string(path):
             filename + '_thresh.jpg'
             ])
 
-        cv2.imwrite(filename + "boxes.jpg", bounding_boxes(filename + '_thresh_straight.png')) 
-        tesseract_text(filename + '_thresh_straight.png', string_list)
+        page_list.append(bounding_boxes(filename + '_thresh_straight.png'))
         
-        # for file in [filename + '.jpg', filename + '_thresh.jpg']:
-        #     os.remove(file)
-
-    return string_list
+        """
+        for file in [filename + '.jpg', 
+                     filename + '_thresh.jpg',
+                     filename + '_thresh_straight.jpg']:
+            os.remove(file)
+        """
+        
+    return page_list
 
 #Execute
 
