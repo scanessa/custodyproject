@@ -14,10 +14,10 @@ kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (35,35))
 subprocess.call([
             'python', 
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py', 
-            "P:/2020/14/Kodning/Scans/Dom T 531-07_pg1.jpg"
+            "P:/2020/14/Kodning/Scans/gavle1_pg1_thresh.jpg"
             ])
 
-img = cv2.imread("P:/2020/14/Kodning/Scans/Dom T 531-07_pg1_thresh_straight.png")
+img = cv2.imread("P:/2020/14/Kodning/Scans/gavle1_pg1_thresh_straight.png")
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 blur = cv2.GaussianBlur(gray, (7,7), 0)
 thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)

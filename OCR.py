@@ -11,6 +11,7 @@ pdf_dir = 'P:/2020/14/Kodning/Scans'
 
 #General settings
 language = 'swe'
+custom_config = '--psm 4 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
 kernel3 = np.ones((3,3), np.uint8)
 kernel5 = np.ones((5,5), np.uint8)
@@ -65,7 +66,7 @@ def bounding_boxes(subprocess_output):
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             roi = img[y:y+h, x:x+w]
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-            img_string = pytesseract.image_to_string(roi, lang=language)
+            img_string = pytesseract.image_to_string(roi, lang=language, config = custom_config)
             string_list.append(img_string) 
             
     cv2.imwrite("bbox.jpg", img)
@@ -77,7 +78,6 @@ def jpg_to_string(path):
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
-        
         subprocess.call([
             'python', 
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py', 
