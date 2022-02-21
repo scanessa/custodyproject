@@ -4,7 +4,7 @@ Created on Wed Feb  2 14:49:04 2022
 
 @author: ifau-SteCa
 """
-import shutil, pathlib, os.path, re
+import shutil, pathlib, os.path, re, glob
 
 pdf_dir = "P:/2020/14/Tingsrätter/Stockholms/Domar/all_scans/Test"
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
@@ -42,16 +42,20 @@ def true_file(files):
         if not os.path.isfile(fname):
             print('N: ', fname)
             
+def file_counter(path, searchkey):
+    fileCount = len(glob.glob1(path,searchkey))   
+    return fileCount
+         
 def rename_file(rootdir):
-    i = 0
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         court = subdir.split('/')[4]
+        existing = file_counter(subdir, court + '*')
         for file in files:
-            counter = str(i)
+            counter = str(existing)
             if includes in subdir and file.endswith('.pdf') and not searchKey(court+'\d',file):
                 file_new = court + counter + '.pdf'
                 os.rename(os.path.join(rootdir, file), os.path.join(rootdir, file_new))
-                i += 1
+                existing += 1
                 continue
 
 #Execute
