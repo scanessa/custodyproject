@@ -1,5 +1,6 @@
 import cv2, pytesseract, os, glob, subprocess, time
 from pdf2image import convert_from_path
+import numpy as np
 
 os.chdir('P:/2020/14/Kodning/Scans')
 start_time = time.time()
@@ -10,7 +11,10 @@ pdf_dir = 'P:/2020/14/Kodning/Scans'
 
 #General settings
 language = 'swe'
+custom_config = '--psm 4 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
+kernel3 = np.ones((3,3), np.uint8)
+kernel5 = np.ones((5,5), np.uint8)
 
 #Read in pdfs
 pdf_files = glob.glob("%s/*.pdf" % pdf_dir)
@@ -37,6 +41,7 @@ def preprocess(img_path):
     	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
     inverted = cv2.bitwise_not(thresh)
     median = cv2.medianBlur(inverted, 3)
+    # erode = cv2.erode(median, kernel3, iterations=1) including erode gives an error in the page dewarp script for 210929_114535
     return median
 
 def get_contour_precedence(contour, cols):
@@ -61,9 +66,9 @@ def bounding_boxes(subprocess_output):
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             roi = img[y:y+h, x:x+w]
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-            img_string = pytesseract.image_to_string(roi, lang=language)
+            img_string = pytesseract.image_to_string(roi, lang=language, config = custom_config)
             string_list.append(img_string) 
-            
+                
     cv2.imwrite("bbox.jpg", img)
 
     return string_list
@@ -73,6 +78,7 @@ def jpg_to_string(path):
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
+
         subprocess.call([
             'python', 
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py', 
@@ -80,14 +86,12 @@ def jpg_to_string(path):
             ])
 
         page_list.append(bounding_boxes(filename + '_thresh_straight.png'))
-        
         """
         for file in [filename + '.jpg', 
                      filename + '_thresh.jpg',
-                     filename + '_thresh_straight.jpg']:
+                     filename + '_thresh_straight.png']:
             os.remove(file)
         """
-        
     return page_list
 
 #Execute
