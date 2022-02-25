@@ -45,13 +45,13 @@ from pdfminer.converter import TextConverter
 from pdfminer.converter import PDFPageAggregator
 
 #Define Paths
-rootdir = "P:/2020/14/Tingsrätter/"
+rootdir = "P:/2020/14/Tingsrätter/Stockholms"
 output_register = "P:/2020/14/Kodning/Data/case_register_data.csv"
 output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
 #Specify folders to search PDFs in
 exclude = set([])
-includes = 'all_scans'  #change back to all cases to loop over all files
-save = 1
+includes = 'all_cases'  #change back to all cases to loop over all files
+save = 0
 
 #Define key functions
 def filereader_params():
@@ -307,7 +307,7 @@ for file in pdf_files:
                 fullTextFormattedJoined = ''.join(pages_text_formatted[1:(appendixPageNo)])
         else:
             fullTextOG = ''.join(pages_text)
-            fullTextFormatted = '.'.join(pages_text_formatted)
+            fullTextFormatted = pages_text_formatted
             fullTextFormattedJoined = ''.join(pages_text_formatted)
             if appendixPage:
                 appendixPageNo = appendixPage[-1] #not 0 because of Gotlands 424-18
