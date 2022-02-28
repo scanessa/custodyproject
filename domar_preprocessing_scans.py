@@ -3,6 +3,7 @@ Attempting to clean up the different scripts
 
 """
 import re
+import time
 import io
 import os
 import subprocess
@@ -16,11 +17,13 @@ from pdfminer.converter import TextConverter
 #General settings
 ROOTDIR = "P:/2020/14/Tingsrätter/Case_Sorting_SC/"
 OCR_SCRIPT = "P:/2020/14/Kodning/Code/custodyproject/OCR.py"
-output_register = "P:/2020/14/Kodning/Data/case_register_data.csv"
-output_rulings = "P:/2020/14/Kodning/Data/rulings_data.csv"
+OUTPUT_REGISTER = "P:/2020/14/Tingsrätter/Case_Sorting_SC/case_register_data.csv"
+OUTPUT_RULINGS = "P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv"
 #Specify folders to search PDFs in
 EXCLUDE = set([])
-SAVE = 0
+SAVE = 1
+COUNT = 1
+start_time = time.time()
 
 #Define search terms
 legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
@@ -109,7 +112,6 @@ rejectInvest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' 
 rejectKeyOutcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
 remindKey = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
 footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
-headerSplit = ['PARTER','Parter']
 countries = ['saknas', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
 cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'bollnäs', 'borgholm', 'borlänge', 'borås', 'djursholm', 'eksjö', 'enköping', 'eskilstuna', 'eslöv', 'fagersta', 'falkenberg', 'falköping', 'falsterbo', 'falun', 'filipstad', 'flen', 'gothenburg', 'gränna', 'gävle', 'hagfors', 'halmstad', 'haparanda', 'hedemora', 'helsingborg', 'hjo', 'hudiksvall', 'huskvarna', 'härnösand', 'hässleholm', 'höganäs', 'jönköping', 'kalmar', 'karlshamn', 'karlskoga', 'karlskrona', 'karlstad', 'katrineholm', 'kiruna', 'kramfors', 'kristianstad', 'kristinehamn', 'kumla', 'kungsbacka', 'kungälv', 'köping', 'laholm', 'landskrona', 'lidingö', 'lidköping', 'lindesberg', 'linköping', 'ljungby', 'ludvika', 'luleå', 'lund', 'lycksele', 'lysekil', 'malmö', 'mariefred', 'mariestad', 'marstrand', 'mjölby', 'motala', 'nacka', 'nora', 'norrköping', 'norrtälje', 'nybro', 'nyköping', 'nynäshamn', 'nässjö', 'oskarshamn', 'oxelösund', 'piteå', 'ronneby', 'sala', 'sandviken', 'sigtuna', 'simrishamn', 'skanör', 'skanör med falsterbo', 'skara', 'skellefteå', 'skänninge', 'skövde', 'sollefteå', 'solna', 'stockholm', 'strängnäs', 'strömstad', 'sundbyberg', 'sundsvall', 'säffle', 'säter', 'sävsjö', 'söderhamn', 'söderköping', 'södertälje', 'sölvesborg', 'tidaholm', 'torshälla', 'tranås', 'trelleborg', 'trollhättan', 'trosa', 'uddevalla', 'ulricehamn', 'umeå', 'uppsala', 'vadstena', 'varberg', 'vaxholm', 'vetlanda', 'vimmerby', 'visby', 'vänersborg', 'värnamo', 'västervik', 'västerås', 'växjö', 'ystad', 'åmål', 'ängelholm', 'örebro', 'öregrund', 'örnsköldsvik', 'östersund', 'östhammar']
 
@@ -137,7 +139,7 @@ def read_file(file):
         laparams = LAParams(line_margin=3)
         device = TextConverter(rsrcmgr, retstr, laparams=laparams)
         interpreter = PDFPageInterpreter(rsrcmgr, device)
-        return rsrcmgr,retstr,device,interpreter
+        return retstr,interpreter
 
     def appendix_pages(no_of_firstpage):      
         appendix_pageno = appendix[-1]
@@ -151,7 +153,7 @@ def read_file(file):
         fulltext_form = pages_text_formatted[no_of_firstpage:]
         return fulltext_caps, fulltext_form, firstpage_form
         
-    rsrcmgr,retstr,device,interpreter = filereader_params()
+    retstr, interpreter = filereader_params()
     
     with open(file, 'rb') as fh:
         for page in PDFPage.get_pages(fh,caching=True,check_extractable=True):
@@ -167,6 +169,7 @@ def read_file(file):
     firstpage = pages_text[0]
     appendix = [k for k, item in enumerate(pages_text) if re.search(appendix_start, item)]
     appendix_pageno = len(pages_text)
+    lastpage = pages_text_formatted[appendix_pageno]
     
     if "Rättelse" in firstpage:
         correction = 1
@@ -179,34 +182,69 @@ def read_file(file):
         fulltext_caps, fulltext_form, firstpage_form = text_parts(0)
         if appendix:
             appendix_pageno, fulltext_form, fulltext_caps = appendix_pages(0)    
-    return correction, appendix_pageno, fulltext_form, fulltext_caps, firstpage, firstpage_form
+    return correction, appendix_pageno, fulltext_form, fulltext_caps, firstpage, firstpage_form, lastpage
 
-def random_df(firstpage_form,file):    
-    data = {'dummy':[], 'file': []}
-    data['file'].append(file.split('/')[-1])
-    if '5059-00' in firstpage_form:
-        data['dummy'].append(1)
-    else:
-        data['dummy'].append(0)
-    df = pd.DataFrame(data)
-    return df
+def get_header(first_page_form):
+    try:
+        header1 = (re.split('DOMSLUT', first_page_form))[0]
+        for term in ['PARTER','Parter']:
+            header2 = header1.split(term)
+            if len(header2) != 1:
+                break
+        header = header2[1]
+    except IndexError:                
+        try:
+            header = re.split('Mål ', re.split('_{10,40}', first_page_form)[0])[1] 
+        except IndexError:
+            try:
+                header = ''.join(first_page_form.split('')[0:20])
+            except IndexError:
+                header = ''.join(first_page_form)
+    try:
+        topwords = ' '.join(first_page_form.split()[0:20].lower())
+    except IndexError:
+        topwords = ''.join(first_page_form.lower())
+    return header, topwords
 
+def get_lastpage(fulltext_form, lastpage):
+    for page in fulltext_form:
+        for term in ['\nÖVERKLAG','\nÖverklag','\nHUR MAN ÖVERKLAG',
+                     '\nHur man överklag','\nHur Man Överklag',
+                     'Anvisning för överklagande']:
+            if term in page:
+                lastpage_form = page
+                break
+            else: 
+                lastpage_form = '.'.join(lastpage.split("."))
+        else:
+            continue
+        break
+    return lastpage_form
+
+#Execute        
 readable_files = paths('all_cases')
 scanned_files = paths('all_scans')
 
-for file in readable_files:
-    correction, appendix_page_no, fulltext_form, fulltext_caps, firstpage, firstpage_form = read_file(file)
-for file in scanned_files:
+for doc in readable_files:
+    correction, appendix_pageno, fulltext_form, fulltext_caps, firstpage, firstpage_form, lastpage = read_file(doc)
+    COUNT += 1
+    
+for doc in scanned_files:
     subprocess.call(['python', OCR_SCRIPT])
-    from OCR import firstpage_form
-    # from OCR import lastpage_form
-    # from OCR import fulltext_form
-    # from OCR import judge_string
+    #from OCR import firstpage_form
+    #from OCR import lastpage_form
+    #from OCR import fulltext_form
+    #from OCR import judge_string
     from OCR import header
     topwords = header
+    COUNT += 1
 
+print("\nRuntime Combined: \n" + "--- %s seconds ---" %
+      (time.time() - start_time))
 
-print(random_df(firstpage_form,file))
+df = pd.read_csv(r'P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv')
+print(df)
+
 
 
 
