@@ -102,14 +102,16 @@ def main(pdf):
         text = bounding_boxes(filename + '_thresh_straight.png')
         full_text.append(text)
         header.append(text[:4])
-
+        
+        """
         for file in [filename + '.jpg',
                      filename + '_thresh.jpg',
                      filename + '_thresh_straight.png']:
             os.remove(file)
+        """
     firstpage_form = ''.join(full_text[0])
     judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
     lastpage_form = ''.join(full_text[-1])
     fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
-    header = ''.join(list(itertools.chain.from_iterable(header)))
-    return firstpage_form, lastpage_form, fulltext_form, judge_string, header
+    topwords = ''.join(list(itertools.chain.from_iterable(header)))
+    return firstpage_form, lastpage_form, fulltext_form, judge_string, topwords

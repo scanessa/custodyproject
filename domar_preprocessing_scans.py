@@ -1,12 +1,7 @@
-"""
-Attempting to clean up the different scripts
-
-"""
 import re
 import time
 import io
 import os
-import subprocess
 import pandas as pd
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -16,10 +11,9 @@ from pdfminer.converter import TextConverter
 
 
 #General settings
-ROOTDIR = "P:/2020/14/Kodning/Scans"
+ROOTDIR = "P:/2020/14/Kodning/Scans/"
 OUTPUT_REGISTER = "P:/2020/14/Tingsrätter/Case_Sorting_SC/case_register_data.csv"
 OUTPUT_RULINGS = "P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv"
-OCR_SCRIPT = "P:/2020/14/Kodning/Code/custodyproject/OCR.py"
 
 #Specify folders to search PDFs in
 EXCLUDE = set([])
@@ -28,16 +22,14 @@ COUNT = 1
 start_time = time.time()
 
 #Cleaning
-OCR_CORR_HEADER = {
+OCR_CORR = {
     'Kiärande':'Kärande',
     'KIÄRANDE':'KÄRANDE',
     'Mal':'Mål',
-    'Mäl':'Mål'
-    }
-
-OCR_CORR_TEXT = {
+    'Mäl':'Mål',
     'Domskill':'Domskäl',
-    'DOMSKILL':'DOMSKÄL'
+    'DOMSKILL':'DOMSKÄL',
+    '\x0c':''
     }
 
 #Define search terms
@@ -200,14 +192,12 @@ def read_file(file):
 
 
 
-def clean_ocr(header, firstpage_form, fulltext_form):
-    for old, new in OCR_CORR_HEADER.items():
-        header = header.replace(old, new)
-        firstpage_form = firstpage_form.replace(old, new)
-    for old, new in OCR_CORR_TEXT.items():
+def clean_ocr(topwords, firstpage_form, fulltext_form):
+    for old, new in OCR_CORR.items():
+        topwords = topwords.replace(old, new)
         firstpage_form = firstpage_form.replace(old, new)
         fulltext_form = fulltext_form.replace(old, new)
-    return header, firstpage_form, fulltext_form
+    return topwords, firstpage_form, fulltext_form
 
 
 
@@ -219,13 +209,23 @@ def format_text(unformatted):
 
 
 def get_header(firstpage_form):
+    
+    """
+    Splits first page into a header, ie the part after topwords and before ruling starts
+    Notes:
+    - header2.insert(1, 'Kärande') for rulings without 'Parter', otherwise defendant 
+    string includes ruling
+    """
+    
     try:
-        header1 = (re.split('DOMSLUT', firstpage_form))[0]
-        for term in ['PARTER','Parter']:
+        header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
+        for term in ['PARTER','Parter', 'Kärande']:
             header2 = header1.split(term)
+            if term == 'Kärande':
+                header2.insert(1, 'Kärande')
             if len(header2) != 1:
                 break
-        header = header2[1]
+        header = ''.join(header2[1:])
     except IndexError:                
         try:
             header = re.split('Mål ', re.split('_{10,40}', firstpage_form)[0])[1] 
@@ -234,11 +234,16 @@ def get_header(firstpage_form):
                 header = ''.join(firstpage_form.split('')[0:20])
             except IndexError:
                 header = ''.join(firstpage_form)
+    return header
+
+
+
+def topwords(part):
     try:
         topwords = ' '.join(firstpage_form.split()[0:20].lower())
     except IndexError:
         topwords = ''.join(firstpage_form.lower())
-    return header, topwords
+    return topwords
 
 
 
@@ -259,29 +264,30 @@ def get_lastpage(fulltext_form, lastpage_form):
 
 
 
-def get_plaint_defend(header):
+def get_plaint_defend(part):
     try:
-        defend_og = re.split('Svarande|SVARANDE', header)[1] 
-        plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', header)[0]))[1]
+        defend_og = re.split('Svarande|SVARANDE', part)[1] 
+        plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
         if defend_og == "":
-            defend_og = re.split('Svarande|SVARANDE', header)[2] 
+            defend_og = re.split('Svarande|SVARANDE', part)[2] 
         elif len(plaint_og.split()) < 4:
-            defend_og = re.split("(?i)SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", header)[1]
+            defend_og = re.split("(?i)SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", part)[1]
             plaint_og = re.split('(?i)KÄRANDE och SVARANDE|KÄRANDE OCH GENSVARANDE', 
-                                       (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", header)[0]))[1]
+                                       (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", part)[0]))[1]
     except IndexError:
         try:
-            defend_og = re.split(svarandeSearch, header)[1]
-            plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(svarandeSearch, header)[0]))[1]
+            defend_og = re.split(svarandeSearch, part)[1]
+            plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(svarandeSearch, part)[0]))[1]
             if defend_og == "":
-                defend_og = re.split(svarandeSearch, header)[2]
+                defend_og = re.split(svarandeSearch, part)[2]
         except IndexError:
             try:
-                first = header.split('1.')[1]
+                first = part.split('1.')[1]
                 defend_og = first.split('2.')[1]
                 plaint_og = first.split('2.')[0]
             except IndexError:
                 defend_og = plaint_og = 'not found, not found'
+    defend_og = defend_og.strip(' _\n')
     defend = defend_og.lower()
     plaint = plaint_og.lower()
     return defend, defend_og, plaint, plaint_og
@@ -291,24 +297,26 @@ def get_plaint_defend(header):
 #Execute        
 readable_files = paths('all_cases')
 scanned_files = paths('all_scans')
-"""
-for doc in readable_files:
-    correction, appendix_pageno, fulltext_form, fulltext_caps, firstpage, firstpage_form, lastpage = read_file(doc)
-    COUNT += 1
-"""    
-for doc in scanned_files:
-    from OCR import main
-    firstpage_form, lastpage_form, fulltext_form, judge_string, header = main(doc)
-    print(firstpage_form.split('.'))
+
+for pdf in readable_files:
+    print('\nPDF FILE: ', pdf)
+    correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form = read_file(pdf)
+    header_form = get_header(firstpage_form)
+    defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form)
     COUNT += 1
 
-print("\nRuntime Combined: \n" + "--- %s seconds ---" %
-      (time.time() - start_time))
-
-df = pd.read_csv(r'P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv')
-print(df)
+    print(defend.split('.'))
 
 
 
+from OCR import main
+for scan in scanned_files:
+    print('\nSCAN: ', scan)
+    outpath = scan.split('\\')[0]
+    os.chdir(outpath)
+    firstpage_form, lastpage_form, fulltext_form, judge_string, topwords = main(scan)
+    topwords, firstpage_form, fulltext_form = clean_ocr(topwords, firstpage_form, fulltext_form)
+    header_form = get_header(firstpage_form)
+    defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form)
 
-         
+    print(defend.split('.'))
