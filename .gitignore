@@ -1,1 +1,3 @@
-testing_code.py
+testingcode.py
+.pylint.d
+__pycache__

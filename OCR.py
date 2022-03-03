@@ -2,12 +2,10 @@
 """
 This code reads in scannes documents, draws bounding boxes around text blocks
 and OCR's the bounding boxes
-
 @author: ifau-SteCa
 """
 import itertools
 import os
-import glob
 import subprocess
 import time
 import pytesseract
@@ -25,9 +23,6 @@ PDF_DIR = 'P:/2020/14/Kodning/Scans'
 LANGUAGE = 'swe'
 CUSTOM_CONFIG = '--psm 4 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
-
-#Read in pdfs
-pdf_files = glob.glob("%s/*.pdf" % PDF_DIR)
 
 def pdf_to_jpg(pdf):
     """ Convert PDF to into seperate JPG files."""
@@ -87,11 +82,13 @@ def bounding_boxes(subprocess_output):
             string_list.append(img_string)
     return string_list
 
-def main(path):
+def main(pdf):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
-
+    
+    path = pdf_to_jpg(pdf)
     full_text = []
     header = []
+    
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
@@ -116,12 +113,3 @@ def main(path):
     fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
     header = ''.join(list(itertools.chain.from_iterable(header)))
     return firstpage_form, lastpage_form, fulltext_form, judge_string, header
-
-#Execute
-for pdf_file in pdf_files:
-    print('Currently reading with OCR: ', pdf_file)
-    jpg_paths = pdf_to_jpg(pdf_file)
-    firstpage_form, lastpage_form, fulltext_form, judge_string, header = main(jpg_paths)
-
-print("\nRuntime OCR: \n" + "--- %s seconds ---" %
-      (time.time() - start_time))
