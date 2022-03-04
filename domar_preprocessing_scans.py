@@ -1,14 +1,26 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Nov  2 15:04:16 2021
+
+@author: ifau-SteCa
+
+"""
 import re
 import time
 import io
 import os
-import pandas as pd
+
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
+from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
+from searchterms import date_search, judgetitle_search, judgesearch, judgesearch_noisy
+from searchterms import ruling_search
+
+from OCR import ocr_main
 
 #General settings
 ROOTDIR = "P:/2020/14/Kodning/Scans/"
@@ -17,124 +29,49 @@ OUTPUT_RULINGS = "P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv"
 
 #Specify folders to search PDFs in
 EXCLUDE = set([])
+INCLUDE = set(['all_cases','all_scans'])
 SAVE = 1
 COUNT = 1
 start_time = time.time()
 
-#Cleaning
-OCR_CORR = {
-    'Kiärande':'Kärande',
-    'KIÄRANDE':'KÄRANDE',
-    'Mal':'Mål',
-    'Mäl':'Mål',
-    'Domskill':'Domskäl',
-    'DOMSKILL':'DOMSKÄL',
-    '\x0c':''
-    }
-
-#Define search terms
-legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
-nameCaps = '[A-ZÅÄÖ]{3,}'
-svarandeSearch = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE |MANNEN|Mannen'
-idNo ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
-appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
-searchCaseNo = 'må.\s*(nr)?[.]?\s*t\s*(\d*\s*.?.?\s*\d*)'
-capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
-allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]'
-
-dateSearch = {
-    '1' : 'dom\s+(\d*-\d*-\d*)',
-    '2' : 'dom\s+sid\s*1\s*[(][0-9]*[)]\s*(\d*-\d*-\d*)',
-    '3' : '(\d{4}-\d{2}-\d{2})'
-    }
-
-judgeSearch = {
-    '1': '\n\s*\n\s*((' + allLetters + '+\s+){2,4})\n\s*\n', #normal names
-    '2': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n\s*\n', #first name hyphenated
-    '3': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n\s*\n', #last name hypthenated
-    '4': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n\s*\n', #first and last name hyphenated
-    '5': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #name with initial as second name
-    '6': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #first and second name as initial
-    #if there is a note in the line following the judge's name
-    '7': '\n\s*\n\s*((' + allLetters + '+\s+){2,4})\n', #normal names
-    '8': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n', #first name hyphenated
-    '9': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n', #last name hypthenated
-    '10': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n', #first and last name hyphenated
-    '11': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + 's\s' + allLetters + '+\s+)\n', #name with initial as second name
-    '12': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n', #name with initial as second name
-    #For documents where judge didnt sign
-    '13': '(rådmannen|tingsfiskalen)\s*((' + allLetters + '+\s+){2,4})',
-    '14': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
-    '15': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
-    '16': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
-    '17': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
-    '18': '(rådmannen|tingsfiskalen)\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
-    #when judge's name ends with .
-    '25': '\n\s*\n\s*((' + allLetters + '+\s+){1,3}' + allLetters + '+).\s*\n\n', #normal names
-    '26': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+).\s*\n', #first name hyphenated
-    '27': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+).\s*\n', #last name hypthenated
-    '28': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + ').\s*\n', #first and last name hyphenated
-    '29': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+).\s*\n', #name with initial as second name
-    '30': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+).\s*\n', #name with initial as second name
-    #Only one new line before judge's name
-    '31': '\n\s*((' + allLetters + '+\s+){2,4})\n\s*\n', #normal names
-    '32': '\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n\s*\n', #first name hyphenated
-    '33': '\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n\s*\n', #last name hypthenated
-    '34': '\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n\s*\n', #first and last name hyphenated
-    '35': '\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #name with initial as second name
-    '36': '\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n' #name with initial as second name
-    }
-judgeSearchNoisy = {
-    '1': '\n\s*\n(.*)'
-    }
-
-judgeProtokollPreffix = '(Lagmannen|lagmannen|Rådmannen|rådmannen|notarien|Beredningsjuristen|beredningsjuristen|tingsfiskalen|Tingsfiskalen)'
-suff1 = '[,|;]?\s*[(]?'
-suff2 = '((\w+)?\s*(Protokollförare|protokollförare|ordförande))?'
-suff3 = '[)]?\s*([A-ZÅÄÖ]{2,})'
-judgeProtokollSuffix = suff1 + suff2+ suff3
-
-judgeSearchProtokoll = {
-    '1': judgeProtokollPreffix + '\s*(([A-ZÅÄÖ][a-zåäöé]+\s*){2,4})' + judgeProtokollSuffix, #normal names
-    '2': judgeProtokollPreffix + '\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+\s+)'+ judgeProtokollSuffix, #first name hyphenated
-    '3': judgeProtokollPreffix + '\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)'+ judgeProtokollSuffix, #last name hypthenated
-    '4': judgeProtokollPreffix + '\s*([A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ][a-zåäöé]+-[A-ZÅÄÖ][a-zåäöé]+\s+)'+ judgeProtokollSuffix, #first and last name hyphenated
-    '5': judgeProtokollPreffix + '\s*([A-ZÅÄÖ][a-zåäöé]+\s[A-ZÅÄÖ]\s[A-ZÅÄÖ][a-zåäöé]+\s+)'+ judgeProtokollSuffix, #name with initial as second name
-    '6': judgeProtokollPreffix + '\s*(([A-ZÅÄÖ][a-zåäöé]+\s*){1})' + '[,|;]?\s*[(]?((\w+) [p|P]rotokollförare)?[)]?\s*([A-Z])' #only last name 
-    }
-
-#Define keys for simple word search
-fastInfoKey = ['snabbupplysning', 'upplysning', 'snabbyttrande']
-corpTalksKey = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
-mainHearingKey = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , ' förhör ', 'tingsrättens förhandling','huvud- förhandling' ]
-lawyerKey = ["ombud:", 'god man:',  'advokat:', "ombud", 'god man',  'advokat']
-investigationKey = ['vårdnadsutredning','boendeutredning','umgängesutredning']
-allOutcomes = ["vård", "umgänge", "boende"]
-umgangeKey = ['umgänge', 'umgås']
-separationKey = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
-                 'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
-excludePhysical = ['jämna' , 'växelvis', 'skyddat']
-rejectKey = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga '] 
-rejectInvest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
-rejectKeyOutcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
-remindKey = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
-footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
-countries = ['saknas', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'algeriet', 'andorra', 'angola', 'antigua och barbuda', 'argentina', 'armenien', 'australien', 'azerbajdzjan', 'bahamas', 'bahrain', 'bangladesh', 'barbados', 'belgien', 'belize', 'benin', 'bhutan', 'bolivia', 'bosnien och hercegovina', 'botswana', 'brasilien', 'brunei', 'bulgarien', 'burkina faso', 'burundi', 'centralafrikanska republiken', 'chile', 'colombia', 'costa rica', 'cypern', 'danmark', 'djibouti', 'dominica', 'dominikanska republiken', 'ecuador', 'egypten', 'ekvatorialguinea', 'elfenbenskusten', 'el salvador', 'eritrea', 'estland', 'etiopien', 'fiji', 'filippinerna', 'finland', 'frankrike', 'förenade arabemiraten', 'gabon', 'gambia', 'georgien', 'ghana', 'grekland', 'grenada', 'guatemala', 'guinea', 'guinea-bissau', 'guyana', 'haiti', 'honduras', 'indien', 'indonesien', 'irak', 'iran', 'irland', 'island', 'israel', 'italien', 'jamaica', 'japan', 'jemen', 'jordanien', 'kambodja', 'kamerun', 'kanada', 'kap verde', 'kazakstan', 'kenya', 'kina', 'kirgizistan', 'kiribati', 'komorerna', 'kongo-brazzaville', 'kongo-kinshasa', 'kroatien', 'kuba', 'kuwait', 'laos', 'lesotho', 'lettland', 'libanon', 'liberia', 'libyen', 'liechtenstein', 'litauen', 'luxemburg', 'madagaskar', 'malawi', 'malaysia', 'maldiverna', 'mali', 'malta', 'marocko', 'marshallöarna', 'mauretanien', 'mauritius', 'mexiko', 'mikronesiska federationen', 'moçambique', 'moldavien', 'monaco', 'montenegro', 'mongoliet', 'myanmar', 'namibia', 'nauru', 'nederländerna', 'nepal', 'nicaragua', 'niger', 'nigeria', 'nordkorea', 'nordmakedonien', 'norge', 'nya zeeland', 'oman', 'pakistan', 'palau', 'panama', 'papua nya guinea', 'paraguay', 'peru', 'polen', 'portugal', 'qatar', 'rumänien', 'rwanda', 'ryssland', 'saint kitts och nevis', 'saint lucia', 'saint vincent och grenadinerna', 'salo-monöarna', 'samoa', 'san marino', 'são tomé och príncipe', 'saudiarabien', 'schweiz', 'senegal', 'seychellerna', 'serbien', 'sierra leone', 'singapore', 'slovakien', 'slovenien', 'somalia', 'spanien', 'sri lanka', 'storbritannien', 'sudan', 'surinam', 'swaziland', 'sydafrika', 'sydkorea', 'sydsudan', 'syrien', 'tadzjikistan', 'tanzania', 'tchad', 'thailand', 'tjeckien', 'togo', 'tonga', 'trinidad och tobago', 'tunisien', 'turkiet', 'turkmenistan', 'tuvalu', 'tyskland', 'uganda', 'ukraina', 'ungern', 'uruguay', 'usa', 'uzbekistan', 'vanuatu', 'vatikanstaten', 'venezuela', 'vietnam', 'vitryssland', 'zambia', 'zimbabwe', 'österrike', 'östtimor']
-cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'bollnäs', 'borgholm', 'borlänge', 'borås', 'djursholm', 'eksjö', 'enköping', 'eskilstuna', 'eslöv', 'fagersta', 'falkenberg', 'falköping', 'falsterbo', 'falun', 'filipstad', 'flen', 'gothenburg', 'gränna', 'gävle', 'hagfors', 'halmstad', 'haparanda', 'hedemora', 'helsingborg', 'hjo', 'hudiksvall', 'huskvarna', 'härnösand', 'hässleholm', 'höganäs', 'jönköping', 'kalmar', 'karlshamn', 'karlskoga', 'karlskrona', 'karlstad', 'katrineholm', 'kiruna', 'kramfors', 'kristianstad', 'kristinehamn', 'kumla', 'kungsbacka', 'kungälv', 'köping', 'laholm', 'landskrona', 'lidingö', 'lidköping', 'lindesberg', 'linköping', 'ljungby', 'ludvika', 'luleå', 'lund', 'lycksele', 'lysekil', 'malmö', 'mariefred', 'mariestad', 'marstrand', 'mjölby', 'motala', 'nacka', 'nora', 'norrköping', 'norrtälje', 'nybro', 'nyköping', 'nynäshamn', 'nässjö', 'oskarshamn', 'oxelösund', 'piteå', 'ronneby', 'sala', 'sandviken', 'sigtuna', 'simrishamn', 'skanör', 'skanör med falsterbo', 'skara', 'skellefteå', 'skänninge', 'skövde', 'sollefteå', 'solna', 'stockholm', 'strängnäs', 'strömstad', 'sundbyberg', 'sundsvall', 'säffle', 'säter', 'sävsjö', 'söderhamn', 'söderköping', 'södertälje', 'sölvesborg', 'tidaholm', 'torshälla', 'tranås', 'trelleborg', 'trollhättan', 'trosa', 'uddevalla', 'ulricehamn', 'umeå', 'uppsala', 'vadstena', 'varberg', 'vaxholm', 'vetlanda', 'vimmerby', 'visby', 'vänersborg', 'värnamo', 'västervik', 'västerås', 'växjö', 'ystad', 'åmål', 'ängelholm', 'örebro', 'öregrund', 'örnsköldsvik', 'östersund', 'östhammar']
 
 
-def paths(include):
+#Helper functions
+def searchkey(string, part, g):
+    finder = re.compile(string)
+    match = finder.search(part)
+    if match is not None:
+        searchResult = match.group(g)
+    else:
+        searchResult = None
+    return searchResult
+
+
+
+def dictloop(dictionary, part, g, excludeTerms):
+    for i in dictionary:
+        result = searchkey(dictionary[i], part, g)
+        if result is None or any([x in result.lower() for x in excludeTerms]):
+            continue
+        else: 
+            break
+    return result
+
+
+
+#Main functions
+def paths():
     pdf_files = []
     for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
         for term in EXCLUDE:
             if term in dirs:
                 dirs.remove(term)
         for file in files: 
-            if include in subdir and file.endswith('.pdf'):
-                print(f"Dealing with file {subdir}/{file}\n")
-                pdf_dir = (os.path.join(subdir, file))
-                pdf_files.append(pdf_dir)
-                continue
+            for term in INCLUDE:
+                if term in subdir and file.endswith('.pdf'):
+                    print(f"Dealing with file {subdir}/{file}")
+                    pdf_dir = (os.path.join(subdir, file))
+                    pdf_files.append(pdf_dir)
     return pdf_files
 
 
@@ -238,9 +175,9 @@ def get_header(firstpage_form):
 
 
 
-def topwords(part):
+def get_topwords(firstpage_form):
     try:
-        topwords = ' '.join(firstpage_form.split()[0:20].lower())
+        topwords = ' '.join(firstpage_form.split()[0:20]).lower()
     except IndexError:
         topwords = ''.join(firstpage_form.lower())
     return topwords
@@ -265,6 +202,10 @@ def get_lastpage(fulltext_form, lastpage_form):
 
 
 def get_plaint_defend(part):
+    """
+    Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
+    for readable and scanned docs
+    """
     try:
         defend_og = re.split('Svarande|SVARANDE', part)[1] 
         plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
@@ -276,10 +217,10 @@ def get_plaint_defend(part):
                                        (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", part)[0]))[1]
     except IndexError:
         try:
-            defend_og = re.split(svarandeSearch, part)[1]
-            plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(svarandeSearch, part)[0]))[1]
+            defend_og = re.split(defend_search, part)[1]
+            plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(defend_search, part)[0]))[1]
             if defend_og == "":
-                defend_og = re.split(svarandeSearch, part)[2]
+                defend_og = re.split(defend_search, part)[2]
         except IndexError:
             try:
                 first = part.split('1.')[1]
@@ -290,33 +231,179 @@ def get_plaint_defend(part):
     defend_og = defend_og.strip(' _\n')
     defend = defend_og.lower()
     plaint = plaint_og.lower()
+
     return defend, defend_og, plaint, plaint_og
 
 
 
-#Execute        
-readable_files = paths('all_cases')
-scanned_files = paths('all_scans')
+def party_id(party_og):
+    """
+    Get full name, first name, ID number for plaintiff and defendant
+    """
+    if ',' in party_og:
+        full = (party_og.split(",")[0]).lower()
+    else:
+        full = (party_og.split("\n")[1]).lower()
+    first = [x.strip('\n') for x in re.split('-|[(]|[)|\s]', full)[:-1]]
+    first = [x for x in first if x] #delete empty strings from list
+    try:
+        number = ''.join(searchkey(id_pattern, party_og.lower(), 2).split())
+    except AttributeError:
+        number = "-"
+        
+    return full, first, number
 
-for pdf in readable_files:
-    print('\nPDF FILE: ', pdf)
-    correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form = read_file(pdf)
-    header_form = get_header(firstpage_form)
-    defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form)
-    COUNT += 1
-
-    print(defend.split('.'))
 
 
+def judge(doc_type, fulltext_og, fulltext, lastpage_form):
+    """
+    Extracts judge name and title from readable documents
+    """
+    if doc_type == 'slutligt beslut' or doc_type == 'protokoll':
+        judge_name = dictloop(judgetitle_search, fulltext_og, 2, ['telefon','telefax'])
+        judge_title = dictloop(judgetitle_search, fulltext_og, 1, ['telefon','telefax'])
+        if judge_name is None:
+            try:
+                judge_name = (((dictloop(judgesearch, lastpage_form, 1,['telefon','telefax'])).split('\n'))[0])
+            except:
+                judge_name = fulltext.split('.')[-1]
+    elif doc_type == 'dom' or doc_type == 'deldom':
+        judge_title = "N/A"
+        try:
+            judge_name = ((dictloop(judgesearch, lastpage_form, 1, ['telefon','telefax', 'svarande'])).split('\n'))[0]
+            judge_name = judge_name.lower().strip()
+        except AttributeError:
+            try:
+                finalpart = re.split('ÖVERKLAG|Överklag|överklag', lastpage_form)[-1]
+                judge_name = ((dictloop(judgesearch_noisy, finalpart, 1, ['telefon','telefax', 'svarande', 't'])).split('\n'))[0]
+                judge_name = re.split('\s{4,}|,', judge_name)[0]
+                judge_name = judge_name.lower().strip().strip('/').strip('|')
+            except:
+                judge_name = 'Not found'
+    else:
+        judge_name = "Not found" 
 
-from OCR import main
-for scan in scanned_files:
-    print('\nSCAN: ', scan)
-    outpath = scan.split('\\')[0]
+    return judge_name, judge_title
+
+    
+
+def basic_caseinfo(file, topwords, fulltext_og):
+    """
+    Extracts information relevant to all types of documents: 
+        1) case id 
+        2) doc type (dom,deldom,slutligt beslut, dagbok, protokoll) 
+        3) court name
+        4) case date, case year
+    """
+    try:
+        caseno = ''.join((searchkey(caseno_search, topwords, 2)).split())
+    except AttributeError:
+        try:
+            caseno = searchkey('T.?\s*(\d*-\d*)', file, 1)
+        except:
+            caseno = "Not found"
+
+    filename = file.lower() 
+    print(topwords)
+    
+    if 'dagbok' in topwords:
+        doc_type = 'dagbok'
+    elif 'protokol' in topwords:
+        doc_type = 'protokoll'
+    elif 'TLIGT BESLUT' in fulltext_og or 'slutligt beslut' in filename:
+        doc_type = 'slutligt beslut'
+    elif 'deldom' in topwords or 'deldom' in filename or 'mellandom' in filename or 'mellandom' in topwords:
+        doc_type = 'deldom'
+    elif ' dom ' in filename or ' dom.' in filename or ' dom;' in filename or 'dom ' in topwords:
+        doc_type = 'dom'
+    elif 'all_scans' in filename:
+        doc_type = 'dom'
+    else:
+        doc_type = 'Not found'
+
+    courtname = re.split('\W',file.split('/')[4])[0]
+
+    try:
+        date = dictloop(date_search, topwords, 1, [])    
+        year = date[:4]
+    except:
+        date = "Not found"
+
+    return caseno, doc_type, courtname, date, year
+  
+
+
+def get_ruling(fulltext_form):
+    """
+    Extract only ruling text headed usually 'Domslut'
+    """
+    try:
+        ruling_form = ''.join(re.split('DOMSLUT|Domslut\n', ''.join(fulltext_form))[1:])
+    except AttributeError:
+        ruling_form = ''.join(re.split('_{10,40}\s*', ''.join(fulltext_form))[1:])
+    try:
+        ruling_form = ''.join(re.split('[A-ZÅÄÖÜ]{4,}\s*\n*TINGSRÄTT',ruling_form))
+    except AttributeError:
+        ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
+        
+    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
+    ruling_form = re.split(dictloop(ruling_search,ruling_form,0,[]), ruling_form)[0]
+    
+    try:
+        if searchkey('\d\d\s*–\s*\d\d', ruling_form, 0):
+            ruling1 = re.sub('\s*–\s*','–',ruling_form)
+            ruling2 = re.sub('\s*–\n','–',ruling_form)
+        else:
+            ruling1 = re.sub('\s*-\s*','-',ruling_form)
+            ruling2 = re.sub('\s*-\n','-',ruling_form)
+        ruling_og = ' '.join(''.join(ruling2).split())
+        
+    except AttributeError:
+        ruling_og = ' '.join(''.join(re.split('(YRKANDEN|Yrkanden)', ruling_form)[0].lower() ).split())
+        if searchkey('\d\d\s*–\s*\d\d', ruling1, 0):
+            ruling_og = re.sub('\s*–\s*','–',ruling_og)
+            ruling_og = re.sub('\s*–\n','–',ruling_og)
+        else:
+            ruling_og = re.sub('\s*-\s*','-',ruling_og)
+            ruling_og = re.sub('\s*-\n','-',ruling_og)
+            
+    ruling = ruling_og.lower()
+    
+    return ruling_form, ruling_og, ruling
+
+
+
+def main(file):
+    outpath = file.split('\\')[0]
     os.chdir(outpath)
-    firstpage_form, lastpage_form, fulltext_form, judge_string, topwords = main(scan)
-    topwords, firstpage_form, fulltext_form = clean_ocr(topwords, firstpage_form, fulltext_form)
+    
+    if 'all_cases' in file:
+        print('\nReadable: ', file)
+        correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form = read_file(file)
+        topwords = get_topwords(firstpage_form)
+    elif 'all_scans' in file:
+        print('\nScan: ', file)
+        firstpage_form, lastpage_form, fulltext_form, judge_string, topwords_form = ocr_main(file)
+        topwords_form, firstpage_form, fulltext_form = clean_ocr(topwords_form, firstpage_form, fulltext_form)
+        topwords_og, topwords = format_text(topwords_form)
+    
     header_form = get_header(firstpage_form)
     defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form)
+    
+    plaint_full, plaint_first, plaint_no = party_id(plaint_og)
+    defend_full, defend_first, defend_no = party_id(defend_og)
+    fulltext_og, fulltext = format_text(fulltext_form)
+    
+    caseno, doc_type, courtname, date, year = basic_caseinfo(file, topwords, fulltext_og)
+    
+    if doc_type == 'dom' or doc_type == 'deldom':
+        ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
+    else:
+        case_type = 'N/A'
+    
+    return ruling
 
-    print(defend.split('.'))
+#Execute
+files = paths()
+for file in files:
+    print(main(file))

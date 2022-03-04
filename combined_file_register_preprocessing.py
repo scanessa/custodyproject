@@ -97,7 +97,7 @@ def searchKey(string, part, g):
         searchResult = None
     return searchResult
         
-def searchLoop(searchDict, part, g, excludeTerms):
+def searchoop(searchDict, part, g, excludeTerms):
     for i in searchDict:
         result = searchKey(searchDict[i], part, g)
         if result is None or any([x in result.lower() for x in excludeTerms]):
@@ -397,7 +397,10 @@ for file in pdf_files:
                     #print('PARTY9: ',svarandeStringOG.split('.'))
         svarandeString = svarandeStringOG.lower()
         kärandeString = kärandeStringOG.lower()
-    
+
+        """
+        Information for all docs that is NOT specific to doms
+        """
         #Case ID
         try:
             caseNo = ''.join((searchKey(searchCaseNo, fullText, 2)).split())
@@ -474,6 +477,11 @@ for file in pdf_files:
         else:
             print("judge5")
             judgeName = "Not found"
+
+
+
+
+
         
         #RULINGS
         if docType == 'dom' or docType == 'deldom':

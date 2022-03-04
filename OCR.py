@@ -82,7 +82,7 @@ def bounding_boxes(subprocess_output):
             string_list.append(img_string)
     return string_list
 
-def main(pdf):
+def ocr_main(pdf):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
     
     path = pdf_to_jpg(pdf)
