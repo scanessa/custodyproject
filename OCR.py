@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This code reads in scannes documents, draws bounding boxes around text blocks
+This code reads in scanned documents, draws bounding boxes around text blocks
 and OCR's the bounding boxes
 @author: ifau-SteCa
 """

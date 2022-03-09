@@ -1,54 +1,39 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Mar  9 15:50:05 2022
+
+@author: ifau-SteCa
+"""
+import re
+ruling_og = 'Vårdnaden om Emil MÉXI-TOM Tom Sjursen, 1234567-000, Ida-Maria Maja Sjursen-Lila, 2234567-123, och Isak Sjursen ska tillkomma Patrik Kågebrand och Annette Sjursen gemensamt. Emil Sjursen, Ida Sjursen och Isak Sjursen ska ha sitt stadigvarande boende hos Stella Kågebrand.'
+defend_full = 'patrik kågebrand'
+plaint_full = 'annette sjursen'
+ids = ['1234567-000','2234567-123']
 
 
-#Define search terms
-legalGuardingTerms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
-nameCaps = '[A-ZÅÄÖ]{3,}'
-svarandeSearch = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE |MANNEN|Mannen'
-idNo ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
-appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
-searchCaseNo = 'må.\s*(nr)?[.]?\s*t\s*(\d*\s*.?.?\s*\d*)'
-capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
-allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]'
 
-dateSearch = {
-    '1' : 'dom\s+(\d*-\d*-\d*)',
-    '2' : 'dom\s+sid\s*1\s*[(][0-9]*[)]\s*(\d*-\d*-\d*)',
-    '3' : '(\d{4}-\d{2}-\d{2})'
-    }
+sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..|\d\s*,|\s[a-z]', ruling_og) 
+for sentence in sentence_parts:
+    for idchild in ids:
+        if idchild[:-1] in sentence:
+            names = []
+            for word in sentence.split():
 
-judgeSearch = {
-    '1': '\n\s*\n\s*((' + allLetters + '+\s+){2,4})\n\s*\n', #normal names
-    '2': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n\s*\n', #first name hyphenated
-    '3': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n\s*\n', #last name hypthenated
-    '4': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n\s*\n', #first and last name hyphenated
-    '5': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #name with initial as second name
-    '6': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #first and second name as initial
-    #if there is a note in the line following the judge's name
-    '7': '\n\s*\n\s*((' + allLetters + '+\s+){2,4})\n', #normal names
-    '8': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n', #first name hyphenated
-    '9': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n', #last name hypthenated
-    '10': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n', #first and last name hyphenated
-    '11': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + 's\s' + allLetters + '+\s+)\n', #name with initial as second name
-    '12': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n', #name with initial as second name
-    #For documents where judge didnt sign
-    '13': '(rådmannen|tingsfiskalen)\s*((' + allLetters + '+\s+){2,4})',
-    '14': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
-    '15': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
-    '16': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
-    '17': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
-    '18': '(rådmannen|tingsfiskalen)\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
-    #when judge's name ends with .
-    '25': '\n\s*\n\s*((' + allLetters + '+\s+){1,3}' + allLetters + '+).\s*\n\n', #normal names
-    '26': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+).\s*\n', #first name hyphenated
-    '27': '\n\s*\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+).\s*\n', #last name hypthenated
-    '28': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + ').\s*\n', #first and last name hyphenated
-    '29': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+).\s*\n', #name with initial as second name
-    '30': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+).\s*\n', #name with initial as second name
-    #Only one new line before judge's name
-    '31': '\n\s*((' + allLetters + '+\s+){2,4})\n\s*\n', #normal names
-    '32': '\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)\n\s*\n', #first name hyphenated
-    '33': '\n\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)\n\s*\n', #last name hypthenated
-    '34': '\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)\n\s*\n', #first and last name hyphenated
-    '35': '\n\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n', #name with initial as second name
-    '36': '\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n\s*\n' #name with initial as second name
-    }
+                if (
+                    word[0].isupper() 
+                    and not any([x in word.lower() for x in defend_full.split()]) 
+                    and not any([x in word.lower() for x in plaint_full.split()])
+                    ):
+                    
+                    names.append(word)
+                    
+            child_first = [x for x in names if x[0:3].upper() == x[0:3]]
+            if not child_first:
+                child_first = names[0].lower()
+            else:
+                child_first = child_first[0].lower()
+            
+            
+                    
+            print(idchild, child_first)
+

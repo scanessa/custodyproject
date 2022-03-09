@@ -18,7 +18,7 @@ from pdfminer.converter import TextConverter
 
 from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
 from searchterms import date_search, judgetitle_search, judgesearch, judgesearch_noisy
-from searchterms import ruling_search
+from searchterms import ruling_search, legalguardian_terms, remindkey
 
 from OCR import ocr_main
 
@@ -56,6 +56,18 @@ def dictloop(dictionary, part, g, excludeTerms):
         else: 
             break
     return result
+
+
+
+def findterms(stringlist, part):
+    sentenceRes = []
+    split = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])', part)
+    for sentence in split:
+        sentence = sentence.lower() + '.'
+        if all([x in sentence for x in stringlist]):
+            sentenceRes.append(sentence)
+    sentenceString = '.'.join(sentenceRes)
+    return sentenceString
 
 
 
@@ -304,7 +316,6 @@ def basic_caseinfo(file, topwords, fulltext_og):
             caseno = "Not found"
 
     filename = file.lower() 
-    print(topwords)
     
     if 'dagbok' in topwords:
         doc_type = 'dagbok'
@@ -330,7 +341,48 @@ def basic_caseinfo(file, topwords, fulltext_og):
         date = "Not found"
 
     return caseno, doc_type, courtname, date, year
-  
+
+
+
+def get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form):
+    """
+    Get type of custody ruling:
+    1216A = custody battles of non-divorcing parents
+    1216B = legal guardian case
+    1217A = divorce with custody battles
+    1217B = divorce only cases
+    """
+    fulltext = fulltext_og.lower()
+    firstpage = firstpage_form.lower()
+    
+    if (
+            any([x in defend for x in legalguardian_terms])
+            or any([x in plaint for x in legalguardian_terms])
+            or any([x in fulltext for x in ['overflyttas','ensamkommande flyktingbarn']])
+            or 'vårdnadshavare' in findterms(['förordnad'], fulltext_og)
+        ):
+        
+        case_type = '1216B'
+        
+    elif (
+            'de har inga gemensamma barn' in fulltext
+            or list(filter(lambda x:'äktenskaps' in x, [ruling, firstpage]))
+            and any([x in findterms(['vård'], firstpage) for x in remindkey])
+            ):
+
+        case_type = '1217B'
+    
+    elif list(filter(lambda x:'äktenskaps' in x, [ruling, firstpage])):
+        case_type = '1217A'
+
+    elif any([x in ruling for x in ['vård', 'umgänge', 'umgås']]):
+        case_type = '1216A'
+        
+    else:
+        case_type = 'Not found'
+
+    return case_type
+
 
 
 def get_ruling(fulltext_form):
@@ -373,16 +425,86 @@ def get_ruling(fulltext_form):
 
 
 
+def get_domskal(fulltext_og, ruling_form):
+    """
+    Extract domskal chapter from ruling which gives reasoning for ruling,
+    if there is no domskal chapter get most similar background chapter
+    """
+    try:
+        domStart = re.split('DOMSKÄL|Domskäl', fulltext_og)[1]
+    except IndexError:
+        try:
+            domStart = re.split('BEDÖMNING|Tingsrättens bedömning', fulltext_og)[1]
+        except IndexError:
+            try:
+                domStart = re.split('Yrkanden |Parternas Begäran M.M.|Yrkande M.M.|YRKANDEN |YRKANDE M.M.|PARTERNAS BEGÄRAN ', fulltext_og)[1]
+            except IndexError:
+                try:
+                    domStart = re.split('\nSkäl\s*\n', ruling_form)[1]
+                except IndexError:
+                    domStart = re.split('(_|-){10,40}\s*', ruling_form)[1]
+    domskal_og = re.split('överklag|Överklag|ÖVERKLAG', domStart)[0]
+    domskal = domskal_og.lower()
+    
+    return domskal_og, domskal
+
+def get_childnos(ruling, ruling_og, year,defend_full,plaint_full):
+    """
+    Extract child ID's first from ruling, if not found there from full text, 
+    otherwise get child's name and use that as ID
+    """
+    result = []
+    
+    childno_noisy = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling)
+    childno_clean = set([x.replace(' ', '') for x in childno_noisy])
+
+    for i in childno_clean:
+        if len(re.split('\D', i)[0]) == 8:
+            childyear = i[:4]
+        else:
+            childyear = '19'+i[:2] if int(i[:2])>40 else '20'+i[:2]
+            
+        age = int(year) - int(childyear)
+        
+        if age < 18: 
+            result.append(i)
+                
+    if not result:
+        custody_sentences = []
+        sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..', ruling_og) 
+        for sentence in sentence_parts:
+            if 'vård' in sentence or 'Vård' in sentence:
+                custody_sentences.append(sentence)
+        custody_sentences = ('.'.join(custody_sentences)).split(' ')[1:]
+        
+        for word in custody_sentences:
+            if (
+                word[0].isupper() 
+                and not any([x in word.lower() for x in defend_full.split()]) 
+                and not any([x in word.lower() for x in plaint_full.split()])
+                ):
+                    child_first = child_full = word.strip(',')
+                    result.append(child_first.lower())
+
+    result = ['not found'] if not result else result
+            
+    return result, child_full, child_first
+
+
+
 def main(file):
     outpath = file.split('\\')[0]
     os.chdir(outpath)
     
     if 'all_cases' in file:
         print('\nReadable: ', file)
+        
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form = read_file(file)
         topwords = get_topwords(firstpage_form)
+        
     elif 'all_scans' in file:
         print('\nScan: ', file)
+        
         firstpage_form, lastpage_form, fulltext_form, judge_string, topwords_form = ocr_main(file)
         topwords_form, firstpage_form, fulltext_form = clean_ocr(topwords_form, firstpage_form, fulltext_form)
         topwords_og, topwords = format_text(topwords_form)
@@ -398,10 +520,20 @@ def main(file):
     
     if doc_type == 'dom' or doc_type == 'deldom':
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
+        case_type = get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form)
+
+        if not case_type == '1216B':
+            domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
+            
+            try:
+                print('x')
+            except Exception as e:
+                print(e)
+            
     else:
         case_type = 'N/A'
     
-    return ruling
+    return defend_full
 
 #Execute
 files = paths()

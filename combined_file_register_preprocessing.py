@@ -97,7 +97,7 @@ def searchKey(string, part, g):
         searchResult = None
     return searchResult
         
-def searchoop(searchDict, part, g, excludeTerms):
+def searchLoop(searchDict, part, g, excludeTerms):
     for i in searchDict:
         result = searchKey(searchDict[i], part, g)
         if result is None or any([x in result.lower() for x in excludeTerms]):
@@ -478,11 +478,6 @@ for file in pdf_files:
             print("judge5")
             judgeName = "Not found"
 
-
-
-
-
-        
         #RULINGS
         if docType == 'dom' or docType == 'deldom':
             
@@ -554,8 +549,7 @@ for file in pdf_files:
                 print("11")
                 caseType = "1216A"
             else:
-                print("12")
-                caseType = "Not found"
+                print("12") 
             
             #Write data of custody and divorce rulings to CSV
             if caseType == '1217B' or caseType == '1217A' or caseType == '1216A':
@@ -579,8 +573,19 @@ for file in pdf_files:
                                 domStart = re.split('(_|-){10,40}\s*', rulingStringFormatted)[1]
                 domskalOG = re.split('överklag|Överklag|ÖVERKLAG', domStart)[0]
                 domskal = domskalOG.lower()
-    
+
+
+
+
+
+
+
+
+
                 try:
+                    
+                    
+                    
                     #List of children's numbers
                     childNoRes = childNos(rulingOnly, year)  
                     if not childNoRes:
@@ -602,6 +607,13 @@ for file in pdf_files:
                                 childNoRes = childNames
                             except:
                                 childNoRes = ['not found']  
+                    
+                    
+                    
+                    
+                    
+                    
+                    
                     #Loop to create dictionary with one row per child
                     for i in childNoRes:
                         data_rulings = {'child_id':[], 'case_no':[], 'court':[], 'date':[], 'deldom':[], 'divorce_only': [] , 'joint_application_custody': [],'plaintiff_id':[], 'defendant_id':[], 'plaintiff_lawyer':[], 'defendant_lawyer':[], 'defendant_address_secret': [], 'plaintiff_address_secret':[], 'defendant_abroad':[], 'defendant_unreachable':[], 'outcome':[], 'visitation':[], 'physical_custody':[], 'alimony':[], 'agreement_legalcustody':[], 'agreement_any':[], 'fastinfo':[], 'cooperation_talks':[], 'investigation':[], 'mainhearing':[], 'separation_year': [], 'judge':[], 'page_count': [], 'correction_firstpage': [], 'flag': [],'file_path': []}
@@ -609,6 +621,9 @@ for file in pdf_files:
                         #Variables that are constant for all children in court doc       
                         dummyDel = 1 if 'deldom' in topwords else 0
                         dummyLawyerPlaint = 1 if 'ombud' in kärandeString or "god man" in kärandeString or "advokat" in kärandeString else 0
+    
+    
+    
     
                         #Get child's name
                         childNameKey = ('([A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞa-zåäïüóöéæøßþîčćžđšžůúýëçâêè]+)\s*[,]?\s*[(]?\s*' + i )
@@ -633,6 +648,10 @@ for file in pdf_files:
                             childNameFirst = 'not found'
                         childNameFirst = childNameFirst.lower()
                           
+                        
+                        
+                        
+                        
                         #Defendant representative
                         for term in lawyerKey:
                             if term in svarandeString:
