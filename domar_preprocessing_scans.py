@@ -448,47 +448,101 @@ def get_domskal(fulltext_og, ruling_form):
     
     return domskal_og, domskal
 
-def get_childnos(ruling, ruling_og, year,defend_full,plaint_full):
+def get_childnos(ruling_og, year):
     """
-    Extract child ID's first from ruling, if not found there from full text, 
+    Search for ID numbers in ruling (would only be given for kids) and return
+    dict with ID as index, names for each index added in get_childname
+    """
+    childid_name = {}
+
+    childnos = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling_og.lower())
+    childnos = [x.replace(' ', '') for x in childnos]
+    childnos = set(childnos)
+
+    for num in childnos:
+        if len(re.split('\D', num)[0]) == 8:
+            childyear = num[:4]
+        else:
+            childyear = '19'+num[:2] if int(num[:2])>40 else '20'+num[:2]
+
+        age = int(year) - int(childyear)
+
+        childid_name[num] = '' if age < 18 else childid_name
+
+    return childid_name
+    
+def get_childname(year, ruling_og, defend_full, plaint_full):
+    """
+    Extract child ID's first from ruling, if not found there from full text,
     otherwise get child's name and use that as ID
     """
-    result = []
-    
-    childno_noisy = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling)
-    childno_clean = set([x.replace(' ', '') for x in childno_noisy])
+    childid_name = get_childnos(ruling_og, year)
+    names = []
 
-    for i in childno_clean:
-        if len(re.split('\D', i)[0]) == 8:
-            childyear = i[:4]
-        else:
-            childyear = '19'+i[:2] if int(i[:2])>40 else '20'+i[:2]
-            
-        age = int(year) - int(childyear)
-        
-        if age < 18: 
-            result.append(i)
-                
-    if not result:
+    if childid_name:
+
+        sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..|\d\s*,|\s[a-z]', ruling_og)
+
+        for i in childid_name:
+            sentence = str([x for x in sentence_parts if i[:-1] in x])
+            childid_name[i] = ''
+
+            for word in sentence.split():
+
+                if (
+                    word[0].isupper()
+                    and not any([x in word.lower() for x in defend_full.split()])
+                    and not any([x in word.lower() for x in plaint_full.split()])
+                    ):
+
+                    names.append(word)
+
+            child_first = [x for x in names if x[0:3].upper() == x[0:3]]
+
+            if not child_first:
+                child_first = names[0].lower()
+            else:
+                child_first = child_first[0].lower()
+
+            childid_name[i] = child_first
+            names.clear()
+
+    if not childid_name:
+
         custody_sentences = []
-        sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..', ruling_og) 
+        sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..', ruling_og)
+
         for sentence in sentence_parts:
             if 'vård' in sentence or 'Vård' in sentence:
                 custody_sentences.append(sentence)
-        custody_sentences = ('.'.join(custody_sentences)).split(' ')[1:]
-        
-        for word in custody_sentences:
-            if (
-                word[0].isupper() 
-                and not any([x in word.lower() for x in defend_full.split()]) 
-                and not any([x in word.lower() for x in plaint_full.split()])
-                ):
-                    child_first = child_full = word.strip(',')
-                    result.append(child_first.lower())
 
-    result = ['not found'] if not result else result
-            
-    return result, child_full, child_first
+        custody_sentences = ('.'.join(custody_sentences)).split(' ')[1:]
+        custody_sentences = [x for x in custody_sentences if x]
+
+        for word in custody_sentences:
+            word = word.strip()
+
+            if (
+                word[0].isupper()
+                and not any([x in word.lower() for x in defend_full.split()])
+                and not any([x in word.lower() for x in plaint_full.split()])
+                or word == 'och'
+                ):
+                names.append(word)
+
+            elif word[-1] == ',':
+                names.append(word.strip()[-1])
+
+        names = re.split(',|och', ' '.join(names))
+        names = [x for x in names if x.strip()]
+
+        for name in names:
+            name = name.split()[0]
+            childid_name[name] = name
+
+    childid_name = {'not found':'not found'} if not childid_name else childid_name
+
+    return childid_name
 
 
 
@@ -508,7 +562,7 @@ def main(file):
         firstpage_form, lastpage_form, fulltext_form, judge_string, topwords_form = ocr_main(file)
         topwords_form, firstpage_form, fulltext_form = clean_ocr(topwords_form, firstpage_form, fulltext_form)
         topwords_og, topwords = format_text(topwords_form)
-    
+            
     header_form = get_header(firstpage_form)
     defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form)
     
@@ -526,14 +580,18 @@ def main(file):
             domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
             
             try:
-                print('x')
+                id_name = get_childname(year, ruling_og, defend_full, plaint_full)
+                for child_id in id_name:
+                    child_first = id_name[child_id]
+                    print(child_first)
+                
             except Exception as e:
-                print(e)
+                print('Error: ',e)
             
     else:
         case_type = 'N/A'
-    
-    return defend_full
+
+    return id_name
 
 #Execute
 files = paths()

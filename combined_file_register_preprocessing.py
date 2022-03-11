@@ -573,19 +573,9 @@ for file in pdf_files:
                                 domStart = re.split('(_|-){10,40}\s*', rulingStringFormatted)[1]
                 domskalOG = re.split('överklag|Överklag|ÖVERKLAG', domStart)[0]
                 domskal = domskalOG.lower()
-
-
-
-
-
-
-
-
-
+                
                 try:
-                    
-                    
-                    
+
                     #List of children's numbers
                     childNoRes = childNos(rulingOnly, year)  
                     if not childNoRes:
