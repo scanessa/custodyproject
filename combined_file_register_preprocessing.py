@@ -598,12 +598,6 @@ for file in pdf_files:
                             except:
                                 childNoRes = ['not found']  
                     
-                    
-                    
-                    
-                    
-                    
-                    
                     #Loop to create dictionary with one row per child
                     for i in childNoRes:
                         data_rulings = {'child_id':[], 'case_no':[], 'court':[], 'date':[], 'deldom':[], 'divorce_only': [] , 'joint_application_custody': [],'plaintiff_id':[], 'defendant_id':[], 'plaintiff_lawyer':[], 'defendant_lawyer':[], 'defendant_address_secret': [], 'plaintiff_address_secret':[], 'defendant_abroad':[], 'defendant_unreachable':[], 'outcome':[], 'visitation':[], 'physical_custody':[], 'alimony':[], 'agreement_legalcustody':[], 'agreement_any':[], 'fastinfo':[], 'cooperation_talks':[], 'investigation':[], 'mainhearing':[], 'separation_year': [], 'judge':[], 'page_count': [], 'correction_firstpage': [], 'flag': [],'file_path': []}
@@ -611,10 +605,7 @@ for file in pdf_files:
                         #Variables that are constant for all children in court doc       
                         dummyDel = 1 if 'deldom' in topwords else 0
                         dummyLawyerPlaint = 1 if 'ombud' in kärandeString or "god man" in kärandeString or "advokat" in kärandeString else 0
-    
-    
-    
-    
+
                         #Get child's name
                         childNameKey = ('([A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞa-zåäïüóöéæøßþîčćžđšžůúýëçâêè]+)\s*[,]?\s*[(]?\s*' + i )
                         childNameFirst = searchKey(childNameKey, rulingOnlyOG, 1)
@@ -637,11 +628,7 @@ for file in pdf_files:
                             childNameFull = 'not found'
                             childNameFirst = 'not found'
                         childNameFirst = childNameFirst.lower()
-                          
-                        
-                        
-                        
-                        
+
                         #Defendant representative
                         for term in lawyerKey:
                             if term in svarandeString:
@@ -661,7 +648,6 @@ for file in pdf_files:
                         #Defendant abroad
                         svGodMan = 1 if 'c/o' in svarandeString else svGodMan
 
-                        
                         if any([x in cityString for x in cities]) and not any([x in defAddress.lower() for x in lawyerKey]):
                             dummyAbroad = 0
                             print('abroad 0')
@@ -734,6 +720,7 @@ for file in pdf_files:
                             else:
                                 continue
                             break
+                        
                         #Year of Separation of Unmarried Parents
                         dummySeparate = searchKey('separerade under (\d{4})', fullText, 1)
                         if not dummySeparate:
@@ -744,6 +731,7 @@ for file in pdf_files:
                                 else:
                                     dummySeparate = '-'
                                     continue
+
                         #Outcome
                         findVardn = findTerms(['vård',i], rulingOnlyOG)
                         findVardn = findTerms(['vård'], rulingOnlyOG) if not findVardn else findVardn

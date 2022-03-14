@@ -88,7 +88,7 @@ def ocr_main(pdf):
     path = pdf_to_jpg(pdf)
     full_text = []
     header = []
-    
+
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
@@ -103,15 +103,16 @@ def ocr_main(pdf):
         full_text.append(text)
         header.append(text[:4])
         
-        """
         for file in [filename + '.jpg',
                      filename + '_thresh.jpg',
                      filename + '_thresh_straight.png']:
             os.remove(file)
-        """
+
     firstpage_form = ''.join(full_text[0])
+    page_count = len(full_text)
     judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
     lastpage_form = ''.join(full_text[-1])
     fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
     topwords = ''.join(list(itertools.chain.from_iterable(header)))
-    return firstpage_form, lastpage_form, fulltext_form, judge_string, topwords
+
+    return firstpage_form, lastpage_form, fulltext_form, judge_string, topwords, page_count
