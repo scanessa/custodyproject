@@ -12,12 +12,12 @@ import pytesseract
 import cv2
 from pdf2image import convert_from_path
 
-os.chdir('P:/2020/14/Kodning/Scans')
+os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PDF_DIR = 'P:/2020/14/Kodning/Scans'
+PDF_DIR = 'P:/2020/14/Kodning/Scans/all_scans'
 
 #General settings
 LANGUAGE = 'swe'
@@ -74,20 +74,31 @@ def bounding_boxes(subprocess_output):
 
     for cnt in contours:
         x,y,w,h = cv2.boundingRect(cnt)
-        if 50 < h < 700 and w > 200 and y > 10 and y+h < height-35 or (700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35):
+        if (
+                50 < h < 700 and w > 200 and y > 10 and y+h < height-35 
+                or (700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35)
+                ):
+            
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             roi = img[y:y+h, x:x+w]
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CUSTOM_CONFIG)
             string_list.append(img_string)
+            
+    #cv2.imwrite("bbox.jpg", img)
+    
     return string_list
 
-def ocr_main(pdf):
+def ocr_main(file):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
     
-    path = pdf_to_jpg(pdf)
     full_text = []
     header = []
+    
+    if file.endswith('.pdf'):
+        path = pdf_to_jpg(file)
+    elif file.endswith('.JPG'):
+        path = file
 
     for image in path:
         filename = image.split('.')[0]
@@ -107,7 +118,7 @@ def ocr_main(pdf):
                      filename + '_thresh.jpg',
                      filename + '_thresh_straight.png']:
             os.remove(file)
-
+        
     firstpage_form = ''.join(full_text[0])
     page_count = len(full_text)
     judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
@@ -116,3 +127,4 @@ def ocr_main(pdf):
     topwords = ''.join(list(itertools.chain.from_iterable(header)))
 
     return firstpage_form, lastpage_form, fulltext_form, judge_string, topwords, page_count
+
