@@ -10,6 +10,7 @@ import time
 import io
 import os
 import pandas as pd
+import itertools
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -54,6 +55,18 @@ DATA_REGISTER = {
     'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[]
 
     }
+
+
+
+case = {
+    
+    'firstpage_form':[], 'fulltext_form':[], 'lastpage_form':[], 'judge_string':[],
+    'topwords_form':[], 'filepath':[]
+    
+    }
+
+
+cases = []
 
 
 #Specify folders to search PDFs in
@@ -128,9 +141,56 @@ def paths():
                     print(f"Dealing with file {subdir}/{file}")
                     pdf_dir = (os.path.join(subdir, file))
                     pdf_files.append(pdf_dir)
+                
     return pdf_files
 
 
+
+def cases_from_imgs():
+    start = 0 
+    for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
+        for term in EXCLUDE:
+            if term in dirs:
+                dirs.remove(term)
+        for file in files:
+            for term in INCLUDE:
+                if term in subdir and file.endswith('.JPG'):
+                    print(f"\nDealing with file {subdir}/{file}")
+                    pdf_dir = (os.path.join(subdir, file))
+                    text, _ = ocr_main(file)
+                    
+                    text = [item for sublist in text for item in sublist]
+                    print(text)
+                    
+                    if start == 0 and len([x for x in text if "DOMSLUT" in x]) >= 1:
+                        print("domslut first page")
+                        start = 1
+                        case['fulltext_form'].append(text)
+                        case['firstpage_form'] = text
+                        case['topwords_form'] = text[:4]
+                        
+                    elif len([x for x in text if "ÖVERKLAG" in x]) >= 1:
+                        start = 0
+                        print('last page')
+                        case['fulltext_form'].append(text)
+                        case['lastpage_form'] = text
+                        case['judge_string' ] = text[-2:]
+                        case['filepath'] = pdf_dir
+
+                        cases.append(case)
+                        case.update((key, []) for key in case)
+                        
+                    else:
+                        print("other pages")
+                        start = 1
+                        case['fulltext_form'].append(text)
+            
+    return cases
+
+"""
+'firstpage_form':[], 'fulltext_form':[], 'lastpage_form':[], 'judge_string':[],
+  'topwords_form':[], 'filepath':[]
+"""
 
 def read_file(file):
     pages_text_formatted = []
@@ -185,6 +245,23 @@ def read_file(file):
             lastpage_form = pages_text_formatted[appendix_pageno-1]
 
     return correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count
+
+
+
+def get_ocrtext(full_text, header):
+    """
+    Use OCR fulltext and header to return first page, topwords, judge, fulltext formatted and cleaned
+    """
+    firstpage_form = ''.join(full_text[0])
+    page_count = len(full_text)
+    judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
+    lastpage_form = ''.join(full_text[-1])
+    fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
+    topwords_form = ''.join(list(itertools.chain.from_iterable(header)))
+    topwords_form, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords_form, firstpage_form, fulltext_form, judge_string)
+    topwords_og, topwords = format_text(topwords_form)
+    
+    return fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form
 
 
 
@@ -1271,25 +1348,23 @@ def main(file):
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count = read_file(file)
         topwords = get_topwords(firstpage_form)
         readable = 1
-        
+
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
-        firstpage_form, lastpage_form, fulltext_form, judge_string, topwords_form, page_count = ocr_main(file)
-        topwords_form, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords_form, firstpage_form, fulltext_form, judge_string)
-        topwords_og, topwords = format_text(topwords_form)
+        full_text, header = ocr_main(file)
+        fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
         correction = 0
         readable = 0
             
     header_form = get_header(firstpage_form)
     defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form, readable)
-    
     plaint_full, plaint_first, plaint_no = party_id(plaint_og)
     defend_full, defend_first, defend_no = party_id(defend_og)
     fulltext_og, fulltext = format_text(fulltext_form)
-    
     caseno, courtname, date, year = basic_caseinfo(file, topwords)
     doc_type = get_doctype(file, topwords, fulltext_og)
+
     if readable == 1:
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
@@ -1335,5 +1410,7 @@ def main(file):
 
 #Execute
 files = paths()
+pics = cases_from_imgs()
+
 for file in files:
     main(file)

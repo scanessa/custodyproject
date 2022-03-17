@@ -4,12 +4,12 @@ This code reads in scanned documents, draws bounding boxes around text blocks
 and OCR's the bounding boxes
 @author: ifau-SteCa
 """
-import itertools
 import os
 import subprocess
 import time
 import pytesseract
 import cv2
+import numpy as np
 from pdf2image import convert_from_path
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -36,7 +36,31 @@ def pdf_to_jpg(pdf):
         page.save(image_name, "JPEG")
         i = i+1
         img_files.append(image_name)
+
     return img_files
+
+def rotate_img(thresh):
+    """ Rotate images so that text is horizontal, input threshed and imread image """
+
+    coords, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    angle = cv2.minAreaRect(np.vstack(coords))[-1]
+    
+    print(angle)
+    if angle == 0:
+    	angle = 90
+    elif angle == 90:
+        angle = 0
+    else:
+    	angle = angle
+
+    (h, w) = thresh.shape[:2]
+    center = (w // 2, h // 2)
+    
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(thresh, M, (w, h),
+    	flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+
+    return rotated
 
 def preprocess(img_path):
     """ Preproccess image for page_warp.py straightening."""
@@ -46,10 +70,17 @@ def preprocess(img_path):
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255,
     	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
-    inverted = cv2.bitwise_not(thresh)
+    
+    rotated = rotate_img(thresh)
+    inverted = cv2.bitwise_not(rotated)
     median = cv2.medianBlur(inverted, 3)
+    
+    cv2.imwrite("thresh.jpg", thresh)
+    cv2.imwrite("rotate.jpg", rotated)
+    cv2.imwrite("median.jpg", median)
     # erode = cv2.erode(median, np.ones((3,3), np.uint8), iterations=1) including erode
     # gives an error in the page dewarp script for 210929_114535
+
     return median
 
 def get_contour_precedence(contour, cols):
@@ -94,11 +125,14 @@ def ocr_main(file):
     
     full_text = []
     header = []
+    pdf = 0
     
     if file.endswith('.pdf'):
         path = pdf_to_jpg(file)
+        pdf = 1
     elif file.endswith('.JPG'):
-        path = file
+        path = []
+        path.append(file)
 
     for image in path:
         filename = image.split('.')[0]
@@ -114,17 +148,15 @@ def ocr_main(file):
         full_text.append(text)
         header.append(text[:4])
         
-        for file in [filename + '.jpg',
-                     filename + '_thresh.jpg',
+        if pdf == 1:
+            os.remove(filename + '.jpg')
+
+        for file in [filename + '_thresh.jpg',
                      filename + '_thresh_straight.png']:
             os.remove(file)
-        
-    firstpage_form = ''.join(full_text[0])
-    page_count = len(full_text)
-    judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
-    lastpage_form = ''.join(full_text[-1])
-    fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
-    topwords = ''.join(list(itertools.chain.from_iterable(header)))
 
-    return firstpage_form, lastpage_form, fulltext_form, judge_string, topwords, page_count
+    return full_text, header
+
+out = ocr_main("P:/2020/14/Kodning/Scans/all_scans/040222_879.JPG")
+print(out)
 
