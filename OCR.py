@@ -9,7 +9,6 @@ import subprocess
 import time
 import pytesseract
 import cv2
-import numpy as np
 from pdf2image import convert_from_path
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -18,6 +17,7 @@ start_time = time.time()
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 PDF_DIR = 'P:/2020/14/Kodning/Scans/all_scans'
+imgpath = "P:/2020/14/Kodning/Scans/all_scans/test1_out.JPG"
 
 #General settings
 LANGUAGE = 'swe'
@@ -39,28 +39,6 @@ def pdf_to_jpg(pdf):
 
     return img_files
 
-def rotate_img(thresh):
-    """ Rotate images so that text is horizontal, input threshed and imread image """
-
-    coords, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    angle = cv2.minAreaRect(np.vstack(coords))[-1]
-    
-    print(angle)
-    if angle == 0:
-    	angle = 90
-    elif angle == 90:
-        angle = 0
-    else:
-    	angle = angle
-
-    (h, w) = thresh.shape[:2]
-    center = (w // 2, h // 2)
-    
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated = cv2.warpAffine(thresh, M, (w, h),
-    	flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-    return rotated
 
 def preprocess(img_path):
     """ Preproccess image for page_warp.py straightening."""
@@ -70,14 +48,8 @@ def preprocess(img_path):
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
     thresh = cv2.adaptiveThreshold(blurred, 255,
     	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
-    
-    rotated = rotate_img(thresh)
-    inverted = cv2.bitwise_not(rotated)
+    inverted = cv2.bitwise_not(thresh)
     median = cv2.medianBlur(inverted, 3)
-    
-    cv2.imwrite("thresh.jpg", thresh)
-    cv2.imwrite("rotate.jpg", rotated)
-    cv2.imwrite("median.jpg", median)
     # erode = cv2.erode(median, np.ones((3,3), np.uint8), iterations=1) including erode
     # gives an error in the page dewarp script for 210929_114535
 
@@ -86,6 +58,7 @@ def preprocess(img_path):
 def get_contour_precedence(contour, cols):
     tolerance_factor = 10
     origin = cv2.boundingRect(contour)
+    
     return ((origin[1] // tolerance_factor) * tolerance_factor) * cols + origin[0]
 
 def bounding_boxes(subprocess_output):
@@ -115,8 +88,6 @@ def bounding_boxes(subprocess_output):
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CUSTOM_CONFIG)
             string_list.append(img_string)
-            
-    #cv2.imwrite("bbox.jpg", img)
     
     return string_list
 
@@ -130,7 +101,7 @@ def ocr_main(file):
     if file.endswith('.pdf'):
         path = pdf_to_jpg(file)
         pdf = 1
-    elif file.endswith('.JPG'):
+    elif file.endswith('.JPG') or file.endswith('.jpg'):
         path = []
         path.append(file)
 
@@ -157,6 +128,6 @@ def ocr_main(file):
 
     return full_text, header
 
-out = ocr_main("P:/2020/14/Kodning/Scans/all_scans/040222_879.JPG")
+out = ocr_main(imgpath)
 print(out)
 
