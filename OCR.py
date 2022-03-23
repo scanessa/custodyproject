@@ -10,7 +10,6 @@ import time
 import pytesseract
 from pytesseract import Output
 import cv2
-import numpy as np
 import imutils
 from pdf2image import convert_from_path
 
@@ -19,8 +18,6 @@ start_time = time.time()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PDF_DIR = 'P:/2020/14/Kodning/Scans/all_scans'
-imgpath = "P:/2020/14/Kodning/Scans/all_scans/040222_879Sodertorn.JPG"
 
 #General settings
 LANGUAGE = 'swe'
@@ -97,7 +94,8 @@ def rotate_img(img_path):
     except Exception as e:
         print("Error: ", e)
         angle_out = 0
-    print("Angle: ",angle_out)
+        
+    os.remove(filepath + "crop.jpg")
     src_og = cv2.imread(img_path)
     output_image = imutils.rotate(src_og, angle=angle_out)
     cv2.imwrite(filename, output_image)
@@ -194,6 +192,4 @@ def ocr_main(file):
 
     return full_text, header
 
-out = ocr_main(imgpath)
-print(out)
 

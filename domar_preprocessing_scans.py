@@ -18,6 +18,9 @@ from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
+
+#os.chdir("P:/2020/14/Kodning/Code/custodyproject/")
+
 from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
 from searchterms import date_search, judgetitle_search, judgesearch, judgesearch_noisy
 from searchterms import ruling_search, legalguardian_terms, lawyer_key
@@ -25,7 +28,6 @@ from searchterms import cities, countries, nocontant, separation_key, remind_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing, mainhearing_key
-
 
 from OCR import ocr_main
 
@@ -55,18 +57,6 @@ DATA_REGISTER = {
     'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[]
 
     }
-
-
-
-case = {
-    
-    'firstpage_form':[], 'fulltext_form':[], 'lastpage_form':[], 'judge_string':[],
-    'topwords_form':[], 'filepath':[]
-    
-    }
-
-
-cases = []
 
 
 #Specify folders to search PDFs in
@@ -138,7 +128,8 @@ def paths():
         for file in files: 
             for term in INCLUDE:
                 if term in subdir and file.endswith('.pdf'):
-                    print(f"Dealing with file {subdir}/{file}")
+                    
+                    (f"Dealing with file {subdir}/{file}")
                     pdf_dir = (os.path.join(subdir, file))
                     pdf_files.append(pdf_dir)
                 
@@ -147,7 +138,10 @@ def paths():
 
 
 def cases_from_imgs():
-    start = 0 
+    start = 0
+    cases = []
+    case = {'fulltext_form': []}
+
     for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
         for term in EXCLUDE:
             if term in dirs:
@@ -155,42 +149,37 @@ def cases_from_imgs():
         for file in files:
             for term in INCLUDE:
                 if term in subdir and file.endswith('.JPG'):
-                    print(f"\nDealing with file {subdir}/{file}")
+                    print(f"Dealing with file {subdir}/{file}")
                     pdf_dir = (os.path.join(subdir, file))
                     text, _ = ocr_main(file)
                     
                     text = [item for sublist in text for item in sublist]
-                    print(text)
                     
                     if start == 0 and len([x for x in text if "DOMSLUT" in x]) >= 1:
-                        print("domslut first page")
                         start = 1
-                        case['fulltext_form'].append(text)
-                        case['firstpage_form'] = text
-                        case['topwords_form'] = text[:4]
+                        page_count = 1
+                        case['fulltext_form'].append(text.copy())
+                        case['firstpage_form'] = text.copy()
+                        case['topwords'] = text[:4]
                         
                     elif len([x for x in text if "ÖVERKLAG" in x]) >= 1:
                         start = 0
-                        print('last page')
-                        case['fulltext_form'].append(text)
-                        case['lastpage_form'] = text
-                        case['judge_string' ] = text[-2:]
+                        page_count += 1
+                        case['fulltext_form'].append(text.copy())
+                        case['lastpage_form'] = text.copy()
+                        case['judge_string'] = text[-2:]
                         case['filepath'] = pdf_dir
-
-                        cases.append(case)
-                        case.update((key, []) for key in case)
+                        case['page_count'] = page_count
+                        cases.append(case.copy())
                         
                     else:
-                        print("other pages")
                         start = 1
-                        case['fulltext_form'].append(text)
-            
+                        page_count += 1
+                        case['fulltext_form'].append(text.copy())
+
     return cases
 
-"""
-'firstpage_form':[], 'fulltext_form':[], 'lastpage_form':[], 'judge_string':[],
-  'topwords_form':[], 'filepath':[]
-"""
+
 
 def read_file(file):
     pages_text_formatted = []
@@ -352,7 +341,6 @@ def get_plaint_defend(part, readable):
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
     for readable and scanned docs
     """
-    print('PART: ', part)
     try:
         defend_og = re.split('Svarande|SVARANDE', part)[1] 
         plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
@@ -377,9 +365,7 @@ def get_plaint_defend(part, readable):
                 try:
                     if readable == 0 and 'Kärande' not in part or 'KÄRANDE' not in part:
                         defend_og = re.split('Svarande|SVARANDE', part)[1]
-                        print(defend_og)
                         plaint_og = re.split('Svarande|SVARANDE', part)[0]
-                        print(plaint_og)
                 except IndexError:
                     defend_og = plaint_og = 'not found, not found'
 
@@ -406,7 +392,9 @@ def party_id(party_og):
     except AttributeError:
         number = "-"
     
-    print('\nParty: ', party_og, first, number)
+    print('\nParty OG: ', party_og.split("."))
+    print('\nFirst: ', first)
+    print('\nNumber: ', number)
     
     return full, first, number
 
@@ -714,7 +702,7 @@ def get_childname(year, ruling_og, defend_full, plaint_full):
 
 def part_ruling(topwords):
     part_rul = 1 if 'deldom' in topwords else 0
-    print('Topwords: ', topwords)
+    print('Topwords: ', topwords.split("."))
     return part_rul
 
 
@@ -1023,7 +1011,7 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
             break
         
         else:
-            print('\nPhysical Custody: ', findfirst(term, firstsentences), child_first, plaint_first, defend_first)
+            #print('\nPhysical Custody: ', findfirst(term, firstsentences), child_first, plaint_first, defend_first)
             phys = 0
             
     return phys
@@ -1309,7 +1297,7 @@ def filldict_rulings(
 
 def filldict_register(
         data_register, case_type, defend_no, plaint_no, date,
-        courtname, doc_type, caseno, judge, judgetitle
+        courtname, doc_type, caseno, judge, judgetitle, file
         ):
     data_register['casetype'].append(case_type)
     data_register['filepath'].append(file)
@@ -1338,8 +1326,11 @@ def save(dictionary, SAVE, COUNT, location):
 
 
 
-def main(file):
-    outpath = file.split('\\')[0]
+def main(file, jpgs):
+    if jpgs == 1:
+        outpath = file['filepath'].split('\\')[0]
+    else:
+        outpath = file.split('\\')[0]
     os.chdir(outpath)
     
     if 'all_cases' in file:
@@ -1348,7 +1339,24 @@ def main(file):
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count = read_file(file)
         topwords = get_topwords(firstpage_form)
         readable = 1
+        
+    elif jpgs == 1:
+        print('\nImage file: ',file['filepath'])
 
+        fulltext_form = file['fulltext_form']
+        fulltext_form = ' '.join([item for sublist in fulltext_form for item in sublist])        
+        firstpage_form = ' '.join(file['firstpage_form'])
+        judge_string = ' '.join(file['judge_string'])
+        topwords = ' '.join(file['topwords'])
+        page_count = file['page_count']
+        lastpage_form = ' '.join(file['lastpage_form'])
+        file = file['filepath']
+        
+        topwords, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords, firstpage_form, fulltext_form, judge_string)
+        
+        correction = 0
+        readable = 0
+        
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
@@ -1401,7 +1409,7 @@ def main(file):
     # Save case register to csv
     dict_register = filldict_register(
         DATA_REGISTER, case_type, defend_no, plaint_no, date,
-        courtname, doc_type, caseno, judge, judgetitle
+        courtname, doc_type, caseno, judge, judgetitle, file
         )
     
     save(dict_register, SAVE, COUNT, OUTPUT_RULINGS)
@@ -1411,6 +1419,13 @@ def main(file):
 #Execute
 files = paths()
 pics = cases_from_imgs()
-
+#For scanned pdfs
 for file in files:
-    main(file)
+    jpgs = 0
+    main(file, jpgs)
+    
+#For scans as photos (jpgs)
+for case in pics:
+    jpgs = 1
+    main(case, jpgs)
+    
