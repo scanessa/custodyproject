@@ -6,9 +6,9 @@ Created on Wed Feb  2 14:49:04 2022
 """
 import shutil, pathlib, os.path, re, glob
 
-pdf_dir = "P:/2020/14/Tingsrätter/Stockholms/Domar/all_scans/Test"
+pdf_dir = "P:/2020/14/Kodning/Scans/"
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
-includes = 'Test'
+includes = 'all_scans'
 
 noCopy = 0 
 i = 0
@@ -47,14 +47,22 @@ def file_counter(path, searchkey):
     return fileCount
          
 def rename_file(rootdir):
+    """
+    Rename scanned files bc () throw an error with OCR
+    Rename only files that are not in the new name pattern: COURT0, COURT1, ...
+    Remove comment for second court definition if court is not folder name
+    """
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         court = subdir.split('/')[4]
+        #court = 'Sodertorns'
         existing = file_counter(subdir, court + '*')
         for file in files:
             counter = str(existing)
-            if includes in subdir and file.endswith('.pdf') and not searchKey(court+'\d',file):
-                file_new = court + counter + '.pdf'
-                os.rename(os.path.join(rootdir, file), os.path.join(rootdir, file_new))
+            if includes in subdir and file.endswith('.JPG') and not searchKey(court+'\d',file):
+                file_new = court + counter + '.JPG'
+                print('OLD: ', os.path.join(subdir, file))
+                print('NEW: ', os.path.join(subdir, file_new))
+                os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
                 existing += 1
                 continue
 
