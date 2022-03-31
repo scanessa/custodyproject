@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
+@author: Stella Canessa
+
 This code reads in scanned documents, draws bounding boxes around text blocks
 and OCR's the bounding boxes
-@author: ifau-SteCa
+
 """
 import os
-import subprocess
 import time
 import pytesseract
-from pytesseract import Output
 import cv2
-import imutils
+import glob
 from pdf2image import convert_from_path
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -43,70 +43,8 @@ def pdf_to_jpg(pdf):
 
 
 
-def crop(img_path):
-    """
-    Crop away page borders and background of image so that text orientation can be extracted
-    """
-    img = cv2.imread(img_path)
-    height, width, shape = img.shape
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-    thresh = cv2.adaptiveThreshold(blurred, 255,
-    	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
-
-    cont_max = 0
-    dilate = cv2.dilate(thresh,kernal,iterations = 1)
-    contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    contours = contours[0] if len(contours) == 2 else contours[1]
-
-    for cnt in contours:
-        x,y,w,h = cv2.boundingRect(cnt)
-        area = w * h
-        
-        if (
-                area > cont_max
-                and y+h < height-150
-                and x+w < width-150
-                and x > 150 and y > 150
-                ):
-            cont_max = area
-            x_max,y_max,w_max,h_max = cv2.boundingRect(cnt)
-    
-    cv2.rectangle(img, (x_max,y_max),(x_max+w_max,y_max+h_max),(36,255,12),2)
-    
-    roi = thresh[y_max:y_max+h_max, x_max:x_max+w_max]
-    inverted = cv2.bitwise_not(roi)
-    
-    return inverted
-    
-
-
-def rotate_img(img_path):
-    """
-    Get text orientation of cropped image through tesseract and rotate
-    """
-    filename = img_path.split("/")[-1]
-    filepath = img_path.split(filename)[0]
-    cv2.imwrite(filepath + "crop.jpg", crop(img_path))
-    try:
-        dets = pytesseract.image_to_osd(filepath + "crop.jpg", output_type=Output.DICT)
-        angle_out = dets['orientation']
-    except Exception as e:
-        print("Error: ", e)
-        angle_out = 0
-        
-    os.remove(filepath + "crop.jpg")
-    src_og = cv2.imread(img_path)
-    output_image = imutils.rotate(src_og, angle=angle_out)
-    cv2.imwrite(filename, output_image)
-
-
-
 def preprocess(img_path):
     """ Preproccess image for page_warp.py straightening."""
-    
-    if 'Sodertorn' in img_path:
-        rotate_img(img_path)
     image = cv2.imread(img_path)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (7, 7), 0)
@@ -172,7 +110,7 @@ def ocr_main(file):
     for image in path:
         filename = image.split('.')[0]
         cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
-
+        """
         subprocess.call([
             'python',
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py',
@@ -182,14 +120,16 @@ def ocr_main(file):
         text = bounding_boxes(filename + '_thresh_straight.png')
         full_text.append(text)
         header.append(text[:4])
-        
+        """
         if pdf == 1:
             os.remove(filename + '.jpg')
-
-        for file in [filename + '_thresh.jpg',
-                     filename + '_thresh_straight.png']:
+        for file in [filename + '_thresh.jpg'
+                     #filename + '_thresh_straight.png'
+                     ]:
             os.remove(file)
-
     return full_text, header
 
-
+files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/*.JPG")
+for file in files:
+    print('File: ',file)
+    ocr_main(file)
