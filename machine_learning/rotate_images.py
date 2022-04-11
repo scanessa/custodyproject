@@ -15,9 +15,9 @@ import imutils
 
 
 #Initialize paths
-machine_learning_model_rotation = 'P:/2020/14/Kodning/Code/custodyproject/MLmodel_img_rotation.pkl'
+machine_learning_model_rotation = 'P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl'
 SIZE = 256  #Resize images to conform with ML requirements
-target_folder = "P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans/remain/split1"
+target_folder = "P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans/errors"
 #target_folder = "P:/2020/14/Kodning/Scans/classification/testing/"
 file_ending = "*.JPG"
 
