@@ -11,6 +11,7 @@ import time
 import pytesseract
 import cv2
 import glob
+import subprocess
 from pdf2image import convert_from_path
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -22,7 +23,7 @@ pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesserac
 #General settings
 LANGUAGE = 'swe'
 CUSTOM_CONFIG = '--psm 4 --oem 3'
-kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
 
 
 
@@ -43,25 +44,66 @@ def pdf_to_jpg(pdf):
 
 
 
-def preprocess(img_path):
-    """ Preproccess image for page_warp.py straightening."""
-    image = cv2.imread(img_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (7, 7), 0)
-    thresh = cv2.adaptiveThreshold(blurred, 255,
-    	cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 21, 20)
-    inverted = cv2.bitwise_not(thresh)
-    median = cv2.medianBlur(inverted, 3)
-    # erode = cv2.erode(median, np.ones((3,3), np.uint8), iterations=1) including erode
-    # gives an error in the page dewarp script for 210929_114535
-
-    return median
-
 def get_contour_precedence(contour, cols):
     tolerance_factor = 10
     origin = cv2.boundingRect(contour)
     
     return ((origin[1] // tolerance_factor) * tolerance_factor) * cols + origin[0]
+
+
+
+def preprocess(imread_img):
+    """ Preproccess image for page_warp.py straightening."""
+    gray = cv2.cvtColor(imread_img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (7,7), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.THRESH_BINARY, 21, 20)
+
+    return thresh
+
+
+def detect_text(img, filename):
+    
+    bottom_left = []
+    bottom_right = []
+    top_left = []
+    top_right = []
+
+
+    height, width, shape = img.shape
+    
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (7,7), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
+                                   cv2.THRESH_BINARY_INV, 21, 20)
+    dilate = cv2.dilate(thresh,kernal,iterations = 1)
+    
+    cv2.imwrite("dilate.jpg", dilate)
+    contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
+
+    for cnt in contours:
+        x,y,w,h = cv2.boundingRect(cnt)
+        ratio = w/h
+        
+        if ratio > 2 and y+h < height-35 and y > 10 and x > 10:
+            
+            bottom_left.append(y)
+            bottom_right.append(y+h)
+            top_left.append(x)
+            top_right.append(x+w)
+    
+    y_min = min(bottom_left)
+    h_max = max(bottom_right)
+    x_min = min(top_left)
+    w_max = max(top_right)
+
+    crop = img[y_min:y_min+h_max, x_min:x_min+w_max]
+    
+    cv2.imwrite(filename + "crop.jpg", crop)
+
+
 
 def bounding_boxes(subprocess_output):
     """Draw contours around text boxes and OCR text."""
@@ -74,24 +116,30 @@ def bounding_boxes(subprocess_output):
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
                                    cv2.THRESH_BINARY_INV, 21, 20)
     dilate = cv2.dilate(thresh,kernal,iterations = 1)
+    cv2.imwrite("dilate.jpg", dilate)
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
 
     for cnt in contours:
         x,y,w,h = cv2.boundingRect(cnt)
-        if (
-                50 < h < 700 and w > 200 and y > 10 and y+h < height-35 
-                or (700 < h < 2500 and w > 1000 and y > 100 and y+h < height-35)
-                ):
+        ratio = w/h
+        
+        if ratio > 1:
             
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
+            cv2.imwrite("bbox.jpg",img)
             roi = img[y:y+h, x:x+w]
-            cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
             img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CUSTOM_CONFIG)
             string_list.append(img_string)
+            
+        #else:
+         #   cv2.rectangle(img, (x,y),(x+w,y+h),(255,255,0),2)
+          #  cv2.imwrite("bbox.jpg",img)
     
     return string_list
+
+
 
 def ocr_main(file):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
@@ -108,9 +156,15 @@ def ocr_main(file):
         path.append(file)
 
     for image in path:
+        img = cv2.imread(image)
         filename = image.split('.')[0]
-        cv2.imwrite(image.split('.')[0] + '_thresh.jpg', preprocess(image))
-        """
+        
+        if "Sodertorn" in filename:
+            detect_text(img, filename)
+            img = cv2.imread(filename + "crop.jpg")
+        
+        cv2.imwrite(filename + '_thresh.jpg', preprocess(img))
+                
         subprocess.call([
             'python',
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py',
@@ -118,18 +172,23 @@ def ocr_main(file):
             ])
 
         text = bounding_boxes(filename + '_thresh_straight.png')
+        print(text)
         full_text.append(text)
         header.append(text[:4])
-        """
+        
         if pdf == 1:
             os.remove(filename + '.jpg')
-        for file in [filename + '_thresh.jpg'
-                     #filename + '_thresh_straight.png'
+        """
+        for file in [filename + '_thresh.jpg',
+                     filename + '_thresh_straight.png'
                      ]:
             os.remove(file)
+        """
     return full_text, header
 
-files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/*.JPG")
+
+files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/Soder*.JPG")
 for file in files:
     print('File: ',file)
     ocr_main(file)
+

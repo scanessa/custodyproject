@@ -37,8 +37,8 @@ from OCR import ocr_main
 
 #General settings
 ROOTDIR = "P:/2020/14/Kodning/Scans/"
-OUTPUT_REGISTER = "P:/2020/14/Tingsrätter/Case_Sorting_SC/case_register_data.csv"
-OUTPUT_RULINGS = "P:/2020/14/Tingsrätter/Case_Sorting_SC/rulings_data.csv"
+OUTPUT_REGISTER = "P:/2020/14/Tingsratter/Case_Sorting_SC/case_register_data.csv"
+OUTPUT_RULINGS = "P:/2020/14/Tingsratter/Case_Sorting_SC/rulings_data.csv"
 
 DATA_RULINGS = {
     
@@ -167,11 +167,11 @@ def cases_from_imgs():
 
                     pdf_dir = (os.path.join(subdir, file))
                     text, _ = ocr_main(file)
-                    
                     text = [item for sublist in text for item in sublist]
+                    print("TEXT: ",text)
                     
-                    """
                     if start == 0 and len([x for x in text if "DOMSLUT" in x]) >= 1:
+                        print("FIRST PAGE ")
                         start = 1
                         page_count = 1
                         case = {'fulltext_form': [], 'topwords': []}
@@ -180,6 +180,7 @@ def cases_from_imgs():
                         case['topwords'].append(text[:4].copy())
                         
                     elif len([x for x in text if "ÖVERKLAG" in x]) >= 1:
+                        print("LAST PAGE ")
                         start = 0
                         page_count += 1
                         case['fulltext_form'].append(text.copy())
@@ -191,11 +192,11 @@ def cases_from_imgs():
                         cases.append(case.copy())
                                                 
                     else:
+                        print("OTHER PAGE")
                         start = 1
                         page_count += 1
                         case['fulltext_form'].append(text.copy())
                         case['topwords'].append(text[:2].copy())
-                    """
 
     return cases
 
@@ -480,6 +481,7 @@ def basic_caseinfo(file, topwords):
         year = date[:4]
     except:
         date = "Not found"
+        year = 0
 
     print("\nGetting Case No: \n", topwords.split("."))
     try:
@@ -623,7 +625,8 @@ def get_domskal(fulltext_og, ruling_form):
                 try:
                     domStart = re.split('\nSkäl\s*\n', ruling_form)[1]
                 except IndexError:
-                    domStart = re.split('(_|-){10,40}\s*', ruling_form)[1]
+                    domStart = ruling_form
+
     domskal_og = re.split('överklag|Överklag|ÖVERKLAG', domStart)[0]
     domskal = domskal_og.lower()
     
@@ -1442,7 +1445,7 @@ def main(file, jpgs):
         topwords, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords, firstpage_form, fulltext_form, judge_string)
         correction = 0
         readable = 0
-                
+
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
