@@ -40,7 +40,7 @@ from keras.applications.vgg16 import VGG16
 
 
 # Read input images and assign labels based on folder names
-os.chdir('P:/2020/14/Kodning/Scans/')
+os.chdir('P:/2020/14/Kodning/Scans/classification/rotation/')
 
 SIZE = 256  #Resize images
 
@@ -48,7 +48,7 @@ SIZE = 256  #Resize images
 train_images = []
 train_labels = [] 
 
-for directory_path in glob.glob("classification/train/*"):
+for directory_path in glob.glob("train/*"):
     label = directory_path.split("\\")[-1]
     print(label)
     for img_path in glob.glob(os.path.join(directory_path, "*.JPG")):
@@ -68,7 +68,7 @@ train_labels = np.array(train_labels)
 
 validation_images = []
 validation_labels = [] 
-for directory_path in glob.glob("classification/validation/*"):
+for directory_path in glob.glob("validation/*"):
     fruit_label = directory_path.split("\\")[-1]
     for img_path in glob.glob(os.path.join(directory_path, "*.JPG")):
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
@@ -178,8 +178,8 @@ print("The prediction for this image is: ", test_prediction)
 
 ###################################################################
 #Save model with Pickle
-pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/MLmodel_img_rotation.pkl', 'wb'))
-pickle.dump(VGG_model, open('P:/2020/14/Kodning/Code/custodyproject/VGG_model.pkl', 'wb'))
+# pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'wb'))
+# pickle.dump(VGG_model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/VGG_model.pkl', 'wb'))
 
 
 

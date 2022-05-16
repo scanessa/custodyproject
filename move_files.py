@@ -9,6 +9,7 @@ import pathlib
 import os.path
 import re
 import glob
+import random
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = ''
@@ -25,7 +26,7 @@ def read_filepaths(doc):
         paths = f.read().splitlines() 
     return paths
 
-def copy_files(paths, error_files, pdf_dir):
+def move_files(paths, error_files, pdf_dir):
     errors = 0
     for file in paths:
         p = pathlib.PureWindowsPath(file)
@@ -80,12 +81,23 @@ def changename(rootdir):
                 print('NEW: ', os.path.join(subdir, file_new))
                 os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
 
-#Execute
-changename("P:/2020/14/Tingsrätter/Södertörns/Domar/all_scans")
+def randomsample(folder, samplesize, copyto):
+    """
+    To generate a random sample of files used for machine learning training
+    folder: string, target folder with all files from which sample should be drawn
+    samplesize: int, size of desired sample
+    copyto: string, folder to which the sample files should be copied
+    
+    Note:
+    - make sample size bigger than intended to have backups for testing
+    - normal split is 70-20-10, put + 100 files for backup
+    
+    """
+    allfiles = glob.glob(folder + "/*.JPG")
+    randomlist = random.sample(range(0, len(allfiles)), samplesize)
+    sample = [allfiles[n] for n in randomlist]
+    move_files(sample, error_paths, copyto)
 
-"""
-sample = glob.glob("P:/2020/14/Kodning/Scans/sample_sodertorns_machinelearning/*.JPG")
-randomlist = random.sample(range(0, len(sample)), 140)
-train_sample = [sample[n] for n in randomlist]
-copy_files(train_sample, error_paths, "P:/2020/14/Kodning/Scans/classification/validation/")
-"""
+#Execute
+#randomsample("P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans", 600, "P:/2020/14/Kodning/Scans/classification/firstlastpage") #CHANGE SHUTIL.MOVE TO SHUTIL.COPY FOR FIRST ROUND
+randomsample("P:/2020/14/Kodning/Scans/classification/firstlastpage/validation", 50, "P:/2020/14/Kodning/Scans/classification/firstlastpage/testing") 

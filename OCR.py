@@ -78,7 +78,6 @@ def detect_text(img, filename):
                                    cv2.THRESH_BINARY_INV, 21, 20)
     dilate = cv2.dilate(thresh,kernal,iterations = 1)
     
-    cv2.imwrite("dilate.jpg", dilate)
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
@@ -116,7 +115,7 @@ def bounding_boxes(subprocess_output):
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
                                    cv2.THRESH_BINARY_INV, 21, 20)
     dilate = cv2.dilate(thresh,kernal,iterations = 1)
-    cv2.imwrite("dilate.jpg", dilate)
+        
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
@@ -128,7 +127,9 @@ def bounding_boxes(subprocess_output):
         if ratio > 1:
             
             cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-            cv2.imwrite("bbox.jpg",img)
+            
+            #cv2.imwrite("bbox.jpg",img)
+            
             roi = img[y:y+h, x:x+w]
             img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CUSTOM_CONFIG)
             string_list.append(img_string)
@@ -139,6 +140,15 @@ def bounding_boxes(subprocess_output):
     
     return string_list
 
+
+
+def clean_text(text_list):
+    text_list = [text.replace('\x0c', '') for text in text_list]
+    text_list = [t for t in text_list if t]
+    text_list = [t for t in text_list if t.replace('\n', '').strip()]
+    
+    return text_list
+    
 
 
 def ocr_main(file):
@@ -172,23 +182,25 @@ def ocr_main(file):
             ])
 
         text = bounding_boxes(filename + '_thresh_straight.png')
-        print(text)
+        text = clean_text(text)
+        
         full_text.append(text)
         header.append(text[:4])
         
         if pdf == 1:
             os.remove(filename + '.jpg')
-        """
+        
         for file in [filename + '_thresh.jpg',
-                     filename + '_thresh_straight.png'
+                     filename + '_thresh_straight.png',
+                     filename + 'crop.jpg'
                      ]:
             os.remove(file)
-        """
+        
     return full_text, header
 
 
-files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/Soder*.JPG")
+files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/DOM*.JPG")
 for file in files:
-    print('File: ',file)
+    print('\nFile: ',file)
     ocr_main(file)
 

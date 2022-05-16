@@ -6,7 +6,7 @@ This is the main code for creating the datasets for the ifo/IFAU custody researc
 project. Outputs are: 
     1) Dataset of rulings outcomes incl. controls of digital and scanned documents, identifying variable child ID
     2) Dataset of all court records available, identifying variable case number, court, date
-    
+    l
 
 """
 import re
@@ -37,8 +37,8 @@ from OCR import ocr_main
 
 #General settings
 ROOTDIR = "P:/2020/14/Kodning/Scans/"
-OUTPUT_REGISTER = "P:/2020/14/Tingsratter/Case_Sorting_SC/case_register_data.csv"
-OUTPUT_RULINGS = "P:/2020/14/Tingsratter/Case_Sorting_SC/rulings_data.csv"
+OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
+OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
 
 DATA_RULINGS = {
     
@@ -64,7 +64,7 @@ DATA_REGISTER = {
 
 
 #Specify folders to search PDFs in
-EXCLUDE = set([])
+EXCLUDE = set(['others'])
 INCLUDE = set(['all_cases','all_scans'])
 SAVE = 1
 COUNT = 1
@@ -141,6 +141,16 @@ def paths():
 
 
 
+def topwords_from_jpd(text):
+    top = itertools.takewhile(lambda x: len(x) < 50, text)
+    out = list(top)
+    
+    #for t in text:
+     #   print("Len: ", len(t), "Text: ", t)
+    return out
+
+
+
 def cases_from_imgs():
     """
     Retrieve text information from "scanned" documents in JPG (picture) form
@@ -152,6 +162,9 @@ def cases_from_imgs():
     Notes:
     - Initialize case within loop to clear fulltext_form column, otherwise text
     of previous cases is still saved in fulltext_form
+    - Take start == 1 as condition into elif statements so that pages are only processed
+    if the code already found a first page, this is to not process PROTOKOLL or other
+    non-DOM pages
     """
     start = 0
     cases = []
@@ -163,24 +176,34 @@ def cases_from_imgs():
         for file in files:
             for term in INCLUDE:
                 if term in subdir and file.endswith('.JPG'):
-                    print(f"Dealing with file {subdir}/{file}")
+                    print(f"\nReading file {subdir}/{file}")
 
                     pdf_dir = (os.path.join(subdir, file))
                     text, _ = ocr_main(file)
                     text = [item for sublist in text for item in sublist]
-                    print("TEXT: ",text)
                     
-                    if start == 0 and len([x for x in text if "DOMSLUT" in x]) >= 1:
-                        print("FIRST PAGE ")
+                    #First page
+                    if (
+                            start == 0
+                            and len([x for x in text if "DOMSLUT" in x]) >= 1
+                        ):
+                        
                         start = 1
                         page_count = 1
                         case = {'fulltext_form': [], 'topwords': []}
                         case['fulltext_form'].append(text.copy())
                         case['firstpage_form'] = text.copy()
-                        case['topwords'].append(text[:4].copy())
+                        case['topwords'].append(topwords_from_jpd(text).copy())
+                   
+                    #Last page
+                    elif (
+                            start == 1
+                            and len([x for x in text if "ÖVERKLAG" in x]) >= 1
+                            and not 'notfinal' in file
+                            or start == 1
+                            and 'last' in file
+                          ):
                         
-                    elif len([x for x in text if "ÖVERKLAG" in x]) >= 1:
-                        print("LAST PAGE ")
                         start = 0
                         page_count += 1
                         case['fulltext_form'].append(text.copy())
@@ -188,15 +211,16 @@ def cases_from_imgs():
                         case['judge_string'] = text[-2:]
                         case['filepath'] = pdf_dir
                         case['page_count'] = page_count
-                        case['topwords'].append(text[:2].copy())
+                        case['topwords'].append(topwords_from_jpd(text).copy())
+                        
                         cases.append(case.copy())
-                                                
-                    else:
-                        print("OTHER PAGE")
-                        start = 1
+                    
+                    #In between page
+                    elif start == 1:
+                        
                         page_count += 1
                         case['fulltext_form'].append(text.copy())
-                        case['topwords'].append(text[:2].copy())
+                        case['topwords'].append(topwords_from_jpd(text).copy())
 
     return cases
 
@@ -330,7 +354,7 @@ def get_header(firstpage_form):
 
 
 
-def get_topwords(firstpage_form, readable):
+def get_topwords(firstpage_form):
     try:
         topwords = ' '.join(firstpage_form.split()[0:20]).lower()
     except IndexError:
@@ -652,9 +676,11 @@ def get_childnos(ruling_og, year):
             childyear = '19'+num[:2] if int(num[:2])>40 else '20'+num[:2]
 
         age = int(year) - int(childyear)
+        
+        if 0 < age < 18:
+            childid_name[num] = ''
 
-        childid_name[num] = '' if age < 18 else childid_name
-
+        print("childid_name", childid_name)
     return childid_name
 
 
@@ -666,7 +692,7 @@ def get_childname(year, ruling_og, defend_full, plaint_full):
     """
     childid_name = get_childnos(ruling_og, year)
     names = []
-
+    
     if childid_name:
 
         sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..|\d\s*,|\s[a-z]', ruling_og)
@@ -1335,7 +1361,7 @@ def filldict_rulings(
     separate = separation_year(fulltext_og, fulltext)
     mainhear = get_mainhearing(fulltext_og)
     error = 0
-    
+
     # except Exception as e:
     #    print('Error: ', e)
     #    error = 1
@@ -1486,7 +1512,6 @@ def main(file, jpgs):
                     ruling_og, plaint_first, child_first, firstpage_form, domskal, fulltext,
                     caseno, courtname, date, year, judge, judgetitle
                     )
-                
                 save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
 
             # except Exception as e:
@@ -1501,13 +1526,14 @@ def main(file, jpgs):
         courtname, doc_type, caseno, judge, judgetitle, file
         )
     
-    save(dict_register, SAVE, COUNT, OUTPUT_RULINGS)
+    save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
 
 
 
 #Execute
 files = paths()
 pics = cases_from_imgs()
+
 #For scanned pdfs
 for file in files:
     jpgs = 0
