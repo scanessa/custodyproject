@@ -31,7 +31,8 @@ from searchterms import ruling_search, legalguardian_terms, lawyer_key, citizen,
 from searchterms import cities, countries, nocontant, separation_key, remind_key, residence_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
-from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing, mainhearing_key
+from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
+from searchterms import mainhearing_key, exclude_judge
 
 from OCR import ocr_main
 
@@ -39,6 +40,7 @@ from OCR import ocr_main
 ROOTDIR = "P:/2020/14/Kodning/Scans/"
 OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
 OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
+JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_occuring_2+_times_cleaned.xls"
 
 DATA_RULINGS = {
     
@@ -58,21 +60,37 @@ DATA_RULINGS = {
 DATA_REGISTER = {
     
     'caseid':[], 'type':[], 'casetype':[], 'court':[], 'date':[], 'plaintiff':[],
-    'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[]
+    'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[], 'flag': []
 
     }
 
 
 #Specify folders to search PDFs in
-EXCLUDE = set(['others'])
+EXCLUDE = set(['others', 'works'])
 INCLUDE = set(['all_cases','all_scans'])
-SAVE = 1
 COUNT = 1
 start_time = time.time()
+flag = []
+
+SAVE = 1
+PRINT = 0
 
 
 
 #Helper functions
+
+def print_output(label, var):
+    """
+    If constant variable PRINT == 1 all output will be printed
+    Label should be passed as string
+    """
+    if PRINT == 1 and var != "":
+        print("-----" + label + ": ", var)
+    elif PRINT == 1 and var == "":
+        print("-----" + label, var)
+
+
+
 def searchkey(string, part, g):
     finder = re.compile(string)
     match = finder.search(part)
@@ -144,9 +162,7 @@ def paths():
 def topwords_from_jpd(text):
     top = itertools.takewhile(lambda x: len(x) < 50, text)
     out = list(top)
-    
-    #for t in text:
-     #   print("Len: ", len(t), "Text: ", t)
+
     return out
 
 
@@ -179,7 +195,7 @@ def cases_from_imgs():
                     print(f"\nReading file {subdir}/{file}")
 
                     pdf_dir = (os.path.join(subdir, file))
-                    text, _ = ocr_main(file)
+                    text, _, judgepage = ocr_main(file)
                     text = [item for sublist in text for item in sublist]
                     
                     #First page
@@ -335,9 +351,9 @@ def get_header(firstpage_form):
     """
     try:
         header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
-        for term in ['PARTER','Parter', 'Kärande']:
+        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE']:
             header2 = header1.split(term)
-            if term == 'Kärande':
+            if any([x in term for x in ['Kärande', 'KÄRANDE']]) and len(header2) > 1:
                 header2.insert(1, 'Kärande')
             if len(header2) != 1:
                 break
@@ -350,6 +366,7 @@ def get_header(firstpage_form):
                 header = ''.join(firstpage_form.split('')[0:20])
             except IndexError:
                 header = ''.join(firstpage_form)
+
     return header
 
 
@@ -386,6 +403,9 @@ def get_plaint_defend(part, readable):
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
     for readable and scanned docs
     """
+    
+    print_output("Part for parties", part)
+    
     try:
         defend_og = re.split('Svarande|SVARANDE', part)[1] 
         plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
@@ -413,6 +433,7 @@ def get_plaint_defend(part, readable):
                         plaint_og = re.split('Svarande|SVARANDE', part)[0]
                 except IndexError:
                     defend_og = plaint_og = 'not found, not found'
+                    flag.append('plaintiff_and_defendant_not_found')
 
     defend_og = defend_og.strip(' _\n')
     defend = defend_og.lower()
@@ -437,10 +458,10 @@ def party_id(party_og):
     except AttributeError:
         number = "-"
     
-    print('\nParty OG: ', party_og.split("."))
-    print('First: ', first)
-    print('Number: ', number)
-    
+    print_output("Party OG",party_og.split("."))
+    print_output("First",first)
+    print_output("Number",number)
+
     return full, first, number
 
 
@@ -462,13 +483,13 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
         judge_title = "N/A"
 
         try:
-            judge_name = ((dictloop(judgesearch, lastpage_form, 1, ['telefon','telefax', 'svarande'])).split('\n'))[0]
+            judge_name = ((dictloop(judgesearch, lastpage_form, 1, exclude_judge)).split('\n'))[0]
             judge_name = judge_name.lower().strip()
 
         except AttributeError:
             try:
                 finalpart = re.split('ÖVERKLAG|Överklag|överklag', lastpage_form)[-1]
-                judge_name = ((dictloop(judgesearch_noisy, finalpart, 1, ['telefon','telefax', 'svarande'])).split('\n'))[0]
+                judge_name = ((dictloop(judgesearch_noisy, finalpart, 1, exclude_judge)).split('\n'))[0]
                 judge_name = re.split('\s{4,}|,', judge_name)[0]
                 judge_name = judge_name.lower().strip().strip('/').strip('|')
             except:
@@ -481,11 +502,21 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
 
 
 
-def get_judge_scans(judge_string):
-    clean = judge_string.split('\n')
-    judge_name = [x for x in clean if x.strip()][-2:]
-    judge_name = ''.join(judge_name)
+def get_judge_scans(judge_string, judgepage):
+    print("Judge string: ",judge_string.split(","))
+    print("Judge page: ", judgepage)
     judge_title = 'N/A'
+    
+    try:
+        print("try")
+        judge_name = ((dictloop(judgesearch, judge_string, 1, exclude_judge)).split('\n'))[0]
+        judge_name = judge_name.lower().strip()
+    except:
+        print("except")
+        judgepage = ' '.join(judgepage)
+        judge_name = judgepage.replace("\n", " ")
+    
+    print("Judge name: ", judge_name)
     return judge_name, judge_title
 
 
@@ -499,23 +530,26 @@ def basic_caseinfo(file, topwords):
         4) case date, case year
     """
     courtname = re.split('\W',file.split('/')[4])[0]
-
     try:
         date = dictloop(date_search, topwords, 1, [])
-        year = date[:4]
+        year = re.sub('[^0-9]', '', date[:4])
+        if year[0] == "0" and len(year) == 3:
+            year = "2" + year
+        elif year[0] == "0" and len(year) == 2:
+            year = "20" + year
     except:
         date = "Not found"
         year = 0
+    print_output("Getting Case No",topwords.split("."))
 
-    print("\nGetting Case No: \n", topwords.split("."))
     try:
         caseno = ''.join((dictloop(caseno_search, topwords, 2, [date])).split())
-        print("Case No 1: ", caseno)
+        print_output("Case No 1",caseno)
     except AttributeError:
         caseno = searchkey('T.?\s*(\d*-\d*)', file, 1)
         if not caseno:
             caseno = "Not found"
-        print("Case No 2: ", caseno)
+        print_output("Case No 2",caseno)
 
     return caseno, courtname, date, year
 
@@ -587,19 +621,18 @@ def get_ruling(fulltext_form):
     """
     Extract only ruling text headed usually 'Domslut'
     """
-    print("\nGetting Ruling")
     try:
-        ruling_form = ''.join(re.split('DOMSLUT|Domslut\n', ''.join(fulltext_form))[1:])
-        print("Ruling 1")
+        ruling_form = ''.join(re.split('MSLUT|Domslut\n', ''.join(fulltext_form))[1:])
+        print_output("Ruling 1","")
     except AttributeError:
         ruling_form = ''.join(re.split('_{10,40}\s*', ''.join(fulltext_form))[1:])
-        print("Ruling 2")
+        print_output("Ruling 2","")
     try:
         ruling_form = ''.join(re.split('[A-ZÅÄÖÜ]{4,}\s*\n*TINGSRÄTT',ruling_form))
-        print("Ruling 1a")
+        print_output("Ruling 1a","")
     except AttributeError:
         ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
-        print("Ruling 2a")
+        print_output("Ruling 2a","")
     ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
     ruling_form = re.split(dictloop(ruling_search,ruling_form,0,[]), ruling_form)[0]
     
@@ -607,11 +640,11 @@ def get_ruling(fulltext_form):
         if searchkey('\d\d\s*–\s*\d\d', ruling_form, 0):
             ruling1 = re.sub('\s*–\s*','–',ruling_form)
             ruling2 = re.sub('\s*–\n','–',ruling_form)
-            print("Ruling 3")
+            print_output("Ruling 3", "")
         else:
             ruling1 = re.sub('\s*-\s*','-',ruling_form)
             ruling2 = re.sub('\s*-\n','-',ruling_form)
-            print("Ruling 4")
+            print_output("Ruling 4","")
         ruling_og = ' '.join(''.join(ruling2).split())
         
     except AttributeError:
@@ -619,14 +652,14 @@ def get_ruling(fulltext_form):
         if searchkey('\d\d\s*–\s*\d\d', ruling1, 0):
             ruling_og = re.sub('\s*–\s*','–',ruling_og)
             ruling_og = re.sub('\s*–\n','–',ruling_og)
-            print("Ruling 3a")
+            print_output("Ruling 3a","")
         else:
             ruling_og = re.sub('\s*-\s*','-',ruling_og)
             ruling_og = re.sub('\s*-\n','-',ruling_og)
-            print("Ruling 4a")
+            print_output("Ruling 4","")
             
     ruling = ruling_og.lower()
-    print('Ruling: ', ruling)
+    print_output("Ruling",ruling)
     
     return ruling_form, ruling_og, ruling
 
@@ -674,13 +707,13 @@ def get_childnos(ruling_og, year):
             childyear = num[:4]
         else:
             childyear = '19'+num[:2] if int(num[:2])>40 else '20'+num[:2]
-
         age = int(year) - int(childyear)
         
         if 0 < age < 18:
             childid_name[num] = ''
 
-        print("childid_name", childid_name)
+        print_output("childid_name",childid_name)
+
     return childid_name
 
 
@@ -761,7 +794,8 @@ def get_childname(year, ruling_og, defend_full, plaint_full):
 
 def part_ruling(topwords):
     part_rul = 1 if 'deldom' in topwords else 0
-    print('Topwords: ', topwords.split("."))
+    print_output("Topwords",topwords.split("."))
+
     return part_rul
 
 
@@ -799,7 +833,7 @@ def lawyer(plaint, defend, defend_first, fulltext_og, domskal_og):
                 and not any([x in defend_address.lower() for x in lawyer_key])
                 ):
             
-            print("Abroad 0")
+            print_output("Abroad 0","")
             defend_abroad = 0
             
         elif (
@@ -819,20 +853,19 @@ def lawyer(plaint, defend, defend_first, fulltext_og, domskal_og):
                 and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
                 ):
             
-            print(
-                "\nAbroad 1 (defend city): ", defend_city,
-                "Abroad 2: ", defend_godman == 1  and 'saknar kän' in defend,
-                "Abroad 3: ", defend_city.isdecimal() or '@' in defend_city,
-                "Abroad 4: ", any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first),
-                "Abroad 5: ", findterms(['befinn', 'sig','utomlands'], fulltext_og),
-                "Abroad 6: ", any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries]),
-                "Abroad 7: ", any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]),
-                "Abroad 8: ", any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first),
-                "Abroad 9: ", any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries]),
-                "Abroad 10: ", any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first),
-                "Abroad 11: ", any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first),
-                "Abroad 12: ", any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first) and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
-                )
+            print_output("Abroad 1 (defend city)",defend_city)
+            print_output("Abroad 2",defend_godman == 1  and 'saknar kän' in defend)
+            print_output("Abroad 3",defend_city.isdecimal() or '@' in defend_city)
+            print_output("Abroad 4",any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first))
+            print_output("Abroad 5",findterms(['befinn', 'sig','utomlands'], fulltext_og))
+            print_output("Abroad 6",any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries]))
+            print_output("Abroad 7",any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]))
+            print_output("Abroad 8",any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first))
+            print_output("Abroad 9",any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries]))
+            print_output("Abroad 10",any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first))
+            print_output("Abroad 11",any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first))
+            print_output("Abroad 12",any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first) and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) and not findterms([' bor ', ' i ', 'barn'], fulltext_og))
+
             defend_abroad = 1
 
         else:
@@ -1029,17 +1062,17 @@ def get_visitation(child_first, ruling_og):
                     or findterms([' lämna',' utan ',' bifall', key], ruling_og)
                     or findterms([key, 'avskriv'], ruling_og)
                     ):
-                print('Visitation 1')
+                print_output("Visitation 1","")
                 visit = 4  
                 break
 
             elif findfirst([key, term], ruling_og) and not any([x in findfirst([key, term], ruling_og) for x in reject]):
-                print('Visitation 2')
+                print_output("Visitation 2","")
                 visit = 1
                 break
             
             else:
-                print('\nVisitation 3: ', findfirst([key, term], ruling_og))
+                print_output("Visitation 3",findfirst([key, term], ruling_og))
                 visit = 0
 
         else:
@@ -1058,8 +1091,6 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
     that does not directly describe the ruling and where another parent's name is included
     """
     firstsentences = ''.join(ruling.split('.')[:6])
-    
-    print('\nFirst Sentences: ', firstsentences)
     
     for term in physicalcust_list:
         if (
@@ -1087,7 +1118,6 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
             break
         
         else:
-            #print('\nPhysical Custody: ', findfirst(term, firstsentences), child_first, plaint_first, defend_first)
             phys = 0
             
     return phys
@@ -1145,12 +1175,12 @@ def get_agreement(domskal, domskal_og, fulltext, out):
             if not any([x in sentence for x in no_vard]) or 'vård' in sentence: #capture sentences (1) that dont refer only to umgange and boende , or (2) referring to vardn, umgange and boende
                 
                 if any([x in sentence for x in past]) and any([x in sentence for x in agreement_excl]):
-                    print('Agreement Custody 1: ', sentence)
+                    print_output("Agreement Custody 1",sentence)
                     agree_cust = 1
                     break
                 
                 if not any([x in sentence for x in agreement_excl]) and not any([x in sentence for x in past]):
-                    print('Agreement Custody 2: ', sentence)
+                    print_output("Agreement Custody 2",sentence)
                     agree_cust = 1
                     break
         else:
@@ -1168,12 +1198,12 @@ def get_agreement(domskal, domskal_og, fulltext, out):
                 ):
 
             if any([x in sentence for x in past]) and any([x in sentence for x in agreement_excl]):
-                print('Agreement Any 1: ', sentence)
+                print_output("Agreement Any 1",sentence)
                 agree_any = 1
                 break
             
             if not any([x in sentence for x in agreement_excl]) and not any([x in sentence for x in past]):
-                print('Agreement Any 2: ', sentence)
+                print_output("Agreement Any 2",sentence)
                 agree_any = 1
                 break
             
@@ -1222,7 +1252,7 @@ def get_fastinfo(fulltext, fulltext_og):
                 and not any([x in findterms([term], fulltext_og) for x in reject])
                 or '6 kap. 20 § andra stycket föräldrabalken' in fulltext
                 ): 
-            print('Fast information 1: ', findterms(['yttra', term], fulltext_og))
+            print_output("Fast information 1",findterms(['yttra', term], fulltext_og))
             info = 1
             break
     
@@ -1231,7 +1261,7 @@ def get_fastinfo(fulltext, fulltext_og):
                 any([term in fulltext for term in fastinfo_key])
                 and not any([x in findterms([term], fulltext_og) for x in reject])
                 ):
-            print('Fast information 2: ', term)
+            print_output("Fast information 2",term)
             info = 1
             break
         
@@ -1264,7 +1294,7 @@ def get_investigation(fulltext, fulltext_og):
                 term in fulltext
                 and not any([x in findterms([term], fulltext_og) for x in reject_invest])
                 ):
-            print('Invest 1: ', term)
+            print_output("Invest 1",term)
             invest = 1
             found = 1
     
@@ -1274,7 +1304,7 @@ def get_investigation(fulltext, fulltext_og):
             and not any([x in findterms([' utred'], fulltext_og) for x in reject_invest])
             and not findterms(['saknas', 'möjlighet', ' utred'], fulltext_og)
             ):
-        print('Invest 2')
+        print_output("Invest 2","")
         invest = 1
         
     elif (
@@ -1283,7 +1313,7 @@ def get_investigation(fulltext, fulltext_og):
             and not any([x in findterms([' utred'], fulltext_og) for x in reject_invest])
             and not findterms(['saknas', 'möjlighet', ' utred'], fulltext_og)
             ):
-        print('Invest 3')
+        print_output("Invest 3","")
         invest = 1
         
     else:
@@ -1293,7 +1323,7 @@ def get_investigation(fulltext, fulltext_og):
                     and any([x in sentence for x in outcomes_key])
                     and not any([x in sentence for x in reject_invest])
                     ):
-                print('Invest 4')
+                print_output("Invest 4","")
                 invest = 1
                 break
 
@@ -1310,7 +1340,7 @@ def get_mainhearing(fulltext_og):
                 findterms([term], fulltext_og)
                 and not any([x in findterms([term], fulltext_og) for x in reject_mainhearing])
                 ):
-            print('Main hearing: ', term)
+            print_output("Main hearing",term)
             main = 1
             break
         
@@ -1363,7 +1393,7 @@ def filldict_rulings(
     error = 0
 
     # except Exception as e:
-    #    print('Error: ', e)
+    #    print_output("Error",e)
     #    error = 1
 
     data_rulings['file_path'].append(file)
@@ -1399,7 +1429,7 @@ def filldict_rulings(
         data_rulings['investigation'].append(investigation)
         data_rulings['separation_year'].append(separate)
         data_rulings['mainhearing'].append(mainhear)
-        data_rulings['flag'].append(['TBD'])
+        data_rulings['flag'].append(flag)
 
     else: 
         for i in data_rulings:
@@ -1423,6 +1453,7 @@ def filldict_register(
     data_register["court"].append(courtname)
     data_register['type'].append(doc_type)  
     data_register['caseid'].append(caseno)
+    data_register['flag'].append(flag)
     
     return data_register
 
@@ -1431,7 +1462,7 @@ def filldict_register(
 def save(dictionary, SAVE, COUNT, location):
     df = pd.DataFrame(dictionary)
     with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
-        print('\n', df) 
+        print_output("Output saved:",df)
     if SAVE == 1:
         if COUNT == 1:
             df.to_csv(location, sep = ',', encoding='utf-8-sig', header=True)
@@ -1441,6 +1472,7 @@ def save(dictionary, SAVE, COUNT, location):
 
 
 def main(file, jpgs):
+    
     if jpgs == 1:
         outpath = file['filepath'].split('\\')[0]
     else:
@@ -1475,7 +1507,8 @@ def main(file, jpgs):
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
-        full_text, header = ocr_main(file)
+        full_text, header, judgepage = ocr_main(file)
+        print("JUDGEPAGE: ", judgepage)
         fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
         correction = 0
         readable = 0
@@ -1491,7 +1524,7 @@ def main(file, jpgs):
     if readable == 1:
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
-        judge, judgetitle = get_judge_scans(judge_string)
+        judge, judgetitle = get_judge_scans(judge_string, judgepage)
     
     if doc_type == 'dom' or doc_type == 'deldom':
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
@@ -1515,7 +1548,7 @@ def main(file, jpgs):
                 save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
 
             # except Exception as e:
-            #    print('Error: ',e)
+            #    print_output("Error",e)
             
     else:
         case_type = 'N/A'
@@ -1538,9 +1571,11 @@ pics = cases_from_imgs()
 for file in files:
     jpgs = 0
     main(file, jpgs)
+    flag = []
     
 #For scans as photos (jpgs)
 for case in pics:
     jpgs = 1
     main(case, jpgs)
+    flag = []
     

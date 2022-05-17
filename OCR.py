@@ -10,8 +10,8 @@ import os
 import time
 import pytesseract
 import cv2
-import glob
 import subprocess
+import itertools
 from pdf2image import convert_from_path
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -22,8 +22,10 @@ pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesserac
 
 #General settings
 LANGUAGE = 'swe'
-CUSTOM_CONFIG = '--psm 4 --oem 3'
+CONFIG_TEXTBODY = '--psm 4 --oem 3'
+CONFIG_ONELINE = '--psm 7 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
+kernal_signature = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
 
 
 
@@ -104,7 +106,7 @@ def detect_text(img, filename):
 
 
 
-def bounding_boxes(subprocess_output):
+def bounding_boxes(subprocess_output, kernal_input):
     """Draw contours around text boxes and OCR text."""
 
     string_list = []
@@ -114,8 +116,7 @@ def bounding_boxes(subprocess_output):
     blur = cv2.GaussianBlur(gray, (7,7), 0)
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
                                    cv2.THRESH_BINARY_INV, 21, 20)
-    dilate = cv2.dilate(thresh,kernal,iterations = 1)
-        
+    dilate = cv2.dilate(thresh,kernal_input,iterations = 1)
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
@@ -125,18 +126,12 @@ def bounding_boxes(subprocess_output):
         ratio = w/h
         
         if ratio > 1:
-            
-            cv2.rectangle(img, (x,y),(x+w,y+h),(36,255,12),2)
-            
-            #cv2.imwrite("bbox.jpg",img)
-            
+
             roi = img[y:y+h, x:x+w]
-            img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CUSTOM_CONFIG)
+            #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
+            #cv2.imwrite("bbox.jpg",img)
+            img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
-            
-        #else:
-         #   cv2.rectangle(img, (x,y),(x+w,y+h),(255,255,0),2)
-          #  cv2.imwrite("bbox.jpg",img)
     
     return string_list
 
@@ -165,14 +160,15 @@ def ocr_main(file):
         path = []
         path.append(file)
 
-    for image in path:
+    for page_no, image in enumerate(path):
         img = cv2.imread(image)
         filename = image.split('.')[0]
         
         if "Sodertorn" in filename:
             detect_text(img, filename)
             img = cv2.imread(filename + "crop.jpg")
-        
+            os.remove(filename + "crop.jpg")
+
         cv2.imwrite(filename + '_thresh.jpg', preprocess(img))
                 
         subprocess.call([
@@ -180,10 +176,17 @@ def ocr_main(file):
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py',
             filename + '_thresh.jpg'
             ])
-
-        text = bounding_boxes(filename + '_thresh_straight.png')
-        text = clean_text(text)
         
+        if page_no == len(path)-1:
+            judgepage = bounding_boxes(filename + '_thresh_straight.png', kernal_signature)
+            judgepage = clean_text(judgepage)
+            for term in ['ÖVERKLAG','Överklagande\n', '\nHur man överklag',
+                         '\nHur Man Överklag', 'Anvisning för överklagande']:
+                if any(term in string for string in judgepage):
+                    judgepage = list(itertools.dropwhile(lambda x: term not in x, judgepage))
+
+        text = bounding_boxes(filename + '_thresh_straight.png', kernal)
+        text = clean_text(text)
         full_text.append(text)
         header.append(text[:4])
         
@@ -191,16 +194,8 @@ def ocr_main(file):
             os.remove(filename + '.jpg')
         
         for file in [filename + '_thresh.jpg',
-                     filename + '_thresh_straight.png',
-                     filename + 'crop.jpg'
+                     filename + '_thresh_straight.png'
                      ]:
             os.remove(file)
         
-    return full_text, header
-
-
-files = glob.glob("P:/2020/14/Kodning/Scans/all_scans/DOM*.JPG")
-for file in files:
-    print('\nFile: ',file)
-    ocr_main(file)
-
+    return full_text, header, judgepage

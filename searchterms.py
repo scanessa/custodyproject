@@ -35,9 +35,10 @@ caseno_search = {
     }
     
 date_search = {
-    '1' : 'dom\s+(\d*-\d*-\d*)',
-    '2' : 'dom\s+sid\s*1\s*[(][0-9]*[)]\s*(\d*-\d*-\d*)',
-    '3' : '(\d{4}-\d{2}-\d{2})'
+    '1' : 'dom\s+(\d{4}-\d{2}-\d{2})',
+    '2' : 'dom\s+(\d*-\d*-\d*)',
+    '3' : 'dom\s+sid\s*1\s*[(][0-9]*[)]\s*(\d*-\d*-\d*)',
+    '4' : '(\d{4}-\d{2}-\d{2})'
     }
 
 judgesearch = {
@@ -55,12 +56,18 @@ judgesearch = {
     '11': '\n\s*\n\s*(' + allLetters + '+\s' + capLetters + 's\s' + allLetters + '+\s+)\n', #name with initial as second name
     '12': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)\n', #name with initial as second name
     #For documents where judge didnt sign
-    '13': '(rådmannen|tingsfiskalen)\s*((' + allLetters + '+\s+){2,4})',
-    '14': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
-    '15': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
-    '16': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
-    '17': '(rådmannen|tingsfiskalen)\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
-    '18': '(rådmannen|tingsfiskalen)\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
+    '13': 'rådmannen\s*((' + allLetters + '+\s+){2,4})',
+    '14': 'rådmannen\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
+    '15': 'rådmannen\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
+    '16': 'rådmannen\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
+    '17': 'rådmannen\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
+    '19': 'rådmannen\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
+    '20': 'tingsfiskalen\s*((' + allLetters + '+\s+){2,4})',
+    '21': 'tingsfiskalen\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
+    '22': 'tingsfiskalen\s*(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
+    '23': 'tingsfiskalen\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
+    '24': 'tingsfiskalen\s*(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
+    '24a': 'tingsfiskalen\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
     #when judge's name ends with .
     '25': '\n\s*\n\s*((' + allLetters + '+\s+){1,3}' + allLetters + '+).\s*\n\n', #normal names
     '26': '\n\s*\n\s*(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+).\s*\n', #first name hyphenated
@@ -114,6 +121,7 @@ cooperation_key = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
 contest_key = [['bestritt'], ['bestridit'], ['har','för','egen','del','yrkat'], ['har','istället','yrkat'],['som','slutligen','bestämt','i','sin','talan']]
 
 exclude_phys = ['jämna' , 'växelvis', 'skyddat']
+exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
 fastinfo_key = ['snabbupplysning', 'upplysning', 'snabbyttrande']
 footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
