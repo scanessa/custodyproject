@@ -15,6 +15,7 @@ import io
 import os
 import pandas as pd
 import itertools
+from fuzzywuzzy import process
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -40,7 +41,7 @@ from OCR import ocr_main
 ROOTDIR = "P:/2020/14/Kodning/Scans/"
 OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
 OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
-JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_occuring_2+_times_cleaned.xls"
+JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
 
 DATA_RULINGS = {
     
@@ -195,7 +196,7 @@ def cases_from_imgs():
                     print(f"\nReading file {subdir}/{file}")
 
                     pdf_dir = (os.path.join(subdir, file))
-                    text, _, judgepage = ocr_main(file)
+                    text, _, judge_small, judge_large = ocr_main(file)
                     text = [item for sublist in text for item in sublist]
                     
                     #First page
@@ -502,20 +503,56 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
 
 
 
-def get_judge_scans(judge_string, judgepage):
-    print("Judge string: ",judge_string.split(","))
-    print("Judge page: ", judgepage)
+def get_judge_scans(judge1, judge2, judge3):
+    """
+    Gets judges name from scanned documetn by going through different text
+    parts, judge1 = judge_string, judge2 draws tight bounding boxes wiht 9x9
+    kernal in OCR module around text and parses the text in those tight boxes,
+    judge3 parses as much text as it can get from the whole page without any
+    boxes.
+    
+    Code then takes list of digital judges generated with STATA, compares string
+    in judge1/2/3 list with each name and at similarity CUTOFF = 70 AND 
+    assigns judge_name = match
+    """
+
     judge_title = 'N/A'
+    found = 0
+    cutoff = 70
     
-    try:
-        print("try")
-        judge_name = ((dictloop(judgesearch, judge_string, 1, exclude_judge)).split('\n'))[0]
-        judge_name = judge_name.lower().strip()
-    except:
-        print("except")
-        judgepage = ' '.join(judgepage)
-        judge_name = judgepage.replace("\n", " ")
+    print("judge1: ",judge1.split(","))
+    print("\njudge2: ",judge2)
+    print("\njudge3: ",judge3)
     
+    digital_judges = pd.read_excel(JUDGE_LIST)
+    
+    for _, row in digital_judges.iterrows():
+        
+       match = row['judge']
+       match1 = process.extractOne(row['judge'],judge1)
+       match2 = process.extractOne(row['judge'],judge2)
+       match3 = process.extractOne(row['judge'],judge3)
+       to_sort = [match1, match2, match3]
+       highest_match = sorted(to_sort, key=lambda x: x[1], reverse = True)
+       highest_match = highest_match[0] #isolate score of highest match
+       
+       if highest_match[1] > cutoff and len(highest_match[0]) > 5:
+           judge_name = match
+           cutoff = highest_match[1]
+           found = 1
+           print(match, highest_match)
+
+    if found == 0:
+        try:
+            print("try1")
+            judge_name = ((dictloop(judgesearch, judge1, 1,
+                                 exclude_judge)).split('\n'))[0]
+            judge_name = judge_name.lower().strip()
+        except:
+            print("except1")
+            judgepage = ' '.join(judge2)
+            judge_name = judgepage.replace("\n", " ")
+
     print("Judge name: ", judge_name)
     return judge_name, judge_title
 
@@ -1493,26 +1530,25 @@ def main(file, jpgs):
         fulltext_form = ' '.join([item for sublist in fulltext_form for item in sublist])        
         firstpage_form = ' '.join(file['firstpage_form'])
         judge_string = ' '.join(file['judge_string'])
-        
+
         topwords = file['topwords']
         topwords = (' '.join([item for sublist in topwords for item in sublist])).lower()        
         page_count = file['page_count']
         lastpage_form = ' '.join(file['lastpage_form'])
         file = file['filepath']
-        
+
         topwords, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords, firstpage_form, fulltext_form, judge_string)
         correction = 0
         readable = 0
 
     elif 'all_scans' in file:
         print('\nScan: ', file)
-        
-        full_text, header, judgepage = ocr_main(file)
-        print("JUDGEPAGE: ", judgepage)
+
+        full_text, header, judge_small, judge_large = ocr_main(file)
         fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
         correction = 0
         readable = 0
-            
+
     header_form = get_header(firstpage_form)
     defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form, readable)
     plaint_full, plaint_first, plaint_no = party_id(plaint_og)
@@ -1524,7 +1560,7 @@ def main(file, jpgs):
     if readable == 1:
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
-        judge, judgetitle = get_judge_scans(judge_string, judgepage)
+        judge, judgetitle = get_judge_scans(judge_string, judge_small, judge_large)
     
     if doc_type == 'dom' or doc_type == 'deldom':
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)

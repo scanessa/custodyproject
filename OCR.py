@@ -21,11 +21,12 @@ start_time = time.time()
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
 #General settings
-LANGUAGE = 'swe'
+LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 4 --oem 3'
 CONFIG_ONELINE = '--psm 7 --oem 3'
+CONFIG_FULL = '--psm 11 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
-kernal_signature = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
+kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
 
 
 
@@ -106,7 +107,7 @@ def detect_text(img, filename):
 
 
 
-def bounding_boxes(subprocess_output, kernal_input):
+def txt_box(subprocess_output, kernal_input):
     """Draw contours around text boxes and OCR text."""
 
     string_list = []
@@ -130,7 +131,7 @@ def bounding_boxes(subprocess_output, kernal_input):
             roi = img[y:y+h, x:x+w]
             #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
             #cv2.imwrite("bbox.jpg",img)
-            img_string = pytesseract.image_to_string(roi, lang=LANGUAGE, config = CONFIG_TEXTBODY)
+            img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
     
     return string_list
@@ -144,6 +145,22 @@ def clean_text(text_list):
     
     return text_list
     
+
+def final_passage(lastpage):
+    """
+    Drops all works from last page string that come before last paragraph
+    Last paragraph is recognized by ÖVERKLAG header
+    Returns list, input should be list
+    """
+    if isinstance(lastpage, str):
+        lastpage = lastpage.split(" ")
+    lastpage = clean_text(lastpage)
+    for term in ['ÖVERKLAG','Överklagande\n', '\nHur man överklag',
+                 '\nHur Man Överklag', 'Anvisning för överklagande']:
+        if any(term in string for string in lastpage):
+            lastpage = list(itertools.dropwhile(lambda x: term not in x, lastpage))
+            
+    return lastpage
 
 
 def ocr_main(file):
@@ -176,17 +193,18 @@ def ocr_main(file):
             'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py',
             filename + '_thresh.jpg'
             ])
+
+        text = txt_box(filename + '_thresh_straight.png', kernal)
+        text = clean_text(text)
         
         if page_no == len(path)-1:
-            judgepage = bounding_boxes(filename + '_thresh_straight.png', kernal_signature)
-            judgepage = clean_text(judgepage)
-            for term in ['ÖVERKLAG','Överklagande\n', '\nHur man överklag',
-                         '\nHur Man Överklag', 'Anvisning för överklagande']:
-                if any(term in string for string in judgepage):
-                    judgepage = list(itertools.dropwhile(lambda x: term not in x, judgepage))
+            
+            last = cv2.imread(filename + '_thresh_straight.png')
+            judge_small = txt_box(filename + '_thresh_straight.png', kernal_sign)
+            judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
+            judge_small = final_passage(judge_small)
+            judge_large = final_passage(judge_large)
 
-        text = bounding_boxes(filename + '_thresh_straight.png', kernal)
-        text = clean_text(text)
         full_text.append(text)
         header.append(text[:4])
         
@@ -198,4 +216,4 @@ def ocr_main(file):
                      ]:
             os.remove(file)
         
-    return full_text, header, judgepage
+    return full_text, header, judge_small, judge_large
