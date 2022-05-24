@@ -165,6 +165,10 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
+
+unwanted_judgeterms = ['hovrätt', 'svea', 'skall', 'senast', 'prövningstillstånd', 'tingsrätten',
+                      'inkommit', 'ha', 'till', 'ställt', 'den']
+
 visitation_key = ['umgänge', 'umgås']
 
 

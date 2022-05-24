@@ -16,6 +16,7 @@ import os
 import pandas as pd
 import itertools
 from fuzzywuzzy import process
+from fuzzywuzzy import fuzz
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -515,32 +516,28 @@ def get_judge_scans(judge1, judge2, judge3):
     in judge1/2/3 list with each name and at similarity CUTOFF = 70 AND 
     assigns judge_name = match
     """
-
+    alljudges = judge1.split(',') + judge2 + judge3 # THIS SPLITS TOO MUCH
     judge_title = 'N/A'
     found = 0
     cutoff = 70
     
-    print("judge1: ",judge1.split(","))
-    print("\njudge2: ",judge2)
-    print("\njudge3: ",judge3)
-    
+    print("Judge String: ", alljudges)
+
     digital_judges = pd.read_excel(JUDGE_LIST)
     
     for _, row in digital_judges.iterrows():
         
-       match = row['judge']
-       match1 = process.extractOne(row['judge'],judge1)
-       match2 = process.extractOne(row['judge'],judge2)
-       match3 = process.extractOne(row['judge'],judge3)
-       to_sort = [match1, match2, match3]
-       highest_match = sorted(to_sort, key=lambda x: x[1], reverse = True)
-       highest_match = highest_match[0] #isolate score of highest match
-       
-       if highest_match[1] > cutoff and len(highest_match[0]) > 5:
-           judge_name = match
-           cutoff = highest_match[1]
-           found = 1
-           print(match, highest_match)
+        match = row['judge']
+        match1 = process.extract(match, alljudges)
+        highest_match = sorted(match1, key=lambda x: x[1], reverse = True)
+        highest_match = highest_match[0] #isolate score of highest match
+        
+        if highest_match[1] > cutoff and len(highest_match[0]) > 5:
+            comp_match = fuzz.partial_ratio(match, highest_match[0])
+            if comp_match > cutoff:
+                judge_name = match
+                found = 1
+                print(match, highest_match)
 
     if found == 0:
         try:
@@ -794,7 +791,6 @@ def get_childname(year, ruling_og, defend_full, plaint_full):
 
         custody_sentences = []
         sentence_parts = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ])..', ruling_og)
-
         for sentence in sentence_parts:
             if 'vård' in sentence or 'Vård' in sentence:
                 custody_sentences.append(sentence)

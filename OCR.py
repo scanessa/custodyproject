@@ -12,7 +12,11 @@ import pytesseract
 import cv2
 import subprocess
 import itertools
+
+from PIL import Image
 from pdf2image import convert_from_path
+
+from searchterms import unwanted_judgeterms
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
@@ -55,8 +59,36 @@ def get_contour_precedence(contour, cols):
 
 
 
-def preprocess(imread_img):
+def preprocess(imread_img, image):
     """ Preproccess image for page_warp.py straightening."""
+    
+    #### PIL code for removing blue signature
+    im = Image.open(image)
+
+    R, G, B = im.convert('RGB').split()
+    r = R.load()
+    g = G.load()
+    b = B.load()
+    w, h = im.size
+    
+    
+    # Convert non-black pixels to white
+    for i in range(w):
+        for j in range(h):
+            if(
+                    b[i, j] > 10
+                    and 1.5*(r[i, j]) < b[i, j]
+                    and 1.5*(g[i, j]) < b[i, j]
+                    ):
+                r[i, j] = 255 # Just change R channel
+    
+    # Merge just the R channel as all channels
+    im = Image.merge('RGB', (R, R, R))
+    im.save(image)
+    
+    imread_img = cv2.imread(image)
+    ####
+    
     gray = cv2.cvtColor(imread_img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (7,7), 0)
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
@@ -146,21 +178,26 @@ def clean_text(text_list):
     return text_list
     
 
-def final_passage(lastpage):
+def final_passage(lastpage, passg):
     """
     Drops all works from last page string that come before last paragraph
     Last paragraph is recognized by ÖVERKLAG header
     Returns list, input should be list
     """
     if isinstance(lastpage, str):
-        lastpage = lastpage.split(" ")
+        lastpage = lastpage.split(" ") #make sure all of these lists have individual words as their seperate strings
     lastpage = clean_text(lastpage)
-    for term in ['ÖVERKLAG','Överklagande\n', '\nHur man överklag',
-                 '\nHur Man Överklag', 'Anvisning för överklagande']:
+    
+    for term in ['ÖVERKLAG','Överklag','överklag']:
         if any(term in string for string in lastpage):
             lastpage = list(itertools.dropwhile(lambda x: term not in x, lastpage))
+            lastpage = lastpage[1:]
+
+    lastwords = [x.lower() for x in lastpage]
+    lastpage = [x for x in lastwords if not any(unwant in x for unwant in unwanted_judgeterms)]
             
     return lastpage
+
 
 
 def ocr_main(file):
@@ -186,7 +223,7 @@ def ocr_main(file):
             img = cv2.imread(filename + "crop.jpg")
             os.remove(filename + "crop.jpg")
 
-        cv2.imwrite(filename + '_thresh.jpg', preprocess(img))
+        cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))
                 
         subprocess.call([
             'python',
@@ -196,18 +233,21 @@ def ocr_main(file):
 
         text = txt_box(filename + '_thresh_straight.png', kernal)
         text = clean_text(text)
-        
+
         if page_no == len(path)-1:
-            
+
             last = cv2.imread(filename + '_thresh_straight.png')
             judge_small = txt_box(filename + '_thresh_straight.png', kernal_sign)
             judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
-            judge_small = final_passage(judge_small)
-            judge_large = final_passage(judge_large)
+
+            passg = "judge_small"
+            judge_small = final_passage(judge_small,passg)
+            passg = "judge_large"
+            judge_large = final_passage(judge_large, passg)
 
         full_text.append(text)
         header.append(text[:4])
-        
+
         if pdf == 1:
             os.remove(filename + '.jpg')
         
