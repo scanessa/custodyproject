@@ -41,6 +41,21 @@ def move_files(paths, error_files, pdf_dir):
     print('%d files threw an error: ' %(errors), error_paths)
     return errors, error_files
 
+def copy_files(paths, error_files, pdf_dir):
+    errors = 0
+    for file in paths:
+        p = pathlib.PureWindowsPath(file)
+        p = str(p.as_posix())
+        print(p)
+        try:
+            shutil.copy(file,pdf_dir)
+        except:
+            errors += 1
+            error_files.append(file)
+    
+    print('%d files threw an error: ' %(errors), error_paths)
+    return errors, error_files
+
 def true_file(files):
     for fname in files:
         if not os.path.isfile(fname):
@@ -93,11 +108,17 @@ def randomsample(folder, samplesize, copyto):
     - normal split is 70-20-10, put + 100 files for backup
     
     """
-    allfiles = glob.glob(folder + "/*.JPG")
+    allfiles = glob.glob(folder + "/*.pdf") #change to JPG if needed
     randomlist = random.sample(range(0, len(allfiles)), samplesize)
     sample = [allfiles[n] for n in randomlist]
-    move_files(sample, error_paths, copyto)
+    copy_files(sample, error_paths, copyto)
 
 #Execute
 #randomsample("P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans", 600, "P:/2020/14/Kodning/Scans/classification/firstlastpage") #CHANGE SHUTIL.MOVE TO SHUTIL.COPY FOR FIRST ROUND
-randomsample("P:/2020/14/Kodning/Scans/classification/firstlastpage/validation", 50, "P:/2020/14/Kodning/Scans/classification/firstlastpage/testing") 
+#randomsample("P:/2020/14/Kodning/Scans/classification/firstlastpage/validation", 50, "P:/2020/14/Kodning/Scans/classification/firstlastpage/testing") 
+
+# Courts with scans: Lunds, Malmö, Stockholm, Helsingborgs, Hässleholms, Göteborgs
+randomsample("P:/2020/14/Tingsratter/Lunds/Domar/Leverans/courtvisit/phone2", 5, "P:/2020/14/Kodning/Scans/all_scans/others/new")
+
+
+

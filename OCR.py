@@ -12,6 +12,7 @@ import pytesseract
 import cv2
 import subprocess
 import itertools
+import numpy as np
 
 from PIL import Image
 from pdf2image import convert_from_path
@@ -26,7 +27,7 @@ pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesserac
 
 #General settings
 LANG = 'swe'
-CONFIG_TEXTBODY = '--psm 4 --oem 3'
+CONFIG_TEXTBODY = '--psm 6 --oem 3'
 CONFIG_ONELINE = '--psm 7 --oem 3'
 CONFIG_FULL = '--psm 11 --oem 3'
 kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
@@ -51,18 +52,41 @@ def pdf_to_jpg(pdf):
 
 
 
-def get_contour_precedence(contour, cols):
-    tolerance_factor = 10
-    origin = cv2.boundingRect(contour)
+def sort_contours(contours):
+    """ 
+    Saves corners of each contour to rect list; sorts corners by y value and groups into lines;
+    max_height varies the maximum height of a line (by how much the y-values within a line-group can vary)
+    Returns list of sorted corners of contour boxes
+    """
+    rect = []
+    for cnt in contours:
+        x,y,w,h = cv2.boundingRect(cnt)
+        rect.append((x,y,w,h))
+
+    max_height = 10
     
-    return ((origin[1] // tolerance_factor) * tolerance_factor) * cols + origin[0]
-
-
-
-def preprocess(imread_img, image):
-    """ Preproccess image for page_warp.py straightening."""
+    by_y = sorted(rect, key=lambda x: x[1])
     
-    #### PIL code for removing blue signature
+    line_y = by_y[0][1]
+    line = 1
+    by_line = []
+
+    for x, y, w, h in by_y:
+        if y > line_y + max_height:
+            line_y = y
+            line += 1
+            
+        by_line.append((line, x, y, w, h))
+        
+    contours_sorted = [(x, y, w, h) for line, x, y, w, h in sorted(by_line)]
+    
+    return contours_sorted
+
+
+
+def remove_color(image):
+    """ PIL code for removing blue signature """
+    
     im = Image.open(image)
 
     R, G, B = im.convert('RGB').split()
@@ -87,8 +111,14 @@ def preprocess(imread_img, image):
     im.save(image)
     
     imread_img = cv2.imread(image)
-    ####
-    
+
+    return imread_img
+
+
+
+def preprocess(imread_img, image):
+    """ Preproccess image for page_warp.py straightening."""
+
     gray = cv2.cvtColor(imread_img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (7,7), 0)
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
@@ -115,9 +145,9 @@ def detect_text(img, filename):
     
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
-    contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
+    sorted_contours = sort_contours(contours)
 
-    for cnt in contours:
+    for cnt in sorted_contours:
         x,y,w,h = cv2.boundingRect(cnt)
         ratio = w/h
         
@@ -152,19 +182,26 @@ def txt_box(subprocess_output, kernal_input):
     dilate = cv2.dilate(thresh,kernal_input,iterations = 1)
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
-    contours = sorted(contours, key=lambda x:get_contour_precedence(x, img.shape[1]))
+    sorted_contours = sort_contours(contours)
+    
+    counter = 1
 
-    for cnt in contours:
-        x,y,w,h = cv2.boundingRect(cnt)
+    for cnt in sorted_contours:
+        x,y,w,h = cnt[0], cnt[1], cnt[2], cnt[3]
         ratio = w/h
         
         if ratio > 1:
-
+            
             roi = img[y:y+h, x:x+w]
+            
             #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
+            #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3, color=(0, 255, 0),thickness=2)
             #cv2.imwrite("bbox.jpg",img)
+            
             img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
+            
+            counter += 1
     
     return string_list
 
@@ -192,10 +229,7 @@ def final_passage(lastpage, passg):
         if any(term in string for string in lastpage):
             lastpage = list(itertools.dropwhile(lambda x: term not in x, lastpage))
             lastpage = lastpage[1:]
-
-    lastwords = [x.lower() for x in lastpage]
-    lastpage = [x for x in lastwords if not any(unwant in x for unwant in unwanted_judgeterms)]
-            
+     
     return lastpage
 
 
@@ -223,6 +257,9 @@ def ocr_main(file):
             img = cv2.imread(filename + "crop.jpg")
             os.remove(filename + "crop.jpg")
 
+        if page_no == len(path)-1:
+            img = remove_color(image)
+        
         cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))
                 
         subprocess.call([

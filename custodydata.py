@@ -15,7 +15,6 @@ import io
 import os
 import pandas as pd
 import itertools
-from fuzzywuzzy import process
 from fuzzywuzzy import fuzz
 
 from pdfminer.layout import LAParams
@@ -34,7 +33,7 @@ from searchterms import cities, countries, nocontant, separation_key, remind_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
-from searchterms import mainhearing_key, exclude_judge
+from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms
 
 from OCR import ocr_main
 
@@ -512,32 +511,36 @@ def get_judge_scans(judge1, judge2, judge3):
     judge3 parses as much text as it can get from the whole page without any
     boxes.
     
-    Code then takes list of digital judges generated with STATA, compares string
-    in judge1/2/3 list with each name and at similarity CUTOFF = 70 AND 
+    Code then takes list of digital judges generated with STATA, compares combined 
+    string of all judge texts with each name and at similarity CUTOFF = 70 AND 
     assigns judge_name = match
     """
-    alljudges = judge1.split(',') + judge2 + judge3 # THIS SPLITS TOO MUCH
+    alljudges = judge1 + ' '.join(judge2) + ' '.join(judge3) 
     judge_title = 'N/A'
     found = 0
     cutoff = 70
     
-    print("Judge String: ", alljudges)
+    #Clean
+    noisy = re.split(' ,.\n', alljudges)
+    
+    print("Noisy: ", noisy)
+    
+    alljudges = [x for x in noisy if not any(unwant == x for unwant in unwanted_judgeterms)]
+    alljudges = ' '.join(alljudges)
+    
+    print("Judge String: ", alljudges.split("stella"))
 
     digital_judges = pd.read_excel(JUDGE_LIST)
     
     for _, row in digital_judges.iterrows():
-        
         match = row['judge']
-        match1 = process.extract(match, alljudges)
-        highest_match = sorted(match1, key=lambda x: x[1], reverse = True)
-        highest_match = highest_match[0] #isolate score of highest match
+        comp_match = fuzz.partial_ratio(match, alljudges)
         
-        if highest_match[1] > cutoff and len(highest_match[0]) > 5:
-            comp_match = fuzz.partial_ratio(match, highest_match[0])
-            if comp_match > cutoff:
-                judge_name = match
-                found = 1
-                print(match, highest_match)
+        if comp_match >= cutoff: #WHAT TO DO WITH EQUAL SCORES? WHAT TO DO WITH DUPLICATE SURNAMESß
+            cutoff = comp_match
+            judge_name = match
+            found = 1
+            print(match, comp_match)
 
     if found == 0:
         try:
@@ -656,8 +659,8 @@ def get_ruling(fulltext_form):
     Extract only ruling text headed usually 'Domslut'
     """
     try:
+        print_output("Ruling 1",fulltext_form.split("showfulltext"))
         ruling_form = ''.join(re.split('MSLUT|Domslut\n', ''.join(fulltext_form))[1:])
-        print_output("Ruling 1","")
     except AttributeError:
         ruling_form = ''.join(re.split('_{10,40}\s*', ''.join(fulltext_form))[1:])
         print_output("Ruling 2","")
@@ -667,7 +670,7 @@ def get_ruling(fulltext_form):
     except AttributeError:
         ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
         print_output("Ruling 2a","")
-    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
+    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))    
     ruling_form = re.split(dictloop(ruling_search,ruling_form,0,[]), ruling_form)[0]
     
     try:
@@ -1495,7 +1498,8 @@ def filldict_register(
 def save(dictionary, SAVE, COUNT, location):
     df = pd.DataFrame(dictionary)
     with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
-        print_output("Output saved:",df)
+        if PRINT == 1:
+            print(df)
     if SAVE == 1:
         if COUNT == 1:
             df.to_csv(location, sep = ',', encoding='utf-8-sig', header=True)
@@ -1571,6 +1575,7 @@ def main(file, jpgs):
                 child_first = id_name[child_id]
                 
                 # Save rulings data to file
+                print("JUDGE: ", judge)
                 dict_rulings = filldict_rulings(
                     DATA_RULINGS,  child_id, file, page_count, correction, topwords, fulltext_og,
                     ruling, plaint_no, defend_no, defend, plaint, defend_first, domskal_og,
