@@ -12,12 +12,10 @@ import pytesseract
 import cv2
 import subprocess
 import itertools
-import numpy as np
-
 from PIL import Image
 from pdf2image import convert_from_path
+from signature_extractor import extract_signature
 
-from searchterms import unwanted_judgeterms
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
@@ -258,6 +256,9 @@ def ocr_main(file):
             os.remove(filename + "crop.jpg")
 
         if page_no == len(path)-1:
+            fp = path[-1].split('\\')[0] + '/'
+            fn = path[-1].split('\\')[1]
+            extract_signature(fp, fn)
             img = remove_color(image)
         
         cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))

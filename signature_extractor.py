@@ -8,11 +8,20 @@
 import cv2
 import matplotlib.pyplot as plt
 from skimage import measure, morphology
-from skimage.color import label2rgb
 from skimage.measure import regionprops
 import numpy as np
 
 #CONSTANTS
+# the parameters are used to remove small size connected pixels outliar 
+constant_parameter_1 = 84
+constant_parameter_2 = 350
+constant_parameter_3 = 80
+
+# the parameter is used to remove big size connected pixels outliar
+constant_parameter_4 = 20
+
+
+"""
 # the parameters are used to remove small size connected pixels outliar 
 constant_parameter_1 = 84
 constant_parameter_2 = 250
@@ -20,15 +29,46 @@ constant_parameter_3 = 100
 
 # the parameter is used to remove big size connected pixels outliar
 constant_parameter_4 = 18
+"""
 
-def extract_signature(in_path):
-    img = cv2.imread(in_path, 0)
-    img = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)[1]  # ensure binary
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (51,51))
+
+
+def crop(img):
+
+    height, width = img.shape
+    
+    invert = cv2.bitwise_not(img)
+    dilate = cv2.dilate(invert,kernal,iterations = 1)
+    contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+    sorted_contours= sorted(contours, key=cv2.contourArea, reverse = True)
+    
+    largest_item = sorted_contours[0]
+
+    x,y,w,h = cv2.boundingRect(largest_item)
+    
+    if y+h < height-35:
+        
+        cv2.rectangle(img, (x,y),(x+w,y+h),(12,255,5),2)
+        #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3, color=(0, 255, 0),thickness=2)
+        cv2.imwrite("bbox.jpg",img)
+        crop = img[y:y+h, x:x+w]
+        cv2.imwrite('crop.jpg', crop)
+    
+    return crop
+
+
+
+def extract_signature(path, filename):
+
+    img = cv2.imread(path + filename, 0)
+    img = cv2.adaptiveThreshold(img, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
+                                   cv2.THRESH_BINARY, 21, 20)
     
     # connected component analysis by scikit-learn framework
     blobs = img > img.mean()
     blobs_labels = measure.label(blobs, background=1)
-    image_label_overlay = label2rgb(blobs_labels, image=img)
     
     fig, ax = plt.subplots(figsize=(10, 6))
     
@@ -41,7 +81,7 @@ def extract_signature(in_path):
         if (region.area > 10):
             total_area = total_area + region.area
             counter = counter + 1
-        # print region.area # (for debugging)
+
         # take regions with large enough areas
         if (region.area >= 250):
             if (region.area > the_biggest_component):
@@ -71,15 +111,15 @@ def extract_signature(in_path):
 
     # save the the pre-version which is the image is labelled with colors
     # as considering connected components
-    plt.imsave('P:/2020/14/Kodning/Scans/all_scans/pre_version.png', pre_version)
+    plt.imsave(path + 'pre_version.png', pre_version)
     
     # read the pre-version
-    img = cv2.imread('P:/2020/14/Kodning/Scans/all_scans/pre_version.png', 0)
+    img = cv2.imread(path + 'pre_version.png', 0)
     # ensure binary
     img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    
+    img = crop(img)
+    
     # save the the result
-    cv2.imwrite("P:/2020/14/Kodning/Scans/all_scans/output_2.png", img)
-
-    
-    
+    cv2.imwrite(path + filename.split('.')[0] + '_signature.jpg', img)
 

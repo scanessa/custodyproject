@@ -408,30 +408,41 @@ def get_plaint_defend(part, readable):
     print_output("Part for parties", part)
     
     try:
-        defend_og = re.split('Svarande|SVARANDE', part)[1] 
-        plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
+        print_output("get_plaint_defend2", '')
+        defend_og = re.split(defend_search, part)[1]
+        print_output("Defendant 2: ", defend_og)
+        plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(defend_search, part)[0]))[1]
         if defend_og == "":
-            defend_og = re.split('Svarande|SVARANDE', part)[2] 
-        elif len(plaint_og.split()) < 4:
-            defend_og = re.split("(?i)SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", part)[1]
-            plaint_og = re.split('(?i)KÄRANDE och SVARANDE|KÄRANDE OCH GENSVARANDE', 
-                                       (re.split("SVARANDE och KÄRANDE|SVARANDE OCH GENKÄRANDE ", part)[0]))[1]
+            defend_og = re.split(defend_search, part)[2]
+
     except IndexError:
         try:
-            defend_og = re.split(defend_search, part)[1]
-            plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(defend_search, part)[0]))[1]
+            print_output("get_plaint_defend1", '')
+            defend_og = re.split('Svarande|SVARANDE', part)[1] 
+            plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
+            print_output("Defendant 1: ", defend_og)
             if defend_og == "":
-                defend_og = re.split(defend_search, part)[2]
+                defend_og = re.split('Svarande|SVARANDE', part)[2] 
+            elif len(plaint_og.split()) < 4:
+                defend_og = re.split('(?i)SVARANDE.*och.*KÄRANDE', part)[1]
+                plaint_og = re.split('(?i)KÄRANDE.*och.*SVARANDE', (re.split('SVARANDE.*och.*KÄRANDE', part)[0]))[1]
+
         except IndexError:
             try:
+                print_output("get_plaint_defend3", '')
                 first = part.split('1.')[1]
                 defend_og = first.split('2.')[1]
+                print_output("Defendant 3: ", defend_og)
                 plaint_og = first.split('2.')[0]
+            
             except IndexError:
                 try:
                     if readable == 0 and 'Kärande' not in part or 'KÄRANDE' not in part:
+                        print_output("get_plaint_defend4", '')
                         defend_og = re.split('Svarande|SVARANDE', part)[1]
+                        print_output("Defendant 4: ", defend_og)
                         plaint_og = re.split('Svarande|SVARANDE', part)[0]
+                
                 except IndexError:
                     defend_og = plaint_og = 'not found, not found'
                     flag.append('plaintiff_and_defendant_not_found')
