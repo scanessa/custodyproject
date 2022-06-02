@@ -92,6 +92,16 @@ judgesearch = {
     
     }
 
+judgesearch_scans = {
+    '1': '((' + allLetters + '+\s+){2,4})', #normal names
+    '2': '(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s+)', #first name hyphenated
+    '3': '(' + allLetters + '+\s' + allLetters + '+-' + allLetters + '+\s+)', #last name hypthenated
+    '4': '(' + allLetters + '+\s*-\s*' + allLetters + '+\s' + allLetters + '+\s*-\s*' + allLetters + '+\s+)', #first and last name hyphenated
+    '5': '(' + allLetters + '+\s' + capLetters + '\s' + allLetters + '+\s+)', #name with initial as second name
+    '6': '\n\s*\n\s*(' + capLetters + '\s' + capLetters + '\s' + allLetters + '+\s+)', #first and second name as initial
+    
+    }
+
 judgesearch_noisy = {
     '1': '\n\s*\n(.*)'
     }
@@ -166,11 +176,12 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 
-unwanted_judgeterms = ['hovrätt', 'skall', 'senast', 'prövningstillstånd', 'tingsrätten',
-                      ' inkommit ', 'ha', 'till', 'ställt', 'den', 'ställs', 'men', 'ges',
-                      'över', 'skåne', 'och', 'blekinge', 'skiljaktig', 'mening', 'se', 'protokollsbilaga',
-                      'in', 'november', 'på', 'vägnar'
-                      
+unwanted_judgeterms = ['blekinge','den','för','ges','ha','hovrätt','hovrätten',
+                       'inkommit','in','inlagan','januari','men','mening','november',
+                       'över','och','överklagande','prövningstillstånd','på','protokollsbilaga',
+                       'skall','senast','ställt','skåne','ställs','skiljaktig','se',
+                       'sverige','svea','tingsrätten','tingsrättens','till',
+                       'vägnar','vagnar','västra'
                       ]
 
 visitation_key = ['umgänge', 'umgås']

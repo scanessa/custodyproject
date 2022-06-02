@@ -39,7 +39,7 @@ def pdf_to_jpg(pdf):
     img_files = []
     pages = convert_from_path(pdf, 350)
     i = 1
-    pdf_name = pdf.split('.')[0]
+    pdf_name = ''.join(pdf.split('.')[:-1])
     for page in pages:
         image_name = pdf_name + '_pg' + str(i) + ".jpg"
         page.save(image_name, "JPEG")
@@ -248,7 +248,7 @@ def ocr_main(file):
 
     for page_no, image in enumerate(path):
         img = cv2.imread(image)
-        filename = image.split('.')[0]
+        filename = ''.join(image.split('.')[:-1])
         
         if "Sodertorn" in filename:
             detect_text(img, filename)
@@ -256,9 +256,9 @@ def ocr_main(file):
             os.remove(filename + "crop.jpg")
 
         if page_no == len(path)-1:
-            fp = path[-1].split('\\')[0] + '/'
-            fn = path[-1].split('\\')[1]
-            extract_signature(fp, fn)
+            #fp = path[-1].split('\\')[0] + '/'
+            #fn = path[-1].split('\\')[1]
+            #extract_signature(fp, fn)
             img = remove_color(image)
         
         cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))
