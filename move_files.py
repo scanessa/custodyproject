@@ -13,6 +13,9 @@ import random
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = ''
+ROOTDIR = 'P:/2020/14/Tingsratter/'
+INCLUDES = ["phone", "all_scans"]
+DESTINATION = "P:/2020/14/Kodning/Scans/all_scans/others/new"
 
 error_paths = [] 
 
@@ -41,20 +44,19 @@ def move_files(paths, error_files, pdf_dir):
     print('%d files threw an error: ' %(errors), error_paths)
     return errors, error_files
 
-def copy_files(paths, error_files, pdf_dir):
+def copy_files(paths, pdf_dir):
     errors = 0
     for file in paths:
         p = pathlib.PureWindowsPath(file)
         p = str(p.as_posix())
-        print(p)
         try:
             shutil.copy(file,pdf_dir)
         except:
             errors += 1
-            error_files.append(file)
+            print("Error: ",p)
     
-    print('%d files threw an error: ' %(errors), error_paths)
-    return errors, error_files
+    print('%d files threw an error' %(errors))
+    return errors
 
 def true_file(files):
     for fname in files:
@@ -96,29 +98,25 @@ def changename(rootdir):
                 print('NEW: ', os.path.join(subdir, file_new))
                 os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
 
-def randomsample(folder, samplesize, copyto):
-    """
-    To generate a random sample of files used for machine learning training
-    folder: string, target folder with all files from which sample should be drawn
-    samplesize: int, size of desired sample
-    copyto: string, folder to which the sample files should be copied
-    
-    Note:
-    - make sample size bigger than intended to have backups for testing
-    - normal split is 70-20-10, put + 100 files for backup
-    
-    """
-    allfiles = glob.glob(folder + "/*.pdf") #change to JPG if needed
-    randomlist = random.sample(range(0, len(allfiles)), samplesize)
-    sample = [allfiles[n] for n in randomlist]
-    copy_files(sample, error_paths, copyto)
-
-#Execute
-#randomsample("P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans", 600, "P:/2020/14/Kodning/Scans/classification/firstlastpage") #CHANGE SHUTIL.MOVE TO SHUTIL.COPY FOR FIRST ROUND
-#randomsample("P:/2020/14/Kodning/Scans/classification/firstlastpage/validation", 50, "P:/2020/14/Kodning/Scans/classification/firstlastpage/testing") 
-
-# Courts with scans: Lunds, Malmö, Stockholm, Helsingborgs, Hässleholms, Göteborgs
-randomsample("P:/2020/14/Tingsratter/Lunds/Domar/Leverans/courtvisit/phone2", 5, "P:/2020/14/Kodning/Scans/all_scans/others/new")
 
 
+def randomsample(rootdir, destination):
+    for rootdir, dirs, files in os.walk(rootdir):
+        for subdir in dirs:
+            dirpath = os.path.join(rootdir, subdir)
+            if (
+                    "phone" in dirpath
+                    and not "1. Gemensamma dokument" in dirpath
+                    or "all_scans" in dirpath
+                    and not "1. Gemensamma dokument" in dirpath
+                    
+                ):
+                
+                allfiles = [x for x in os.listdir(dirpath) if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
+                
+                if len(allfiles) > 4:
+                    filenames = random.sample(allfiles, 4)
+                    filenames = [os.path.join(dirpath, x) for x in filenames]
+                    copy_files(filenames, DESTINATION)
 
+randomsample(ROOTDIR, DESTINATION)

@@ -27,13 +27,13 @@ from pdfminer.converter import TextConverter
 #os.chdir("P:/2020/14/Kodning/Code/custodyproject/")
 
 from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
-from searchterms import date_search, judgetitle_search, judgesearch, judgesearch_noisy
+from searchterms import date_search, judgetitle_search, judgesearch
 from searchterms import ruling_search, legalguardian_terms, lawyer_key, citizen, contest_key
 from searchterms import cities, countries, nocontant, separation_key, remind_key, residence_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
-from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms
+from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans
 
 from OCR import ocr_main
 
@@ -223,6 +223,9 @@ def cases_from_imgs():
                         
                         start = 0
                         page_count += 1
+                        os.rename("".join(pdf_dir.split(".JPG")) + "_thresh_straight.png",
+                                  "".join(pdf_dir.split(".JPG")) + "_last.JPG")
+                        
                         case['fulltext_form'].append(text.copy())
                         case['lastpage_form'] = text.copy()
                         case['judge_string'] = text[-2:]
@@ -501,9 +504,7 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
         except AttributeError:
             try:
                 finalpart = re.split('ÖVERKLAG|Överklag|överklag', lastpage_form)[-1]
-                judge_name = ((dictloop(judgesearch_noisy, finalpart, 1, exclude_judge)).split('\n'))[0]
-                judge_name = re.split('\s{4,}|,', judge_name)[0]
-                judge_name = judge_name.lower().strip().strip('/').strip('|')
+                judge_name = get_judge_lastparag(finalpart)
             except:
                 judge_name = 'Not found'
 
@@ -514,7 +515,29 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
 
 
 
-def get_judge_scans(judge1, judge2, judge3):
+def get_judge_lastparag(lastparagraph):
+    """
+    Pass lastparagraph (only words following Överklagande) as string
+    Removes all words characteristic to last paragraph, only noise and judge
+    name should be left. Finds capitalized words similar to regular judge search
+    but without new paragraph requirement.
+    Returns judge_name as string, if no name found, returns None
+    """
+    
+    noisy = re.split('[0-9]|,|[.]|[\n]|[\s]', lastparagraph)
+    
+    clean = [x for x in noisy if not any(unwant == x.lower() for unwant in unwanted_judgeterms)]
+    clean = [x for x in clean if len(x) >= 3]
+    clean = ' '.join(clean) + ' '
+    print("Judge String: ", clean)
+
+    name = dictloop(judgesearch_scans, clean, 0,exclude_judge)
+    name = name.lower() if name is not None else name
+    
+    return name
+
+
+def get_judge_scans(judge_string):
     """
     Gets judges name from scanned documetn by going through different text
     parts, judge1 = judge_string, judge2 draws tight bounding boxes wiht 9x9
@@ -526,43 +549,31 @@ def get_judge_scans(judge1, judge2, judge3):
     string of all judge texts with each name and at similarity CUTOFF = 70 AND 
     assigns judge_name = match
     """
-    alljudges = judge1 + ' '.join(judge2) + ' '.join(judge3) 
+
     judge_title = 'N/A'
     found = 0
     cutoff = 70
-    
-    #Clean
-    noisy = re.split(' ,.\n', alljudges)
-    
-    print("Noisy: ", noisy)
-    
-    alljudges = [x for x in noisy if not any(unwant == x for unwant in unwanted_judgeterms)]
-    alljudges = ' '.join(alljudges)
-    
-    print("Judge String: ", alljudges.split("stella"))
 
-    digital_judges = pd.read_excel(JUDGE_LIST)
-    
-    for _, row in digital_judges.iterrows():
-        match = row['judge']
-        comp_match = fuzz.partial_ratio(match, alljudges)
-        
-        if comp_match >= cutoff: #WHAT TO DO WITH EQUAL SCORES? WHAT TO DO WITH DUPLICATE SURNAMESß
-            cutoff = comp_match
-            judge_name = match
-            found = 1
-            print(match, comp_match)
+    judge_name = get_judge_lastparag(judge_string)
+    found = 1 if judge_name is not None else 0      
 
     if found == 0:
+        digital_judges = pd.read_excel(JUDGE_LIST)
         try:
             print("try1")
-            judge_name = ((dictloop(judgesearch, judge1, 1,
-                                 exclude_judge)).split('\n'))[0]
-            judge_name = judge_name.lower().strip()
-        except:
-            print("except1")
-            judgepage = ' '.join(judge2)
-            judge_name = judgepage.replace("\n", " ")
+
+            for _, row in digital_judges.iterrows():
+                match = row['judge']
+                comp_match = fuzz.partial_ratio(match, judge_string)
+                
+                if comp_match >= cutoff: #WHAT TO DO WITH EQUAL SCORES? WHAT TO DO WITH DUPLICATE SURNAMESß
+                    cutoff = comp_match
+                    judge_name = match
+                    print(match, comp_match)
+            
+        except Exception as e:
+            print(e)
+            judge_name = "Not found"
 
     print("Judge name: ", judge_name)
     return judge_name, judge_title
@@ -1520,7 +1531,7 @@ def save(dictionary, SAVE, COUNT, location):
 
 
 def main(file, jpgs):
-
+    
     if jpgs == 1:
         outpath = file['filepath'].split('\\')[0]
     else:
@@ -1532,18 +1543,84 @@ def main(file, jpgs):
         
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count = read_file(file)
         topwords = get_topwords(firstpage_form)
+        readable = 1
+        
+    elif jpgs == 1:
+        print('\nImage file: ',file['filepath'])
+
+        fulltext_form = file['fulltext_form']
+        fulltext_form = ' '.join([item for sublist in fulltext_form for item in sublist])        
+        firstpage_form = ' '.join(file['firstpage_form'])
+        judge_string = ' '.join(file['judge_string'])
+
+        topwords = file['topwords']
+        topwords = (' '.join([item for sublist in topwords for item in sublist])).lower()        
+        page_count = file['page_count']
+        lastpage_form = ' '.join(file['lastpage_form'])
+        file = file['filepath']
+
+        topwords, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords, firstpage_form, fulltext_form, judge_string)
+        correction = 0
+        readable = 0
 
     elif 'all_scans' in file:
         print('\nScan: ', file)
 
         full_text, header, judge_small, judge_large = ocr_main(file)
         fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
+        judge_string = judge_string + ' '.join(judge_small) + ' '.join(judge_large) 
+        
+        correction = 0
+        readable = 0
 
+    header_form = get_header(firstpage_form)
+    defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form, readable)
+    plaint_full, plaint_first, plaint_no = party_id(plaint_og)
+    defend_full, defend_first, defend_no = party_id(defend_og)
+    fulltext_og, fulltext = format_text(fulltext_form)
+    caseno, courtname, date, year = basic_caseinfo(file, topwords)
+    doc_type = get_doctype(file, topwords, fulltext_og)
 
-    judge, judgetitle = get_judge_scans(judge_string, judge_small, judge_large)
-
+    if readable == 1:
+        judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
+    else:
+        judge, judgetitle = get_judge_scans(judge_string)
     
+    if doc_type == 'dom' or doc_type == 'deldom':
+        ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
+        case_type = get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form)
+
+        if not case_type == '1216B':
+            domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
+            
+            # try:
+            id_name = get_childname(year, ruling_og, defend_full, plaint_full)
+            for child_id in id_name:
+                child_first = id_name[child_id]
+                
+                # Save rulings data to file
+                dict_rulings = filldict_rulings(
+                    DATA_RULINGS,  child_id, file, page_count, correction, topwords, fulltext_og,
+                    ruling, plaint_no, defend_no, defend, plaint, defend_first, domskal_og,
+                    ruling_og, plaint_first, child_first, firstpage_form, domskal, fulltext,
+                    caseno, courtname, date, year, judge, judgetitle
+                    )
+                save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
+
+            # except Exception as e:
+            #    print_output("Error",e)
+            
+    else:
+        case_type = 'N/A'
     
+    # Save case register to csv
+    dict_register = filldict_register(
+        DATA_REGISTER, case_type, defend_no, plaint_no, date,
+        courtname, doc_type, caseno, judge, judgetitle, file
+        )
+    
+    save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
+
 
 
 #Execute

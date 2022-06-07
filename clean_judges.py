@@ -9,9 +9,20 @@ Code to aims to:
     2: output csv with judges x time and input list of courts to see which courts judges worked at at time t, where time is year, month
 """
 
+
 from fuzzywuzzy import fuzz
 import pandas as pd
 from datetime import date
+import glob
+import cv2
+import pytesseract
+
+# For importing custodydata module, launch python from within Code/custodyproject folder
+import sys
+sys.path.append('P:/2020/14/Kodning/Code/custodyproject/')
+
+from OCR import txt_box, final_passage, kernal_sign, LANG, CONFIG_FULL
+from custodydata import get_judge_scans
 
 #Runtime
 import time
@@ -23,7 +34,8 @@ path = 'P:/2020/14/Data/Rulings/custody_data_allfiles.csv'
 #/Judges/judges_selection.csv
 output_path  = 'P:/2020/14/Data/Judges/uniquejudges.csv'
 datafr = pd.read_csv(path)
-   
+
+
 def condensed_df(df, keep_cols):
     df = df.rename(columns={
         "case_no": "case"
@@ -38,7 +50,7 @@ def condensed_df(df, keep_cols):
     return df
 
 def clean_judge_names(df):
-    condensed['occurances'] = condensed.groupby('judge')['court'].transform('size')
+    df['occurances'] = df.groupby('judge')['court'].transform('size')
     for index1,row in df.iterrows():
         if row['occurances'] <= 5:
             court1 = row['court']
@@ -53,7 +65,7 @@ def clean_judge_names(df):
     return df
 
 def partial_names(df):
-    distinct_judges = pd.Series(base_df['judge']).unique()
+    distinct_judges = pd.Series(df['judge']).unique()
     for index1,row in df.iterrows():
         judge1 = row['judge']
         for i in distinct_judges:
@@ -109,12 +121,48 @@ def changed_name(df):
                 court2 = row['court']
                 judge2 = row['judge']
                 if row['first_appear'] == '1' and 0 < delta.days < 60 and judge2 != judge1:
-                    df3.loc[index1,'switch_name'] = judge1
+                    df.loc[index1,'switch_name'] = judge1
                 if row['first_appear'] == '1' and date2>date1 and judge2 == judge1 and court1 != court2:
-                    df3.loc[index1,'change_court'] = court2
+                    df.loc[index1,'change_court'] = court2
     return df
- 
+
+
+def sodertorns_lastpages(filepath):
+    """
+    Pass filepath as string, folder where Sodertorn files are located
+    
+    """
+    print("hi")
+    
+    files = glob.glob(filepath + "*last.JPG")
+    for file in files:
+        print(file)
+        last = cv2.imread(file)
+        judge_small = txt_box(file, kernal_sign)
+        judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
+
+        passg = "judge_small"
+        judge_small = final_passage(judge_small,passg)
+        passg = "judge_large"
+        judge_large = final_passage(judge_large, passg)
+        
+        judge_string = " ".join(judge_small) + " ".join(judge_large)
+        print(judge_string)
+        
+        judge_name = get_judge_scans(judge_string)
+        
+        print("JUDGE STRING: ",judge_string, "JUDGE NAME: ",judge_name)
+
+
+
+
+
 #Execute
+sodertorns_lastpages("P:/2020/14/Kodning/Scans/all_scans/")
+
+
+
+"""
 condensed = condensed_df(datafr, ['court','judge','date', 'case'])
 print('Runtime so far: ', (time.time() - start_time))
 base_df = clean_judge_names(condensed)
@@ -138,7 +186,7 @@ df3.to_csv(output_path, sep = ',', encoding='utf-8-sig')
     
 #Runtime    
 print("\nRuntime: \n" + "--- %s seconds ---" % (time.time() - start_time))
-
+"""
 
 
 

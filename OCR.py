@@ -10,11 +10,11 @@ import os
 import time
 import pytesseract
 import cv2
-import subprocess
 import itertools
 from PIL import Image
 from pdf2image import convert_from_path
 from signature_extractor import extract_signature
+from page_dewarp import dewarp_main
 
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
@@ -126,12 +126,12 @@ def preprocess(imread_img, image):
 
 
 def detect_text(img, filename):
+    """ Detects text and crops at text box for Sodertorns files dewarp """
     
     bottom_left = []
     bottom_right = []
     top_left = []
     top_right = []
-
 
     height, width, shape = img.shape
     
@@ -144,9 +144,9 @@ def detect_text(img, filename):
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     sorted_contours = sort_contours(contours)
-
+        
     for cnt in sorted_contours:
-        x,y,w,h = cv2.boundingRect(cnt)
+        x,y,w,h = cnt[0], cnt[1], cnt[2], cnt[3]
         ratio = w/h
         
         if ratio > 2 and y+h < height-35 and y > 10 and x > 10:
@@ -161,17 +161,15 @@ def detect_text(img, filename):
     x_min = min(top_left)
     w_max = max(top_right)
 
-    crop = img[y_min:y_min+h_max, x_min:x_min+w_max]
-    
-    cv2.imwrite(filename + "crop.jpg", crop)
+    crop = img[y_min:y_min+h_max, x_min:x_min+w_max]    
+    return crop
 
 
-
-def txt_box(subprocess_output, kernal_input):
+def txt_box(dewarp_output, kernal_input):
     """Draw contours around text boxes and OCR text."""
 
     string_list = []
-    img = cv2.imread(subprocess_output)
+    img = cv2.imread(dewarp_output)
     height, width, shape = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (7,7), 0)
@@ -250,24 +248,18 @@ def ocr_main(file):
         img = cv2.imread(image)
         filename = ''.join(image.split('.')[:-1])
         
-        if "Sodertorn" in filename:
-            detect_text(img, filename)
-            img = cv2.imread(filename + "crop.jpg")
-            os.remove(filename + "crop.jpg")
-
         if page_no == len(path)-1:
             #fp = path[-1].split('\\')[0] + '/'
             #fn = path[-1].split('\\')[1]
             #extract_signature(fp, fn)
             img = remove_color(image)
-        
+        if "Sodertorn" in filename:
+            img = detect_text(img, filename)
+            cv2.imwrite("crop.jpg", img)
+            """os.remove(filename + "crop.jpg")"""
+
         cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))
-                
-        subprocess.call([
-            'python',
-            'P:/2020/14/Kodning/Code/page_dewrap/page_dewarp.py',
-            filename + '_thresh.jpg'
-            ])
+        dewarp_main(filename + '_thresh.jpg')
 
         text = txt_box(filename + '_thresh_straight.png', kernal)
         text = clean_text(text)
@@ -288,10 +280,8 @@ def ocr_main(file):
 
         if pdf == 1:
             os.remove(filename + '.jpg')
+            os.remove(filename + '_thresh_straight.png')
         
-        for file in [filename + '_thresh.jpg',
-                     filename + '_thresh_straight.png'
-                     ]:
-            os.remove(file)
+        os.remove(filename + '_thresh.jpg')
         
     return full_text, header, judge_small, judge_large

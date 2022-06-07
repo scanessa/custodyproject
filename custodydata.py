@@ -27,7 +27,7 @@ from pdfminer.converter import TextConverter
 #os.chdir("P:/2020/14/Kodning/Code/custodyproject/")
 
 from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
-from searchterms import date_search, judgetitle_search, judgesearch, judgesearch_noisy
+from searchterms import date_search, judgetitle_search, judgesearch
 from searchterms import ruling_search, legalguardian_terms, lawyer_key, citizen, contest_key
 from searchterms import cities, countries, nocontant, separation_key, remind_key, residence_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
@@ -223,6 +223,9 @@ def cases_from_imgs():
                         
                         start = 0
                         page_count += 1
+                        os.rename("".join(pdf_dir.split(".JPG")) + "_thresh_straight.png",
+                                  "".join(pdf_dir.split(".JPG")) + "_last.JPG")
+                        
                         case['fulltext_form'].append(text.copy())
                         case['lastpage_form'] = text.copy()
                         case['judge_string'] = text[-2:]
@@ -534,7 +537,7 @@ def get_judge_lastparag(lastparagraph):
     return name
 
 
-def get_judge_scans(judge1, judge2, judge3):
+def get_judge_scans(judge_string):
     """
     Gets judges name from scanned documetn by going through different text
     parts, judge1 = judge_string, judge2 draws tight bounding boxes wiht 9x9
@@ -546,12 +549,12 @@ def get_judge_scans(judge1, judge2, judge3):
     string of all judge texts with each name and at similarity CUTOFF = 70 AND 
     assigns judge_name = match
     """
-    alljudges = judge1 + ' '.join(judge2) + ' '.join(judge3) 
+
     judge_title = 'N/A'
     found = 0
     cutoff = 70
 
-    judge_name = get_judge_lastparag(alljudges)
+    judge_name = get_judge_lastparag(judge_string)
     found = 1 if judge_name is not None else 0      
 
     if found == 0:
@@ -561,17 +564,16 @@ def get_judge_scans(judge1, judge2, judge3):
 
             for _, row in digital_judges.iterrows():
                 match = row['judge']
-                comp_match = fuzz.partial_ratio(match, alljudges)
+                comp_match = fuzz.partial_ratio(match, judge_string)
                 
                 if comp_match >= cutoff: #WHAT TO DO WITH EQUAL SCORES? WHAT TO DO WITH DUPLICATE SURNAMESß
                     cutoff = comp_match
                     judge_name = match
                     print(match, comp_match)
             
-        except:
-            print("except1")
-            judgepage = ' '.join(judge2)
-            judge_name = judgepage.replace("\n", " ")
+        except Exception as e:
+            print(e)
+            judge_name = "Not found"
 
     print("Judge name: ", judge_name)
     return judge_name, judge_title
@@ -1566,6 +1568,8 @@ def main(file, jpgs):
 
         full_text, header, judge_small, judge_large = ocr_main(file)
         fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
+        judge_string = judge_string + ' '.join(judge_small) + ' '.join(judge_large) 
+        
         correction = 0
         readable = 0
 
@@ -1580,7 +1584,7 @@ def main(file, jpgs):
     if readable == 1:
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
-        judge, judgetitle = get_judge_scans(judge_string, judge_small, judge_large)
+        judge, judgetitle = get_judge_scans(judge_string)
     
     if doc_type == 'dom' or doc_type == 'deldom':
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
@@ -1622,6 +1626,7 @@ def main(file, jpgs):
 #Execute
 files = paths()
 pics = cases_from_imgs()
+
 
 #For scanned pdfs
 for file in files:

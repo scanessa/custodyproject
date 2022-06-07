@@ -37,17 +37,17 @@ def crop(img, path):
     for cnt in contours:
         
         x,y,w,h = cv2.boundingRect(cnt)
-        #cv2.rectangle(img, (x,y),(x+w,y+h),(255, 128, 0),5)
-        #cv2.imwrite('bbox.jpg', img)
+        cv2.rectangle(img, (x,y),(x+w,y+h),(255, 128, 0),5)
+        cv2.imwrite('bbox.jpg', img)
         
         area = w*h/1000
                 
         if y+h < height-35 and 100 < area < 550:
             
-            #cv2.rectangle(img, (x,y),(x+w,y+h),(255, 128, 0),5)
+            cv2.rectangle(img, (x,y),(x+w,y+h),(255, 128, 0),5)
             #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3, color=(0, 255, 0),thickness=2)
             crop = img[y:y+h, x:x+w]
-            #cv2.imwrite('crop.jpg', crop)
+            cv2.imwrite('crop.jpg', crop)
     
     return crop
 
@@ -109,14 +109,19 @@ def extract_signature(path, filename):
     plt.imsave(path + 'pre_version.png', pre_version)
     
     # read the pre-version
-    img = cv2.imread(path + 'pre_version.png', 0)
+    img2 = cv2.imread(path + 'pre_version.png', 0)
+    
     # ensure binary
-    img = cv2.threshold(img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    img2 = cv2.threshold(img2, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
     
-    img = crop(img, path)
+    # Save last page without signature
+    diff = cv2.bitwise_xor(img,img2)
+    diff = cv2.bitwise_not(diff)
+    cv2.imwrite(path + filename.split('.jpg')[0] + '_nosign.jpg', diff)
     
-    # save the the result
-    cv2.imwrite(path + filename.split('.jpg')[0] + '_signature.jpg', img)
+    # Save only cropped signature image
+    cropped = crop(img2, path)
+    cv2.imwrite(path + filename.split('.jpg')[0] + '_signature.jpg', cropped)
 
 #extract_signature("P:/2020/14/Kodning/Scans/all_scans/", 'Scan 2. May 2022 at 09.09_pg2.jpg')
 

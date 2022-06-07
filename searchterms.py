@@ -176,8 +176,8 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 
-unwanted_judgeterms = ['blekinge','den','för','ges','ha','hovrätt','hovrätten',
-                       'inkommit','in','inlagan','januari','men','mening','november',
+unwanted_judgeterms = ['blekinge','bilaga','den','för','ges','ha','hovrätt','hovrätten',
+                       'inkommit','in','inlagan','januari','juni','men','mening','november',
                        'över','och','överklagande','prövningstillstånd','på','protokollsbilaga',
                        'skall','senast','ställt','skåne','ställs','skiljaktig','se',
                        'sverige','svea','tingsrätten','tingsrättens','till',
