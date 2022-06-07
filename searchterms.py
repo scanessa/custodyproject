@@ -176,14 +176,16 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 
-unwanted_judgeterms = ['blekinge','bilaga','den','för','ges','ha','hovrätt','hovrätten',
-                       'inkommit','in','inlagan','januari','juni','men','mening','november',
+unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','för','februari',
+                       'ges','ha','hovrätt','hovrätten',
+                       'inkommit','inte','in','inlagan','januari','juni','juli','krävs', 
+                       'men','mars','maj','mening','november','norrland', 'övre','oktober',
                        'över','och','överklagande','prövningstillstånd','på','protokollsbilaga',
-                       'skall','senast','ställt','skåne','ställs','skiljaktig','se',
+                       'skall','senast','september','ställt','skåne','ställs','skiljaktig','se',
                        'sverige','svea','tingsrätten','tingsrättens','till',
                        'vägnar','vagnar','västra'
                       ]
-
+     
 visitation_key = ['umgänge', 'umgås']
 
 

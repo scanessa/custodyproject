@@ -61,7 +61,7 @@ def sort_contours(contours):
         x,y,w,h = cv2.boundingRect(cnt)
         rect.append((x,y,w,h))
 
-    max_height = 10
+    max_height = 25
     
     by_y = sorted(rect, key=lambda x: x[1])
     
@@ -75,9 +75,8 @@ def sort_contours(contours):
             line += 1
             
         by_line.append((line, x, y, w, h))
-        
-    contours_sorted = [(x, y, w, h) for line, x, y, w, h in sorted(by_line)]
     
+    contours_sorted = [(x, y, w, h) for line, x, y, w, h in sorted(by_line)]
     return contours_sorted
 
 
@@ -112,17 +111,6 @@ def remove_color(image):
 
     return imread_img
 
-
-
-def preprocess(imread_img, image):
-    """ Preproccess image for page_warp.py straightening."""
-
-    gray = cv2.cvtColor(imread_img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7,7), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
-                               cv2.THRESH_BINARY, 21, 20)
-
-    return thresh
 
 
 def detect_text(img, filename):
@@ -191,7 +179,7 @@ def txt_box(dewarp_output, kernal_input):
             roi = img[y:y+h, x:x+w]
             
             #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
-            #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=3, color=(0, 255, 0),thickness=2)
+            #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=1, color=(0, 255, 0),thickness=1)
             #cv2.imwrite("bbox.jpg",img)
             
             img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
@@ -209,7 +197,8 @@ def clean_text(text_list):
     text_list = [t for t in text_list if t.replace('\n', '').strip()]
     
     return text_list
-    
+
+
 
 def final_passage(lastpage, passg):
     """
@@ -256,18 +245,16 @@ def ocr_main(file):
         if "Sodertorn" in filename:
             img = detect_text(img, filename)
             cv2.imwrite("crop.jpg", img)
-            """os.remove(filename + "crop.jpg")"""
-
-        cv2.imwrite(filename + '_thresh.jpg', preprocess(img,image))
-        dewarp_main(filename + '_thresh.jpg')
-
-        text = txt_box(filename + '_thresh_straight.png', kernal)
+        
+        dewarp_main(filename + '.jpg')
+        
+        text = txt_box(filename + '_straight.png', kernal)
         text = clean_text(text)
 
         if page_no == len(path)-1:
 
-            last = cv2.imread(filename + '_thresh_straight.png')
-            judge_small = txt_box(filename + '_thresh_straight.png', kernal_sign)
+            last = cv2.imread(filename + '_straight.png')
+            judge_small = txt_box(filename + '_straight.png', kernal_sign)
             judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
 
             passg = "judge_small"
@@ -280,8 +267,6 @@ def ocr_main(file):
 
         if pdf == 1:
             os.remove(filename + '.jpg')
-            os.remove(filename + '_thresh_straight.png')
-        
-        os.remove(filename + '_thresh.jpg')
-        
+            os.remove(filename + '_straight.png')
+
     return full_text, header, judge_small, judge_large

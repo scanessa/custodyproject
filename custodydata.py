@@ -529,7 +529,6 @@ def get_judge_lastparag(lastparagraph):
     clean = [x for x in noisy if not any(unwant == x.lower() for unwant in unwanted_judgeterms)]
     clean = [x for x in clean if len(x) >= 3]
     clean = ' '.join(clean) + ' '
-    print("Judge String: ", clean)
 
     name = dictloop(judgesearch_scans, clean, 0,exclude_judge)
     name = name.lower() if name is not None else name
@@ -560,7 +559,6 @@ def get_judge_scans(judge_string):
     if found == 0:
         digital_judges = pd.read_excel(JUDGE_LIST)
         try:
-            print("try1")
 
             for _, row in digital_judges.iterrows():
                 match = row['judge']
@@ -575,7 +573,6 @@ def get_judge_scans(judge_string):
             print(e)
             judge_name = "Not found"
 
-    print("Judge name: ", judge_name)
     return judge_name, judge_title
 
 
@@ -1587,13 +1584,13 @@ def main(file, jpgs):
         judge, judgetitle = get_judge_scans(judge_string)
     
     if doc_type == 'dom' or doc_type == 'deldom':
+
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
         case_type = get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form)
 
         if not case_type == '1216B':
             domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
             
-            # try:
             id_name = get_childname(year, ruling_og, defend_full, plaint_full)
             for child_id in id_name:
                 child_first = id_name[child_id]
@@ -1606,9 +1603,6 @@ def main(file, jpgs):
                     caseno, courtname, date, year, judge, judgetitle
                     )
                 save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
-
-            # except Exception as e:
-            #    print_output("Error",e)
             
     else:
         case_type = 'N/A'
@@ -1631,7 +1625,10 @@ pics = cases_from_imgs()
 #For scanned pdfs
 for file in files:
     jpgs = 0
-    main(file, jpgs)
+    try:
+        main(file, jpgs)
+    except Exception as e:
+        print("THREW ERROR: ", e)
     flag = []
     
 #For scans as photos (jpgs)
