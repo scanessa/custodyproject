@@ -16,6 +16,7 @@ import os
 import pandas as pd
 import itertools
 from fuzzywuzzy import fuzz
+from transformers import pipeline
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -23,10 +24,7 @@ from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
-
-#os.chdir("P:/2020/14/Kodning/Code/custodyproject/")
-
-from searchterms import OCR_CORR, appendix_start, defend_search, caseno_search, id_pattern
+from searchterms import OCR_CORR, appendix_start, caseno_search, id_pattern, party_split
 from searchterms import date_search, judgetitle_search, judgesearch
 from searchterms import ruling_search, legalguardian_terms, lawyer_key, citizen, contest_key
 from searchterms import cities, countries, nocontant, separation_key, remind_key, residence_key
@@ -42,6 +40,7 @@ ROOTDIR = "P:/2020/14/Kodning/Scans/"
 OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
 OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
 JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
+NLP = pipeline('ner', model='KB/bert-base-swedish-cased-ner', tokenizer='KB/bert-base-swedish-cased-ner')
 
 DATA_RULINGS = {
     
@@ -73,7 +72,7 @@ COUNT = 1
 start_time = time.time()
 flag = []
 
-SAVE = 1
+SAVE = 0
 PRINT = 0
 
 
@@ -130,8 +129,7 @@ def findfirst(stringlist, part):
     sentenceRes = []
     split = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ1-9]|\s\d\s)', part)
     for sentence in split:
-        sentence = sentence.lower()
-        if all([x in sentence for x in stringlist]):
+        if all([x in sentence.lower() for x in stringlist]):
             sentenceRes.append(sentence)
     if sentenceRes:
         sentenceString = sentenceRes[0]
@@ -352,16 +350,12 @@ def get_header(firstpage_form):
     Notes:
     - header2.insert(1, 'Kärande') for rulings without 'Parter', otherwise defendant 
     string includes ruling
+    - Header used to be split on PARTER also, I took this out to deal with scans or 
+    cases that don't have the Parter or Kärande heading (14.06.2022)
     """
     try:
-        header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
-        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE']:
-            header2 = header1.split(term)
-            if any([x in term for x in ['Kärande', 'KÄRANDE']]) and len(header2) > 1:
-                header2.insert(1, 'Kärande')
-            if len(header2) != 1:
-                break
-        header = ''.join(header2[1:])
+        header = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
+
     except IndexError:                
         try:
             header = re.split('Mål ', re.split('_{10,40}', firstpage_form)[0])[1] 
@@ -401,60 +395,102 @@ def get_lastpage(fulltext_form, lastpage_form):
     return lastpage_sorted
 
 
+def word_classify(text, entity_req):
+    """
+    Inputs:
+        - text: string that should be classified (must pass with ORIGINAL CASING ie upper case for names)
+        - entity_req: required entity, pass as string; options: PER (person), 
+        LOC (location), score 0-1, word (string)
+    
+    Returns:
+        - List with lists of entities with consecutive indices that fulfull the entity requirement
+        (person strings, location strings) if found, if required entity not found, returns None
+    """
+    
+    joined_text = []
+    split_text = NLP(text)
+    in_word=False
 
-def get_plaint_defend(part, readable):
+    # Filter out items of unwanted categories
+    if not entity_req == '': 
+        clean_list = [x for x in split_text if x['entity'] == entity_req]
+    else:
+        clean_list = split_text
+
+    # Group consecutive items (words)
+    grouped = [[v for k, v in g] for k, g in itertools.groupby(enumerate(clean_list), lambda v: v[0] - v[1]['index'])]
+
+    # Join tokenized list
+    for lst in grouped:
+        
+        joined = []
+        
+        for i,token in enumerate(lst):
+            if token['entity'] == 'O':
+                in_word = False
+                continue
+        
+            if token['word'].startswith('##'):
+                if not in_word:
+                    joined += [ split_text[i-1] ]
+                    joined[-1]['entity'] = token['entity']
+                
+                joined[-1]['word'] += token['word'][2:]
+            else:
+                joined += [ token ]
+    
+            in_word = True
+            
+        joined_text.append(joined)
+    
+    return joined_text
+
+
+
+def get_plaint_defend(fulltext, header):
     """
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
     for readable and scanned docs
+    NAME + [yrka, begär]+ VARD = custody battle
+    “gemesam” + “ansök” = joint application
+    Returns:
+        - casetype: =1 for custody battle, =2 for shared application, =999 for not found
     """
     
-    print_output("Part for parties", part)
+    print_output("Part for parties: ", header)
+    casetype = 999
     
-    try:
-        print_output("get_plaint_defend2", '')
-        defend_og = re.split(defend_search, part)[1]
-        print_output("Defendant 2: ", defend_og)
-        plaint_og = re.split('Kärande|KÄRANDE|Hustrun|HUSTRUN', (re.split(defend_search, part)[0]))[1]
-        if defend_og == "":
-            defend_og = re.split(defend_search, part)[2]
+    # Split header into 2 parties
+    parties = re.split(party_split, header)
+    parties = [x for x in parties if x if not x == " "]
+    print("Parties: ",parties)
+    
+    # Identify plaintiff
+    custodybattle = findfirst(['yrka','vård'], fulltext)
+    if not custodybattle:
+        custodybattle = findfirst(['begär','vård'], fulltext)
+    
+    print("FULLTEXT: ",fulltext)
+    
+    if custodybattle:
+        print("\nText indicating custodybattle: ", custodybattle)
+        casetype = 1
+        p_name = word_classify(custodybattle, 'PER')[0] #flattens list assuming only 1 name is in sentence
+        plaint_name = [x['word'] for x in p_name]
+        
+        print("\nClassified words for sentence indicating custody battle",plaint_name)
+        
+        plaint_part = [part for part in parties if all(x.lower() in part.lower() for x in plaint_name)]
+        defend_part = [part for part in parties if not all(x.lower() in part.lower() for x in plaint_name)]
+        print("Plaint part: ", plaint_part)
+        print("Defend part: ", defend_part)
+        
+    elif findterms(['gemesam','ansök'], fulltext):
+        print("Text indicating joint app: ", findterms(['gemesam','ansök'], fulltext))
+        casetype = 2
+        # NER also here
 
-    except IndexError:
-        try:
-            print_output("get_plaint_defend1", '')
-            defend_og = re.split('Svarande|SVARANDE', part)[1] 
-            plaint_og = re.split('Kärande|KÄRANDE', (re.split('Svarande|SVARANDE', part)[0]))[1]
-            print_output("Defendant 1: ", defend_og)
-            if defend_og == "":
-                defend_og = re.split('Svarande|SVARANDE', part)[2] 
-            elif len(plaint_og.split()) < 4:
-                defend_og = re.split('(?i)SVARANDE.*och.*KÄRANDE', part)[1]
-                plaint_og = re.split('(?i)KÄRANDE.*och.*SVARANDE', (re.split('SVARANDE.*och.*KÄRANDE', part)[0]))[1]
-
-        except IndexError:
-            try:
-                print_output("get_plaint_defend3", '')
-                first = part.split('1.')[1]
-                defend_og = first.split('2.')[1]
-                print_output("Defendant 3: ", defend_og)
-                plaint_og = first.split('2.')[0]
-            
-            except IndexError:
-                try:
-                    if readable == 0 and 'Kärande' not in part or 'KÄRANDE' not in part:
-                        print_output("get_plaint_defend4", '')
-                        defend_og = re.split('Svarande|SVARANDE', part)[1]
-                        print_output("Defendant 4: ", defend_og)
-                        plaint_og = re.split('Svarande|SVARANDE', part)[0]
-                
-                except IndexError:
-                    defend_og = plaint_og = 'not found, not found'
-                    flag.append('plaintiff_and_defendant_not_found')
-
-    defend_og = defend_og.strip(' _\n')
-    defend = defend_og.lower()
-    plaint = plaint_og.lower()
-
-    return defend, defend_og, plaint, plaint_og
+    return defend_part, plaint_part, casetype
 
 
 
@@ -1148,26 +1184,27 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
     firstsentences = ''.join(ruling.split('.')[:6])
     
     for term in physicalcust_list:
+        target = findfirst(term, firstsentences)
         if (
-                findfirst([child_first, 'avslås'], findfirst(term, firstsentences))
-                or findfirst([child_first, ' lämna',' utan ',' bifall'], findfirst(term, firstsentences))
-                or findfirst([child_first, 'avskriv'], findfirst(term, firstsentences))
+                findfirst([child_first, 'avslås'], target)
+                or findfirst([child_first, ' lämna',' utan ',' bifall'], target.lower())
+                or findfirst([child_first, 'avskriv'], target.lower())
                 ): 
             phys = 4  
             break
         
         elif (
-                child_first in findfirst(term, firstsentences)
-                and any([x in findfirst(term, firstsentences) for x in plaint_first])
-                and not any([x in findfirst(term, firstsentences) for x in exclude_phys])
+                child_first in target.lower()
+                and any([x in target.lower() for x in plaint_first])
+                and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 1
             break
         
         elif (
-                child_first in findfirst(term, firstsentences)
-                and any([x in findfirst(term, firstsentences) for x in defend_first])
-                and not any([x in findfirst(term, firstsentences) for x in exclude_phys])
+                child_first in target.lower()
+                and any([x in target.lower() for x in defend_first])
+                and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 2
             break
@@ -1327,7 +1364,7 @@ def get_fastinfo(fulltext, fulltext_og):
 def get_cooperation(fulltext_og, fulltext):
     for term in cooperation_key:
         sentence = findfirst([term], fulltext_og)
-        if term in fulltext and not any([x in sentence for x in reject]):
+        if term in fulltext and not any([x in sentence.lower() for x in reject]):
             coop = 1
             break
         else:
@@ -1571,7 +1608,7 @@ def main(file, jpgs):
         readable = 0
 
     header_form = get_header(firstpage_form)
-    defend, defend_og, plaint, plaint_og = get_plaint_defend(header_form, readable)
+    defend_og, plaint_og, casetype = get_plaint_defend(fulltext_form, header_form)
     plaint_full, plaint_first, plaint_no = party_id(plaint_og)
     defend_full, defend_first, defend_no = party_id(defend_og)
     fulltext_og, fulltext = format_text(fulltext_form)
@@ -1586,7 +1623,7 @@ def main(file, jpgs):
     if doc_type == 'dom' or doc_type == 'deldom':
 
         ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
-        case_type = get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form)
+        case_type = get_casetype(defend_og, plaint_og, fulltext_og, ruling, firstpage_form)
 
         if not case_type == '1216B':
             domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
@@ -1598,7 +1635,7 @@ def main(file, jpgs):
                 # Save rulings data to file
                 dict_rulings = filldict_rulings(
                     DATA_RULINGS,  child_id, file, page_count, correction, topwords, fulltext_og,
-                    ruling, plaint_no, defend_no, defend, plaint, defend_first, domskal_og,
+                    ruling, plaint_no, defend_no, defend_og, plaint_og, defend_first, domskal_og,
                     ruling_og, plaint_first, child_first, firstpage_form, domskal, fulltext,
                     caseno, courtname, date, year, judge, judgetitle
                     )
@@ -1625,10 +1662,7 @@ pics = cases_from_imgs()
 #For scanned pdfs
 for file in files:
     jpgs = 0
-    try:
-        main(file, jpgs)
-    except Exception as e:
-        print("THREW ERROR: ", e)
+    main(file, jpgs)
     flag = []
     
 #For scans as photos (jpgs)
@@ -1636,4 +1670,6 @@ for case in pics:
     jpgs = 1
     main(case, jpgs)
     flag = []
-    
+
+end_time = time.time()
+print("\n----Time to run in minutes: ", (end_time-start_time)/60)

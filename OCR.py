@@ -160,9 +160,10 @@ def txt_box(dewarp_output, kernal_input):
     img = cv2.imread(dewarp_output)
     height, width, shape = img.shape
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (7,7), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_MEAN_C,
-                                   cv2.THRESH_BINARY_INV, 21, 20)
+    blur = cv2.GaussianBlur(gray, (17,17), 0)
+    thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 15, 20)
+
     dilate = cv2.dilate(thresh,kernal_input,iterations = 1)
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
@@ -178,9 +179,9 @@ def txt_box(dewarp_output, kernal_input):
             
             roi = img[y:y+h, x:x+w]
             
-            #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
+            cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
             #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=1, color=(0, 255, 0),thickness=1)
-            #cv2.imwrite("bbox.jpg",img)
+            cv2.imwrite("bbox.jpg",img)
             
             img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
@@ -261,7 +262,8 @@ def ocr_main(file):
             judge_small = final_passage(judge_small,passg)
             passg = "judge_large"
             judge_large = final_passage(judge_large, passg)
-
+        
+        
         full_text.append(text)
         header.append(text[:4])
 
@@ -270,3 +272,5 @@ def ocr_main(file):
             os.remove(filename + '_straight.png')
 
     return full_text, header, judge_small, judge_large
+
+
