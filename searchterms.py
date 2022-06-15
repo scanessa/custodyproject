@@ -149,7 +149,7 @@ footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expedi
 
 invest_key = ['vårdnadsutredning','boendeutredning','umgängesutredning']
 
-lawyer_key = ["ombud:", 'god man:',  'advokat:', "ombud", 'god man',  'advokat']
+lawyer_key = ['ombud', 'god man',  'advokat']
 legalguardian_terms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
 
 mainhearing_key = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , ' förhör ', 

@@ -28,7 +28,7 @@ LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 6 --oem 3'
 CONFIG_ONELINE = '--psm 7 --oem 3'
 CONFIG_FULL = '--psm 11 --oem 3'
-kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (25,25))
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (29,29)) #used to be 25
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
 
 
@@ -251,7 +251,7 @@ def ocr_main(file):
         
         text = txt_box(filename + '_straight.png', kernal)
         text = clean_text(text)
-
+        """
         if page_no == len(path)-1:
 
             last = cv2.imread(filename + '_straight.png')
@@ -263,6 +263,8 @@ def ocr_main(file):
             passg = "judge_large"
             judge_large = final_passage(judge_large, passg)
         
+        """
+        judge_small = judge_large = [""] # only to speed up testing docs
         
         full_text.append(text)
         header.append(text[:4])
@@ -272,5 +274,4 @@ def ocr_main(file):
             os.remove(filename + '_straight.png')
 
     return full_text, header, judge_small, judge_large
-
 

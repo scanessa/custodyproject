@@ -347,14 +347,14 @@ def get_header(firstpage_form):
     
     """
     Splits first page into a header, ie the part after topwords and before ruling starts
-    Notes:
-    - header2.insert(1, 'Kärande') for rulings without 'Parter', otherwise defendant 
-    string includes ruling
-    - Header used to be split on PARTER also, I took this out to deal with scans or 
-    cases that don't have the Parter or Kärande heading (14.06.2022)
     """
     try:
-        header = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
+        header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
+        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE', 'DOM']:
+            header2 = header1.split(term)
+            if len(header2) != 1:
+                break
+        header = ''.join(header2[1:])
 
     except IndexError:                
         try:
@@ -446,15 +446,52 @@ def word_classify(text, entity_req):
     return joined_text
 
 
+def get_party(parties, part_for_name):
+    
+    plaint_lst = []
+    p_name = word_classify(part_for_name, 'PER')[0] #flattens list assuming only 1 name is in sentence
+    name = [x['word'] for x in p_name]
+    
+    print_output("\nParty name: ", name)
+    
+    for index, elem in enumerate(parties):
+
+        if index + 1 <= len(parties) and index - 1 >= 0:
+            curr_el = parties[index-1]
+            next_el = parties[index]
+            
+            # Party (name + address)
+            if all(x.lower() in curr_el.lower() for x in name):
+                part = curr_el
+                plaint_lst.append(curr_el)
+                
+                # ID
+                try:
+                    number = ''.join(searchkey(id_pattern, part.lower(), 2).split())
+                except AttributeError:
+                    number = "-"
+        
+                # Lawyer
+                if any([x in next_el.lower() for x in lawyer_key]):
+                    lawyer = 1
+                    plaint_lst.append(next_el)
+
+    new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
+    print_output("\nNew parties: ", new_parties)
+    
+    return part, name, number, lawyer, new_parties
+
+
 
 def get_plaint_defend(fulltext, header):
     """
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
     for readable and scanned docs
-    NAME + [yrka, begär]+ VARD = custody battle
-    “gemesam” + “ansök” = joint application
+
     Returns:
         - casetype: =1 for custody battle, =2 for shared application, =999 for not found
+        - part (name, address), first name, lawyer dummy for plaintiff and defendant
+        - godman dummy for defendant 
     """
     
     print_output("Part for parties: ", header)
@@ -462,58 +499,113 @@ def get_plaint_defend(fulltext, header):
     
     # Split header into 2 parties
     parties = re.split(party_split, header)
-    parties = [x for x in parties if x if not x == " "]
-    print("Parties: ",parties)
+    parties = [x for x in parties if x if not x == " " if not 'saken' in x]
+    print_output("Parties: ",parties)
     
     # Identify plaintiff
     custodybattle = findfirst(['yrka','vård'], fulltext)
     if not custodybattle:
         custodybattle = findfirst(['begär','vård'], fulltext)
     
-    print("FULLTEXT: ",fulltext)
-    
     if custodybattle:
-        print("\nText indicating custodybattle: ", custodybattle)
+        print_output("\nText indicating custodybattle: ", custodybattle)
         casetype = 1
-        p_name = word_classify(custodybattle, 'PER')[0] #flattens list assuming only 1 name is in sentence
-        plaint_name = [x['word'] for x in p_name]
         
-        print("\nClassified words for sentence indicating custody battle",plaint_name)
+        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, custodybattle)
+        defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
         
-        plaint_part = [part for part in parties if all(x.lower() in part.lower() for x in plaint_name)]
-        defend_part = [part for part in parties if not all(x.lower() in part.lower() for x in plaint_name)]
-        print("Plaint part: ", plaint_part)
-        print("Defend part: ", defend_part)
+        if (
+                'god man' in ' '.join(new_parties).lower()
+                or 'c/o' in defend_part
+                ):
+            
+            defend_godman = 1
+        
+        else:
+            defend_godman = 0
+
+        print("\nPlaint part: ", plaint_part, plaint_name, plaint_lawyer)
+        print("\nDefend part: ", defend_part, defend_name, defend_lawyer)
         
     elif findterms(['gemesam','ansök'], fulltext):
         print("Text indicating joint app: ", findterms(['gemesam','ansök'], fulltext))
         casetype = 2
         # NER also here
 
-    return defend_part, plaint_part, casetype
+    return plaint_part, plaint_name, plaint_number, plaint_lawyer, defend_part, defend_name, defend_number, defend_lawyer, defend_godman, casetype
 
 
 
-def party_id(party_og):
+
+def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, domskal_og):
     """
-    Get full name, first name, ID number for plaintiff and defendant
+    Get information on whether defendant is located abroad
+    - First checks if any of the cities in Sweden can be found in defendant part (relies on
+      defendant part to be accurately split on lawyer term to not confuse defend address
+      with lawyer address)
+    - Then goes through long list of conditions that suggest defendant to be abroad
+    - didnt include defend_first because defend might be referred to by Han
     """
-    if ',' in party_og:
-        full = (party_og.split(",")[0]).lower()
-    else:
-        full = (party_og.split("\n")[1]).lower()
-    first = [x.strip('\n') for x in re.split('-|[(]|[)|\s]', full)[:-1]]
-    first = [x for x in first if x] #delete empty strings from list
-    try:
-        number = ''.join(searchkey(id_pattern, party_og.lower(), 2).split())
-    except AttributeError:
-        number = "-"
     
-    print_output("Party OG",party_og.split("."))
-    print_output("First",first)
-    print_output("Number",number)
+    # First get defendant city
+    if 'medbor' in defend_part:
+        defend_part = ' '.join(re.split(citizen,defend_part))
+    defend_city = ''.join((defend_part.strip(' _\n')).split(' ')[-1])
+    
+    if any([x in defend_city for x in cities]):
+        print_output("Abroad 0","")
+        defend_abroad = 0
+        
+    elif (
+            any([x in defend_city for x in countries]) or 'okänd' in defend_part
+            or defend_godman == 1  and 'saknar kän' in defend_part
+            or defend_city.isdecimal() or '@' in defend_city
+            or defend_godman == 1 and any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first)
+            or defend_godman == 1 and findterms(['befinn', 'sig','utomlands'], fulltext_og)
+            or defend_godman == 1 and any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries])
+            or any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries])
+            or any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first)
+            or defend_godman == 1 and any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries])
+            or any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first)
+            or any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first)
+            or any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first)
+            and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) 
+            and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
+            ):
+        
+        print_output("Abroad 1 (defend city)",defend_city)
+        print_output("Abroad 2",defend_godman == 1  and 'saknar kän' in defend_part)
+        print_output("Abroad 3",defend_city.isdecimal() or '@' in defend_city)
+        print_output("Abroad 4",any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first))
+        print_output("Abroad 5",findterms(['befinn', 'sig','utomlands'], fulltext_og))
+        print_output("Abroad 6",any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries]))
+        print_output("Abroad 7",any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]))
+        print_output("Abroad 8",any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first))
+        print_output("Abroad 9",any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries]))
+        print_output("Abroad 10",any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first))
+        print_output("Abroad 11",any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first))
+        print_output("Abroad 12",any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first) and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) and not findterms([' bor ', ' i ', 'barn'], fulltext_og))
 
-    return full, first, number
+        defend_abroad = 1
+
+    else:
+        defend_abroad = 0
+
+    return defend_abroad
+
+
+    
+    
+    
+def secret_address(party):
+    """
+    Dummy whether defendant or plaintiff's address is secret
+    Input plaint or defend for party
+    """
+    secret_party = 1 if 'sekretess' in party else 0
+    return secret_party
+
+
 
 
 
@@ -888,95 +980,6 @@ def part_ruling(topwords):
     print_output("Topwords",topwords.split("."))
 
     return part_rul
-
-
-
-def lawyer(plaint, defend, defend_first, fulltext_og, domskal_og):
-    """
-    Get dummies for whether plaintaiff and defendant have a lawyer
-    If defendant has a lawyer get defendant's adress, city, and dummy for whether lawyer is a god man (legal representative)
-    """
-    plaint_lawyer = 1 if any([x in plaint for x in lawyer_key]) else 0
-    
-    for term in lawyer_key:
-        if term in defend:
-            defend_godman = 1 if 'god man' in term else 0
-            defend_lawyer = 1 
-            defend_address = re.split(term, defend)[0]
-            if 'medbor' in defend_address:
-                defend_address = ' '.join(re.split(citizen,defend_address))
-            defend_city = ''.join((defend_address.strip(' _\n')).split(' ')[-1])
-            break
-        else:
-            defend_godman = 1 if 'c/o' in defend else 0
-            defend_lawyer = 0
-            defend_address = defend
-            defend = defend.split('\nsaken ')[0] if '\nsaken ' in defend else defend
-            defend_city = ''.join((defend.strip(' _\n')).split(' ')[-1])
-            
-    def get_defendabroad():
-        """
-        Get information on whether defendant is located abroad
-        - didnt include defend_first because defend might be referred to by Han
-        """
-        if (
-                any([x in defend_city for x in cities]) 
-                and not any([x in defend_address.lower() for x in lawyer_key])
-                ):
-            
-            print_output("Abroad 0","")
-            defend_abroad = 0
-            
-        elif (
-                any([x in defend_city for x in countries]) or 'okänd' in defend
-                or defend_godman == 1  and 'saknar kän' in defend
-                or defend_city.isdecimal() or '@' in defend_city
-                or defend_godman == 1 and any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first)
-                or defend_godman == 1 and findterms(['befinn', 'sig','utomlands'], fulltext_og)
-                or defend_godman == 1 and any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries])
-                or any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries])
-                or any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first)
-                or defend_godman == 1 and any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries])
-                or any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first)
-                or any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first)
-                or any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first)
-                and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) 
-                and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
-                ):
-            
-            print_output("Abroad 1 (defend city)",defend_city)
-            print_output("Abroad 2",defend_godman == 1  and 'saknar kän' in defend)
-            print_output("Abroad 3",defend_city.isdecimal() or '@' in defend_city)
-            print_output("Abroad 4",any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first))
-            print_output("Abroad 5",findterms(['befinn', 'sig','utomlands'], fulltext_og))
-            print_output("Abroad 6",any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries]))
-            print_output("Abroad 7",any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]))
-            print_output("Abroad 8",any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first))
-            print_output("Abroad 9",any([x in findterms(['återvänt', 'till'], fulltext_og) for x in countries]))
-            print_output("Abroad 10",any(x in findterms(['försvunnen'], fulltext_og) for x in defend_first))
-            print_output("Abroad 11",any(x in findterms(['bortavarande', 'varaktigt'], fulltext_og) for x in defend_first))
-            print_output("Abroad 12",any(x in findterms([' bor ', ' i '], fulltext_og) for x in defend_first) and any(x in findterms([' bor ', ' i '], fulltext_og) for x in countries) and not findterms([' bor ', ' i ', 'barn'], fulltext_og))
-
-            defend_abroad = 1
-
-        else:
-            defend_abroad = 0
-
-        return defend_abroad
-
-    defend_abroad = get_defendabroad()  
-
-    return plaint_lawyer, defend_lawyer, defend_godman, defend_abroad
-
-
-
-def secret_address(party):
-    """
-    Dummy whether defendant or plaintiff's address is secret
-    Input plaint or defend for party
-    """
-    secret_party = 1 if 'sekretess' in party else 0
-    return secret_party
 
 
 
@@ -1459,7 +1462,7 @@ def get_divorce(out, ruling):
 
 def filldict_rulings(
         data_rulings, child_id, file, page_count, correction, topwords, fulltext_og,
-        ruling, plaint_no, defend_no, defend, plaint, defend_first, domskal_og,
+        header, ruling, plaint_no, defend_no, defend, plaint, defend_first, domskal_og,
         ruling_og, plaint_first, child_first, firstpage_form, domskal, fulltext,
         caseno, courtname, date, year, judge, judgetitle
         ):
@@ -1468,7 +1471,8 @@ def filldict_rulings(
     defend_secret = secret_address(defend)
     plaint_secret = secret_address(plaint)
     part = part_ruling(topwords)
-    plaint_lawyer, defend_lawyer, defend_godman, defend_abroad = lawyer(plaint, defend, defend_first, fulltext_og, domskal_og)
+    plaint_part, plaint_name, plaint_lawyer, defend_part, defend_name, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext, header)
+    defend_abroad = get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, domskal_og)
     defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
     out = get_outcome(fulltext_og, ruling_og, ruling, firstpage_form, child_id, child_first, plaint_first, defend_first)
     divorce = get_divorce(out, ruling)
@@ -1608,9 +1612,7 @@ def main(file, jpgs):
         readable = 0
 
     header_form = get_header(firstpage_form)
-    defend_og, plaint_og, casetype = get_plaint_defend(fulltext_form, header_form)
-    plaint_full, plaint_first, plaint_no = party_id(plaint_og)
-    defend_full, defend_first, defend_no = party_id(defend_og)
+    plaint_og, plaint_first, plaint_no, plaint_lawyer,defend_og, defend_first, defend_no, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext_form, header_form)
     fulltext_og, fulltext = format_text(fulltext_form)
     caseno, courtname, date, year = basic_caseinfo(file, topwords)
     doc_type = get_doctype(file, topwords, fulltext_og)
@@ -1635,7 +1637,7 @@ def main(file, jpgs):
                 # Save rulings data to file
                 dict_rulings = filldict_rulings(
                     DATA_RULINGS,  child_id, file, page_count, correction, topwords, fulltext_og,
-                    ruling, plaint_no, defend_no, defend_og, plaint_og, defend_first, domskal_og,
+                    header_form, ruling, plaint_no, defend_no, defend_og, plaint_og, defend_first, domskal_og,
                     ruling_og, plaint_first, child_first, firstpage_form, domskal, fulltext,
                     caseno, courtname, date, year, judge, judgetitle
                     )
