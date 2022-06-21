@@ -28,8 +28,10 @@ LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 6 --oem 3'
 CONFIG_ONELINE = '--psm 7 --oem 3'
 CONFIG_FULL = '--psm 11 --oem 3'
-kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (29,29)) #used to be 25
+kernal = cv2.getStructuringElement(cv2.MORPH_RECT, (55,55)) #used to be 25
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
+kernal_lines = cv2.getStructuringElement(cv2.MORPH_RECT, (9,1)) 
+
 
 
 
@@ -47,69 +49,6 @@ def pdf_to_jpg(pdf):
         img_files.append(image_name)
 
     return img_files
-
-
-
-def sort_contours(contours):
-    """ 
-    Saves corners of each contour to rect list; sorts corners by y value and groups into lines;
-    max_height varies the maximum height of a line (by how much the y-values within a line-group can vary)
-    Returns list of sorted corners of contour boxes
-    """
-    rect = []
-    for cnt in contours:
-        x,y,w,h = cv2.boundingRect(cnt)
-        rect.append((x,y,w,h))
-
-    max_height = 25
-    
-    by_y = sorted(rect, key=lambda x: x[1])
-    
-    line_y = by_y[0][1]
-    line = 1
-    by_line = []
-
-    for x, y, w, h in by_y:
-        if y > line_y + max_height:
-            line_y = y
-            line += 1
-            
-        by_line.append((line, x, y, w, h))
-    
-    contours_sorted = [(x, y, w, h) for line, x, y, w, h in sorted(by_line)]
-    return contours_sorted
-
-
-
-def remove_color(image):
-    """ PIL code for removing blue signature """
-    
-    im = Image.open(image)
-
-    R, G, B = im.convert('RGB').split()
-    r = R.load()
-    g = G.load()
-    b = B.load()
-    w, h = im.size
-    
-    
-    # Convert non-black pixels to white
-    for i in range(w):
-        for j in range(h):
-            if(
-                    b[i, j] > 10
-                    and 1.5*(r[i, j]) < b[i, j]
-                    and 1.5*(g[i, j]) < b[i, j]
-                    ):
-                r[i, j] = 255 # Just change R channel
-    
-    # Merge just the R channel as all channels
-    im = Image.merge('RGB', (R, R, R))
-    im.save(image)
-    
-    imread_img = cv2.imread(image)
-
-    return imread_img
 
 
 
@@ -149,8 +88,94 @@ def detect_text(img, filename):
     x_min = min(top_left)
     w_max = max(top_right)
 
-    crop = img[y_min:y_min+h_max, x_min:x_min+w_max]    
+    crop = img[y_min:y_min+h_max, x_min:x_min+w_max]   
+    
     return crop
+
+
+
+def remove_color(image):
+    """ PIL code for removing blue signature """
+    
+    im = Image.open(image)
+
+    R, G, B = im.convert('RGB').split()
+    r = R.load()
+    g = G.load()
+    b = B.load()
+    w, h = im.size
+    
+    
+    # Convert non-black pixels to white
+    for i in range(w):
+        for j in range(h):
+            if(
+                    b[i, j] > 10
+                    and 1.5*(r[i, j]) < b[i, j]
+                    and 1.5*(g[i, j]) < b[i, j]
+                    ):
+                r[i, j] = 255 # Just change R channel
+    
+    # Merge just the R channel as all channels
+    im = Image.merge('RGB', (R, R, R))
+    im.save(image)
+    
+    imread_img = cv2.imread(image)
+
+    return imread_img
+
+
+
+def sort_contours(contours):
+    """ 
+    Saves corners of each contour to rect list; sorts corners by y value and groups into lines;
+    max_height varies the maximum height of a line (by how much the y-values within a line-group can vary)
+    Returns list of sorted corners of contour boxes
+    """
+    rect = []
+    for cnt in contours:
+        x,y,w,h = cv2.boundingRect(cnt)
+        rect.append((x,y,w,h))
+
+    max_height = 25
+    
+    by_y = sorted(rect, key=lambda x: x[1])
+    
+    line_y = by_y[0][1]
+    line = 1
+    by_line = []
+
+    for x, y, w, h in by_y:
+        if y > line_y + max_height:
+            line_y = y
+            line += 1
+            
+        by_line.append((line, x, y, w, h))
+    
+    contours_sorted = [(x, y, w, h) for line, x, y, w, h in sorted(by_line)]
+    return contours_sorted
+
+
+
+def remove_lines(threshed_img, imread_img):
+
+    dilate = cv2.dilate(threshed_img,kernal_lines,iterations = 1)
+
+    # Remove horizontal
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25,1))
+    detected_lines = cv2.morphologyEx(dilate, cv2.MORPH_OPEN, horizontal_kernel, iterations=2)
+    cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        cv2.drawContours(imread_img, [c], -1, (255,255,255), 2)
+    
+    # Repair image
+    repair_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,6))
+    result = 255 - cv2.morphologyEx(255 - imread_img, cv2.MORPH_CLOSE, repair_kernel, iterations=1)
+    result = cv2.bitwise_not(result)
+    
+    return result
+
 
 
 def txt_box(dewarp_output, kernal_input):
@@ -163,8 +188,9 @@ def txt_box(dewarp_output, kernal_input):
     blur = cv2.GaussianBlur(gray, (17,17), 0)
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 15, 20)
-
+    
     dilate = cv2.dilate(thresh,kernal_input,iterations = 1)
+    
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     sorted_contours = sort_contours(contours)
@@ -179,9 +205,9 @@ def txt_box(dewarp_output, kernal_input):
             
             roi = img[y:y+h, x:x+w]
             
-            cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
+            #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
             #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=1, color=(0, 255, 0),thickness=1)
-            cv2.imwrite("bbox.jpg",img)
+            #cv2.imwrite("bbox.jpg",img)
             
             img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
@@ -248,9 +274,9 @@ def ocr_main(file):
             cv2.imwrite("crop.jpg", img)
         
         dewarp_main(filename + '.jpg')
-        
         text = txt_box(filename + '_straight.png', kernal)
         text = clean_text(text)
+        
         """
         if page_no == len(path)-1:
 
@@ -267,7 +293,7 @@ def ocr_main(file):
         judge_small = judge_large = [""] # only to speed up testing docs
         
         full_text.append(text)
-        header.append(text[:4])
+        header.append(text[:10])
 
         if pdf == 1:
             os.remove(filename + '.jpg')
@@ -275,3 +301,4 @@ def ocr_main(file):
 
     return full_text, header, judge_small, judge_large
 
+#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Skelleftea_TR_T_93-00_deldom_2000-01-18_pg1.jpg")

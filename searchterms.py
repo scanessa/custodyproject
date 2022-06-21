@@ -166,7 +166,7 @@ past = ['inledningsvis', 'annan bedömning']
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
 physicalcust = ['boende','bo tillsammans',' bo ',' ska ','bosatt']
-party_split = r'((.| |\t|\n)*?[0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ][ A-ZÅÐÄÖÉÜÆØÞa-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]*)'
+party_split = r'((.| |\t|\n)*?[0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ][A-ZÅÐÄÖÉÜÆØÞa-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]+)'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
 reject = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga '] 
@@ -179,6 +179,8 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
+
+shared_child = ['gemen-sam','gemensamme','gemensamma barn','gemensamma dot','gemensamma son']
 
 unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','för','februari',
                        'ges','ha','hovrätt','hovrätten',
