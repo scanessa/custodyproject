@@ -23,6 +23,7 @@ OCR_CORR = {
 
 #Define search terms
 allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]'
+appeal = 'ÖVERKLAG|Överklag|överklag'
 appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
 citizen = 'medbor[a-z]*\s*i\s*[a-z]*'
@@ -41,6 +42,18 @@ date_search = {
     '2' : 'dom\s+(\d*-\d*-\d*)',
     '3' : 'dom\s+sid\s*1\s*[(][0-9]*[)]\s*(\d*-\d*-\d*)',
     '4' : '(\d{4}-\d{2}-\d{2})'
+    }
+
+defend_response = {
+    'agree1': ['medge'],
+    'agree2': ['medgav'],
+    'agree3': ['bevilj'],
+    'contest1': ['bestr'],
+    'contest2': ['mots'],
+    'contest3': ['inkommit','egna','yrkand'],
+    'contest4': ['egen','del','yrkat'],
+    'agree4': ['varken','medg','bestr'],
+    'tvistat':['part','tvist ']
     }
 
 judgesearch = {
@@ -126,7 +139,8 @@ judgetitle_search = {
 ruling_search = {
     '1':'\n\s*\n\s*[A-ZÅÄÖ., ]{3,}\s*\n',
     '2':'YRKANDEN',
-    '3':'\nYrkanden'
+    '3':'\nYrkanden',
+    '4':'\n\s*[A-ZÅÄÖ., ]{4,}\s*\n'
     }
 
 #Define keys for simple word search
@@ -162,6 +176,8 @@ outcomes_key = ["vård", "umgänge", "boende"]
 
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
+party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'och', 'sökande']
+
 
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 

@@ -2,11 +2,8 @@
 """
 @author: Stella Canessa
 
-This is the main code for creating the datasets for the ifo/IFAU custody research
-project. Outputs are: 
-    1) Dataset of rulings outcomes incl. controls of digital and scanned documents, identifying variable child ID
-    2) Dataset of all court records available, identifying variable case number, court, date
-    l
+To run the code as error free as possible over files ONLY TO GET JUDGE NAMES
+Include get signature function in OCR before starting this code!
 
 """
 import re

@@ -17,6 +17,7 @@ import pandas as pd
 import itertools
 from fuzzywuzzy import fuzz
 from transformers import pipeline
+import gender_guesser.detector as gender
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -24,14 +25,14 @@ from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.converter import TextConverter
 
-from searchterms import OCR_CORR, appendix_start, caseno_search, id_pattern, party_split
-from searchterms import date_search, judgetitle_search, judgesearch, shared_child
+from searchterms import OCR_CORR, appendix_start, caseno_search, id_pattern, party_split, appeal
+from searchterms import date_search, judgetitle_search, judgesearch, shared_child, party_headings
 from searchterms import ruling_search, legalguardian_terms, lawyer_key, citizen, contest_key
 from searchterms import cities, countries, nocontant, separation_key, remind_key, residence_key
 from searchterms import reject_outcome, visitation_key, reject, exclude_phys, physicalcust_list
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
-from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans
+from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
 
 from OCR import ocr_main
 
@@ -41,10 +42,11 @@ OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
 OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
 JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
 NLP = pipeline('ner', model='KB/bert-base-swedish-cased-ner', tokenizer='KB/bert-base-swedish-cased-ner')
+gend = gender.Detector(case_sensitive=False)
 
 DATA_RULINGS = {
     
-    'child_id':[], 'case_no':[], 'court':[], 'date':[], 'deldom':[],
+    'child_id':[], 'case_no':[], 'court':[], 'date':[], 'casetype':[], 'deldom':[],
     'divorce_only': [] , 'joint_application_custody': [],'plaintiff_id':[],
     'defendant_id':[], 'plaintiff_lawyer':[], 'defendant_lawyer':[],
     'defendant_address_secret': [], 'plaintiff_address_secret':[],
@@ -52,7 +54,7 @@ DATA_RULINGS = {
     'visitation':[], 'physical_custody':[], 'alimony':[],
     'agreement_legalcustody':[], 'agreement_any':[], 'fastinfo':[],
     'cooperation_talks':[], 'investigation':[], 'mainhearing':[],
-    'separation_year': [], 'judge':[], 'page_count': [],
+    'separation_year': [], 'judge':[], 'judge_gender':[], 'page_count': [],
     'correction_firstpage': [], 'flag': [],'file_path': []
     
     }
@@ -63,7 +65,6 @@ DATA_REGISTER = {
     'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[], 'flag': []
 
     }
-
 
 #Specify folders to search PDFs in
 EXCLUDE = set(['others', 'works'])
@@ -92,6 +93,11 @@ def print_output(label, var):
 
 
 def searchkey(string, part, g):
+    """
+    Takes a searchstring and part, uses regex to search for string in part
+    Returns string of search result group
+
+    """
     finder = re.compile(string)
     match = finder.search(part)
     if match is not None:
@@ -103,6 +109,13 @@ def searchkey(string, part, g):
 
 
 def dictloop(dictionary, part, g, exclude_terms):
+    """
+    Loops through elements in dictionary and provides each element as string
+    input to searchkey function
+    If re.search returns result and none of the terms in exclude terms are in the result:
+    Returns string of search result group
+
+    """
     for i in dictionary:
         result = searchkey(dictionary[i], part, g)
         if result is None or any([x in result.lower() for x in exclude_terms]):
@@ -322,28 +335,26 @@ def read_file(file):
 
 
 
-def get_ocrtext(full_text, header):
+def get_ocrtext(full_text):
     """
     Use OCR fulltext and header to return first page, topwords, judge, fulltext formatted and cleaned
-    Keeps only list items in topwords form that are less than 50 characters (randomly chosen character number,
-         this is to remove list items with entire paragraphs of text)
+    Topwords are first 10 words found on page
     """
     firstpage_form = ''.join(full_text[0])
     page_count = len(full_text)
-    judge_string = ''.join(full_text[-1][-2:]) if len(full_text[-1]) >= 2 else full_text[-1][-1]
     lastpage_form = ''.join(full_text[-1])
     fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
-    topwords_form = list(itertools.chain.from_iterable(header))
-    topwords_form = ' '.join([x for x in topwords_form if len(x)<50])
+    topwords_form = [x.split()[:14] for x in full_text]
+    topwords_form = ' '.join(itertools.chain(*topwords_form))
     
-    topwords_form, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords_form, firstpage_form, fulltext_form, judge_string)
+    topwords_form, firstpage_form, fulltext_form = clean_ocr(topwords_form, firstpage_form, fulltext_form)
     topwords_og, topwords = format_text(topwords_form)
     
-    return fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form
+    return fulltext_form, firstpage_form, topwords, page_count, lastpage_form
 
 
 
-def clean_ocr(topwords, firstpage_form, fulltext_form, judge_string):
+def clean_ocr(topwords, firstpage_form, fulltext_form):
     """
     Correct common spelling mistakes that OCR outputs
     Correct topwords for first 20 words of first page if bounding boxes on first page are the entire text
@@ -355,9 +366,8 @@ def clean_ocr(topwords, firstpage_form, fulltext_form, judge_string):
         topwords = topwords.replace(old, new)
         firstpage_form = firstpage_form.replace(old, new)
         fulltext_form = fulltext_form.replace(old, new)
-        judge_string = judge_string.replace(old, new)
 
-    return topwords, firstpage_form, fulltext_form, judge_string
+    return topwords, firstpage_form, fulltext_form
 
 
 
@@ -452,6 +462,7 @@ def word_classify(text, entity_req):
         joined = []
         
         for i,token in enumerate(lst):
+
             if token['entity'] == 'O':
                 in_word = False
                 continue
@@ -460,7 +471,6 @@ def word_classify(text, entity_req):
                 if not in_word:
                     joined += [ split_text[i-1] ]
                     joined[-1]['entity'] = token['entity']
-                
                 joined[-1]['word'] += token['word'][2:]
             else:
                 joined += [ token ]
@@ -477,9 +487,10 @@ def get_party(parties, part_for_name):
     plaint_lst = []
     p_name = word_classify(part_for_name, 'PER')[0] #flattens list assuming only 1 name is in sentence
     name = [x['word'] for x in p_name]
+    name = [x for x in name if x.lower() not in party_headings if not any([c in x.lower() for c in cities])]
     
     print_output("\nParty name: ", name)
-    
+  
     for index, elem in enumerate(parties):
 
         if index + 1 <= len(parties) and index - 1 >= 0:
@@ -504,13 +515,39 @@ def get_party(parties, part_for_name):
                 
                 else:
                     lawyer = 0
-                    
-    new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
     
+    new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
+
     return part, name, number, lawyer, new_parties
 
 
+def get_response(fulltext, custodybattle):
+    """
+    Gets the case type variable only for those cases where a custody battle was
+    found. Variable depends on whether defendant agreed to plaint, contested,
+    or tvistat (=joint application). The numbers (agree1, agree2) have no meaning,
+    just for coding purposes. 
+    
+    Pass: fulltext capitalized, custodybattle capitalized
+    Returns variable outcome as string
 
+    """
+    
+    fulltext = fulltext.split(custodybattle)[1]
+    result = 'No response found'
+        
+    for resp, keyword in defend_response.items():
+        if (
+                findterms(keyword, fulltext)
+                and not ' inte ' in findterms(keyword, fulltext)
+                ):
+            result = resp
+            break
+        
+    return result
+
+    
+    
 def get_plaint_defend(fulltext, header):
     """
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
@@ -536,28 +573,24 @@ def get_plaint_defend(fulltext, header):
     
     if custodybattle:
         print_output("Text indicating custodybattle", custodybattle)
-        casetype = 1
+        casetype = get_response(fulltext, custodybattle)
         
         plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, custodybattle)
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
 
     elif findterms(['gemesam','ansök'], fulltext):
         print_output("Text indicating joint app", findterms(['gemesam','ansök'], fulltext))
-        casetype = 2
-        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, header)
+        casetype = 'joint application'
+        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, parties)
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
     
     else:
         print_output("No custodybattle or joint app", "")
-        casetype = 999
-        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, header)
+        casetype = 'no custodybattle or joint app found'
+        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, parties[0])
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
     
-    if (
-            'god man' in ' '.join(new_parties).lower()
-            or 'c/o' in defend_part
-            ):
-        
+    if 'god man' in ' '.join(new_parties).lower():
         defend_godman = 1
         
     else:
@@ -626,8 +659,6 @@ def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, doms
 
 
     
-    
-    
 def secret_address(party):
     """
     Dummy whether defendant or plaintiff's address is secret
@@ -635,8 +666,6 @@ def secret_address(party):
     """
     secret_party = 1 if 'sekretess' in party else 0
     return secret_party
-
-
 
 
 
@@ -662,14 +691,14 @@ def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
 
         except AttributeError:
             try:
-                finalpart = re.split('ÖVERKLAG|Överklag|överklag', lastpage_form)[-1]
+                finalpart = re.split(appeal, lastpage_form)[-1]
                 judge_name = get_judge_lastparag(finalpart)
             except:
                 judge_name = 'Not found'
 
     else:
         judge_name = "Not found" 
-
+    
     return judge_name, judge_title
 
 
@@ -707,7 +736,7 @@ def get_judge_scans(judge_string):
     string of all judge texts with each name and at similarity CUTOFF = 70 AND 
     assigns judge_name = match
     """
-
+    print_output("String for get_judge_scans", judge_string.split("delimit"))
     judge_title = 'N/A'
     found = 0
     cutoff = 70
@@ -723,7 +752,7 @@ def get_judge_scans(judge_string):
                 match = row['judge']
                 comp_match = fuzz.partial_ratio(match, judge_string)
                 
-                if comp_match >= cutoff: #WHAT TO DO WITH EQUAL SCORES? WHAT TO DO WITH DUPLICATE SURNAMESß
+                if comp_match >= cutoff:
                     cutoff = comp_match
                     judge_name = match
             
@@ -849,8 +878,10 @@ def get_ruling(fulltext_form):
         print_output("Ruling 2a","")
     
     print_output("Ruling_form 2b", ruling_form.split("delimiter"))
-    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))    
-    ruling_form = re.split(dictloop(ruling_search,ruling_form,0,[]), ruling_form)[0]
+    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
+    second_ruling_splitter = dictloop(ruling_search,ruling_form,0,[])
+    
+    ruling_form = re.split(second_ruling_splitter, ruling_form)[0]
     
     try:
         if searchkey('\d\d\s*–\s*\d\d', ruling_form, 0):
@@ -916,7 +947,7 @@ def get_childnos(ruling_og, year):
 
     childnos = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling_og.lower())
     childnos = [x.replace(' ', '') for x in childnos]
-    childnos = set(childnos)
+    childnos = list(dict.fromkeys(childnos))
 
     for num in childnos:
         if len(re.split('\D', num)[0]) == 8:
@@ -943,7 +974,6 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
     if childid_name:
         
         for i in childid_name:
-    
             relev = updated_ruling.split(i)[0]
             p_name = word_classify(relev, "PER")[0]
             names = [x['word'] for x in p_name]
@@ -1183,7 +1213,7 @@ def get_visitation(child_first, ruling_og):
     - Took out summer exclusion because that gave too many false negatives where visitation was defined for the weeks
     AND the summer, could potentially include phys=0 if semester in phys and NOT any weekday term in semester sentence
     """
-    for term in [child_first, 'barn']:
+    for term in [child_first.lower(), 'barn']:
         for key in visitation_key:
 
             if (    
@@ -1195,13 +1225,13 @@ def get_visitation(child_first, ruling_og):
                 visit = 4  
                 break
 
-            elif findfirst([key, term], ruling_og) and not any([x in findfirst([key, term], ruling_og) for x in reject]):
+            elif findfirst([key, term], ruling_og) and not any([x.lower() in findfirst([key, term], ruling_og) for x in reject]):
                 print_output("Visitation 2","")
                 visit = 1
                 break
             
             else:
-                print_output("Visitation 3",findfirst([key, term], ruling_og))
+                print_output("Visitation 3", key + term)
                 visit = 0
 
         else:
@@ -1220,28 +1250,30 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
     that does not directly describe the ruling and where another parent's name is included
     """
     firstsentences = ''.join(ruling.split('.')[:6])
+    print_output("Text for physicalcustody", firstsentences)
     
     for term in physicalcust_list:
         target = findfirst(term, firstsentences)
+        print_output("Target sentence for physical custody search", target)
         if (
-                findfirst([child_first, 'avslås'], target)
-                or findfirst([child_first, ' lämna',' utan ',' bifall'], target.lower())
-                or findfirst([child_first, 'avskriv'], target.lower())
+                findfirst([child_first.lower(), 'avslås'], target)
+                or findfirst([child_first.lower(), ' lämna',' utan ',' bifall'], target.lower())
+                or findfirst([child_first.lower(), 'avskriv'], target.lower())
                 ): 
             phys = 4  
             break
         
         elif (
-                child_first in target.lower()
-                and any([x in target.lower() for x in plaint_first])
+                child_first.lower() in target.lower()
+                and any([x.lower() in target.lower() for x in plaint_first])
                 and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 1
             break
         
         elif (
-                child_first in target.lower()
-                and any([x in target.lower() for x in defend_first])
+                child_first.lower() in target.lower()
+                and any([x.lower() in target.lower() for x in defend_first])
                 and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 2
@@ -1500,7 +1532,7 @@ def filldict_rulings(
         header, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
         defend_og, defend_first, defend_no, defend_lawyer, defend_godman, 
         casetype, domskal_og, ruling_og, child_first, firstpage_form, 
-        domskal, fulltext, caseno, courtname, date, year, judge, judgetitle
+        domskal, fulltext, caseno, courtname, date, year, judge, judgetitle, judge_gender
         ):
     
     # try:
@@ -1536,7 +1568,9 @@ def filldict_rulings(
         data_rulings['page_count'].append(page_count)
         data_rulings['correction_firstpage'].append(correction)
         data_rulings['case_no'].append(caseno)
+        data_rulings['casetype'].append(casetype)
         data_rulings['judge'].append(judge)
+        data_rulings['judge_gender'].append(judge_gender)
         data_rulings['court'].append(courtname)
         data_rulings['date'].append(date)
         data_rulings['deldom'].append(part)
@@ -1639,11 +1673,10 @@ def main(file, jpgs):
 
     elif 'all_scans' in file:
         print('\nScan: ', file)
-
-        full_text, header, judge_small, judge_large = ocr_main(file)
-        fulltext_form, firstpage_form, judge_string, topwords, page_count, lastpage_form = get_ocrtext(full_text, header)
-        judge_string = judge_string + ' '.join(judge_small) + ' '.join(judge_large) 
         
+        full_text, judge_small, judge_large = ocr_main(file)
+        fulltext_form, firstpage_form, topwords, page_count, lastpage_form = get_ocrtext(full_text)
+        judge_string = re.split(appeal, lastpage_form)[-1] + ' '.join(judge_small) + ' '.join(judge_large) 
         correction = 0
         readable = 0
 
@@ -1657,6 +1690,7 @@ def main(file, jpgs):
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
         judge, judgetitle = get_judge_scans(judge_string)
+    judge_gender = gend.get_gender((judge.replace('-', ' ')).split()[0])
     
     if doc_type == 'dom' or doc_type == 'deldom':
 
@@ -1673,10 +1707,10 @@ def main(file, jpgs):
                 # Save rulings data to file
                 dict_rulings = filldict_rulings(
                     DATA_RULINGS,  child_id, file, page_count, correction, topwords, fulltext_og,
-                    header, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
+                    header_form, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
                     defend_og, defend_first, defend_no, defend_lawyer, defend_godman, 
                     casetype, domskal_og, ruling_og, child_first, firstpage_form, 
-                    domskal, fulltext, caseno, courtname, date, year, judge, judgetitle
+                    domskal, fulltext, caseno, courtname, date, year, judge, judgetitle, judge_gender
                     )
                 save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
             
