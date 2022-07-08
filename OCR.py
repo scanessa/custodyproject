@@ -30,7 +30,7 @@ CONFIG_TEXTBODY = '--psm 6 --oem 3'
 CONFIG_ONELINE = '--psm 7 --oem 3'
 CONFIG_FULL = '--psm 11 --oem 3'
 
-kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (9,9))
+kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 
 
 def pdf_to_jpg(pdf):
@@ -69,7 +69,7 @@ def detect_text(imread_img):
         & (ocr_df["text"].str.len() - ocr_df["text"].str.count(" ") > 3)
     ]
     
-    top = (confident_words_df["top"].min()) - 100
+    top = (confident_words_df["top"].min()) - 100 if (confident_words_df["top"].min()) - 100 > 0 else (confident_words_df["top"].min())
     left = confident_words_df["left"].min()
     bot = (confident_words_df["top"] + confident_words_df["height"]).max()
     right = (confident_words_df["left"] + confident_words_df["width"]).max()
@@ -85,10 +85,12 @@ def get_text(filename):
     """
     img = cv2.imread(filename)
     top, left, bot, right = detect_text(img)
+    
     cv2.rectangle(img, (left,top),(right,bot),(10,100,0),2)
     cv2.imwrite("rect.jpg", img)
-    text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe")
     
+    text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe", config = CONFIG_TEXTBODY)
+
     return text
 
 
@@ -157,18 +159,43 @@ def sort_contours(contours):
 
 
 def txt_box(dewarp_output, kernal_input):
-    """Draw contours around text boxes and OCR text for signature"""
-
+    """
+    Split image by Överklagande part, then draw bounding boxes around characters
+    and OCR what is found
+    """
+    
     string_list = []
     img = cv2.imread(dewarp_output)
     height, width, shape = img.shape
+
+    #Split image by Överklagande
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    ocr_data = pytesseract.image_to_data(img_rgb, lang="swe", config='--psm 6')
+    ocr_df = pd.read_table(StringIO(ocr_data), quoting=3)
+    
+    lastpar = ocr_df[
+        (ocr_df["text"] == "ÖVERKLAGAR,")
+        | (ocr_df["text"] == "ÖVERKLAGAR")
+        | (ocr_df["text"] == "ÖVERKLAGANDE,")
+        | (ocr_df["text"] == "ÖVERKLAGANDE")
+        | (ocr_df["text"] == "Överklagar,")
+        | (ocr_df["text"] == "Överklagar")
+        | (ocr_df["text"] == "Överklagande,")
+        | (ocr_df["text"] == "Överklagande")
+        ]
+
+    if not lastpar.empty:
+        top = (lastpar["top"].min()) - 100
+        left = lastpar["left"].min()
+        img = img[top:height, left:width]
+    
+    #Draw bounding boxes
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (17,17), 0)
     thresh = cv2.adaptiveThreshold(blur, 255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, 15, 20)
-    
-    dilate = cv2.dilate(thresh,kernal_input,iterations = 1)
-    
+    dilate = cv2.dilate(thresh,kernal_input,iterations = 1)    
+
     contours = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours = contours[0] if len(contours) == 2 else contours[1]
     sorted_contours = sort_contours(contours)
@@ -196,7 +223,7 @@ def txt_box(dewarp_output, kernal_input):
 
 
 
-def final_passage(lastpage, passg):
+def final_passage(lastpage):
     """
     Drops all works from last page string that come before last paragraph
     Last paragraph is recognized by ÖVERKLAG header
@@ -215,6 +242,19 @@ def final_passage(lastpage, passg):
             lastpage = lastpage[1:]
      
     return lastpage
+
+
+
+def reduce_noise(imread_img, filename):
+    """
+    Applies a binary threshold to reduce noise in the form of text shining
+    through from the next page
+    Saves threshed image under the same image name as unthreshed page
+
+    """
+    gray = cv2.cvtColor(imread_img,cv2.COLOR_BGR2GRAY)
+    ret,thresh = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+    cv2.imwrite(filename + '.jpg', thresh)
 
 
 
@@ -242,11 +282,10 @@ def ocr_main(file):
         if "Sodertorn" in filename:
             top, left, bot, right = detect_text(img)
             img = img[top:bot,left:right]
-
+        
+        reduce_noise(img, filename)
         dewarp_main(filename + '.jpg')
         text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
-        
-        
         """
         if page_no == len(path)-1:
 
@@ -254,11 +293,8 @@ def ocr_main(file):
             judge_small = txt_box(filename + '_straight.png', kernal_sign)
             judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
 
-            passg = "judge_small"
-            judge_small = final_passage(judge_small,passg)
-            passg = "judge_large"
-            judge_large = final_passage(judge_large, passg)
-        
+            judge_small = final_passage(judge_small)
+            judge_large = final_passage(judge_large)
         """
         judge_small = judge_large = [""] # only to speed up testing docs
         full_text.append(text)
@@ -269,4 +305,5 @@ def ocr_main(file):
 
     return full_text, judge_small, judge_large
 
-#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Scan 25. Apr 2022 at 15.25.pdf")
+#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Dom T 163-03_pg1.jpg")
+

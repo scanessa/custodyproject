@@ -1,59 +1,33 @@
-import re
+from fuzzywuzzy import fuzz
+from Levenshtein import distance
+
+name1 = ['Jane', 'Miller', '-','Smith']
+name = ['Jane', '-', 'Marie','Miller', '-','Smith']
 
 
-defend_response = {
-    'agree1': ['medge'],
-    'agree2': ['medgav'],
-    'agree3': ['bevilj'],
-    'contest1': ['bestr'],
-    'contest2': ['mots'],
-    'contest3': ['inkommit','egna','yrkand'],
-    'contest4': ['egen','del','yrkat'],
-    'agree4': ['varken','medg','bestr'],
-    'tvistat':['part','tvist ']
-    }
+new_name = []
 
-full = 'Stella mag kühe bestr . Das ist der trennsatz. Jetzt kommt was dazwischen. Das ist der  medg richtige: varken und so. '
-cust= 'Das ist der trennsatz'
+for cur, nxt in zip (name, name [1:]):
+    print(cur,nxt)
+    if cur == '-':
+        hyph = cur+nxt
+        new_name.append(hyph)
+        print("hyph: ", hyph)
+    else:
+        new_name.append(cur)
+        print("cur: ", cur)
+print(new_name)
 
-def findterms(stringlist, part):
-    sentenceRes = []
-    split = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ]|\s\d\s)', part)
-    stringlist = [x.lower() for x in stringlist]
-    for sentence in split:
-        sentence = sentence.lower() + '.'
-        if all([x in sentence for x in stringlist]):
-            sentenceRes.append(sentence)
-    sentenceString = '.'.join(sentenceRes)
-    return sentenceString
+"""
+counter = 0
 
-
-def get_response(fulltext, custodybattle):
-    """
-    Gets the case type variable only for those cases where a custody battle was
-    found. Variable depends on whether defendant agreed to plaint, contested,
-    or tvistat (=joint application). The numbers (agree1, agree2) have no meaning,
-    just for coding purposes. 
-    
-    Pass: fulltext capitalized, custodybattle capitalized
-    Returns variable outcome as string
-
-    """
-    
-    fulltext = fulltext.split(custodybattle)[1]
-    result = 999
-    
-    for resp, keyword in defend_response.items():
-        print(findterms(keyword, fulltext))
-        if (
-                findterms(keyword, fulltext)
-                and not ' inte ' in findterms(keyword, fulltext)
-                ):
-            result = resp
+for n in name:
+    for text in text1:
+        comp = distance(text.strip(','), n)
+        #print(n, text, comp)
+        if comp < 2:
+            counter += 1
+            #print(counter)
             break
         
-    return result
-    
-res = get_response(full, cust)
-
-print(res)
+"""

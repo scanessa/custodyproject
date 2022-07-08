@@ -16,6 +16,7 @@ import os
 import pandas as pd
 import itertools
 from fuzzywuzzy import fuzz
+from Levenshtein import distance
 from transformers import pipeline
 import gender_guesser.detector as gender
 
@@ -33,6 +34,7 @@ from searchterms import reject_outcome, visitation_key, reject, exclude_phys, ph
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
+from searchterms import plaint_terms, name_pattern
 
 from OCR import ocr_main
 
@@ -47,7 +49,7 @@ gend = gender.Detector(case_sensitive=False)
 DATA_RULINGS = {
     
     'child_id':[], 'case_no':[], 'court':[], 'date':[], 'casetype':[], 'deldom':[],
-    'divorce_only': [] , 'joint_application_custody': [],'plaintiff_id':[],
+    'divorce_only': [] , 'plaintiff_id':[],
     'defendant_id':[], 'plaintiff_lawyer':[], 'defendant_lawyer':[],
     'defendant_address_secret': [], 'plaintiff_address_secret':[],
     'defendant_abroad':[], 'defendant_unreachable':[], 'outcome':[],
@@ -149,7 +151,7 @@ def findenumerated(stringlist, part):
 
 def findterms(stringlist, part):
     sentenceRes = []
-    split = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ]|\s\d\s)', part)
+    split = re.split('(?=[.]{1}\s\n*[A-ZÅÐÄÖÉÜ]|\s\d\s)', part)
     stringlist = [x.lower() for x in stringlist]
     for sentence in split:
         sentence = sentence.lower() + '.'
@@ -162,7 +164,7 @@ def findterms(stringlist, part):
 
 def findfirst(stringlist, part):
     sentenceRes = []
-    split = re.split('(?=[.]{1}\s[A-ZÅÐÄÖÉÜ1-9]|\s\d\s)', part)
+    split = re.split('(?=[.]{1}\s\n*[A-ZÅÐÄÖÉÜ1-9]|\s\d\s)', part)
     for sentence in split:
         if all([x in sentence.lower() for x in stringlist]):
             sentenceRes.append(sentence)
@@ -344,7 +346,7 @@ def get_ocrtext(full_text):
     page_count = len(full_text)
     lastpage_form = ''.join(full_text[-1])
     fulltext_form = ''.join(list(itertools.chain.from_iterable(full_text)))
-    topwords_form = [x.split()[:14] for x in full_text]
+    topwords_form = [x.split()[:20] for x in full_text]
     topwords_form = ' '.join(itertools.chain(*topwords_form))
     
     topwords_form, firstpage_form, fulltext_form = clean_ocr(topwords_form, firstpage_form, fulltext_form)
@@ -368,6 +370,22 @@ def clean_ocr(topwords, firstpage_form, fulltext_form):
         fulltext_form = fulltext_form.replace(old, new)
 
     return topwords, firstpage_form, fulltext_form
+
+
+
+def clean_text(inp):
+    """
+    Cleans text used as basis for remaining analysis to prevent false positives
+    """
+    inp = re.sub('[.]\n\d, ', '. 9.', inp)
+    inp = inp.replace('|', '')
+    inp = inp.replace('vårdera', '')
+    inp = inp.replace('vårdagen', '')
+    inp = inp.replace('gemen-sam', 'gemensam')
+    if any([x in inp for x in shared_child]):
+        inp = inp.replace('gemen', 'xxx')
+
+    return inp
 
 
 
@@ -431,7 +449,7 @@ def get_lastpage(fulltext_form, lastpage_form):
     return lastpage_sorted
 
 
-def word_classify(text, entity_req):
+def word_classify(text, entity_req, strictness):
     """
     Inputs:
         - text: string that should be classified (must pass with ORIGINAL CASING ie upper case for names)
@@ -446,10 +464,10 @@ def word_classify(text, entity_req):
     joined_text = []
     split_text = NLP(text)
     in_word=False
-
+    
     # Filter out items of unwanted categories
     if not entity_req == '': 
-        clean_list = [x for x in split_text if x['entity'] == entity_req]
+        clean_list = [x for x in split_text if x['entity'] == entity_req and x['score'] > strictness]
     else:
         clean_list = split_text
 
@@ -482,43 +500,76 @@ def word_classify(text, entity_req):
     return joined_text
 
 
+
 def get_party(parties, part_for_name):
+    """
+    Gets party (plaintiff, defendant) characteristics based on Swedish Bert NER
+    Gets name based on similarity, to account for misspelled characters a match is 
+    considered to be a string that needs max. 1 character swap to be equal to the name
+    (in each of the elements of parties)
+    Note:
+        - else after if p_name gets names that NER didn't recognize as such by
+        capturing the words before 6-10 consecutive numbers
+
+    """
     
     plaint_lst = []
-    p_name = word_classify(part_for_name, 'PER')[0] #flattens list assuming only 1 name is in sentence
-    name = [x['word'] for x in p_name]
-    name = [x for x in name if x.lower() not in party_headings if not any([c in x.lower() for c in cities])]
+    counter = 0
+    print_output("Part for name", part_for_name)
+    print_output("Party names", word_classify(part_for_name, 'PER', 0))
+    part_for_name = part_for_name.split("advokat")[0]
+    p_name = word_classify(part_for_name, 'PER', 0.95)
     
-    print_output("\nParty name: ", name)
-  
-    for index, elem in enumerate(parties):
-
-        if index + 1 <= len(parties) and index - 1 >= 0:
-            curr_el = parties[index-1]
-            next_el = parties[index]
-            
-            # Party (name + address)
-            if all(x.lower() in curr_el.lower() for x in name):
-                part = curr_el
-                plaint_lst.append(curr_el)
-
-                # ID
-                try:
-                    number = ''.join(searchkey(id_pattern, part.lower(), 2).split())
-                except AttributeError:
-                    number = "-"
+    if p_name:
+        p_name = p_name[0] #flattens list assuming only 1 name is in sentence
+        name = [x['word'] for x in p_name]
+        name = [x for x in name if x.lower() not in party_headings if not any([c in x.lower() for c in cities])]
         
-                # Lawyer
+    else:
+        name = (searchkey(name_pattern, parties[0], 1)).split()
+        
+    print_output("Party name", name)
+        
+    for index, elem in enumerate(parties):
+        curr_el = elem
+        
+        split = elem.split()
+        for n in name:
+            for s in split:
+                comp = distance(s.strip(',').strip('(').strip(')'),n)
+                if comp < 2:
+                    counter += 1
+        
+        # Party (name + address)
+        if counter == len(name):
+            part = curr_el
+            plaint_lst.append(curr_el)
+
+            # ID
+            try:
+                number = ''.join(searchkey(id_pattern, part.lower(), 2).split())
+            except AttributeError:
+                number = "-"
+            
+            # Lawyer
+            if index + 1 < len(parties):
+                
+                next_el = parties[index+1]
+                
                 if any([x in next_el.lower() for x in lawyer_key]):
                     lawyer = 1
                     plaint_lst.append(next_el)
-                
                 else:
                     lawyer = 0
-    
+
+            else:
+                lawyer = 0
+
+    name = name[:-1] if len(name) > 1 else name
     new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
 
     return part, name, number, lawyer, new_parties
+
 
 
 def get_response(fulltext, custodybattle):
@@ -534,7 +585,7 @@ def get_response(fulltext, custodybattle):
     """
     
     fulltext = fulltext.split(custodybattle)[1]
-    result = 'No response found'
+    result = 'Plaint made, but no response found'
         
     for resp, keyword in defend_response.items():
         if (
@@ -554,12 +605,14 @@ def get_plaint_defend(fulltext, header):
     for readable and scanned docs
 
     Returns:
-        - casetype: =1 for custody battle, =2 for shared application, =999 for not found
+        - casetype
         - part (name, address), first name, lawyer dummy for plaintiff and defendant
         - godman dummy for defendant 
+    Note:
+        Lund 3060-06 (Scan 3. May 2022 at 14.11.pdf) our code switches plaintiff and defendant compared to case because we define plaintiff by plainting for custody, and Lars only makes a plaint for umgänge
     """
     
-    print_output("Part for parties (header): ", header.split("delimiter"))
+    print_output("Part for parties (header)", header.split("delimiter"))
     
     # Split header into 2 parties
     parties = re.split(party_split, header)
@@ -567,29 +620,44 @@ def get_plaint_defend(fulltext, header):
     print_output("Parties: ", parties)
     
     # Identify plaintiff
-    custodybattle = findfirst(['yrka','vård'], fulltext)
-    if not custodybattle:
-        custodybattle = findfirst(['begär','vård'], fulltext)
+    searchtext = fulltext.replace("YRKANDEN", "")
+    for term in plaint_terms:  
+        custodybattle = findfirst(term, searchtext)
+        if custodybattle:
+            break
+
+    print_output("Text indicating custodybattle", custodybattle.split("delimiter"))
+
+    if 'parterna har' in custodybattle.lower():
+        custodybattle = 'joint'
     
-    if custodybattle:
-        print_output("Text indicating custodybattle", custodybattle)
+    if custodybattle and custodybattle != 'joint':
         casetype = get_response(fulltext, custodybattle)
         
+        print_output("Getting plaint name 1", "")
         plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, custodybattle)
+        print_output("Getting defend name 1", new_parties)
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
 
-    elif findterms(['gemesam','ansök'], fulltext):
+    elif (
+            findterms(['gemesam','ansök'], fulltext)
+            or custodybattle == 'joint'
+            ):
         print_output("Text indicating joint app", findterms(['gemesam','ansök'], fulltext))
         casetype = 'joint application'
-        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, parties)
+        print_output("Getting plaint name 2", "")
+        plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, parties[0])
+        print_output("Getting defend name 2", new_parties)
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
-    
+
     else:
         print_output("No custodybattle or joint app", "")
-        casetype = 'no custodybattle or joint app found'
+        casetype = 'not found'
+        print_output("Getting plaint name 3", "")
         plaint_part, plaint_name, plaint_number, plaint_lawyer, new_parties = get_party(parties, parties[0])
+        print_output("Getting defend name 3", new_parties)
         defend_part, defend_name, defend_number, defend_lawyer, _ = get_party(new_parties, ' '.join(new_parties))
-    
+
     if 'god man' in ' '.join(new_parties).lower():
         defend_godman = 1
         
@@ -719,6 +787,12 @@ def get_judge_lastparag(lastparagraph):
     clean = ' '.join(clean) + ' '
 
     name = dictloop(judgesearch_scans, clean, 0,exclude_judge)
+
+    name = word_classify(name, "PER", 0)
+    print_output("Name classifyer for judge", name)
+    name = list(itertools.chain.from_iterable(name))
+    name = ' '.join([x['word'] for x in name])
+    
     name = name.lower() if name is not None else name
     
     return name
@@ -738,13 +812,19 @@ def get_judge_scans(judge_string):
     """
     print_output("String for get_judge_scans", judge_string.split("delimit"))
     judge_title = 'N/A'
-    found = 0
+    judge_name = ''
     cutoff = 70
 
     judge_name = get_judge_lastparag(judge_string)
-    found = 1 if judge_name is not None else 0      
 
-    if found == 0:
+    if not judge_name:
+        
+        p_name = word_classify(judge_string, "PER", 0)
+        p_name = list(itertools.chain.from_iterable(p_name))
+        judge_name = ' '.join([x['word'] for x in p_name])
+        
+    if not judge_name:
+        
         digital_judges = pd.read_excel(JUDGE_LIST)
         try:
 
@@ -758,7 +838,6 @@ def get_judge_scans(judge_string):
             
         except Exception as e:
             print(e)
-            judge_name = "Not found"
 
     return judge_name, judge_title
 
@@ -865,7 +944,7 @@ def get_ruling(fulltext_form):
     Extract only ruling text headed usually 'Domslut'
     """
     try:
-        print_output("Ruling 1",fulltext_form.split("showfulltext"))
+        print_output("Ruling 1","")
         ruling_form = ''.join(re.split('MSLUT|Domslut\n', ''.join(fulltext_form))[1:])
     except AttributeError:
         ruling_form = ''.join(re.split('_{10,40}\s*', ''.join(fulltext_form))[1:])
@@ -877,7 +956,6 @@ def get_ruling(fulltext_form):
         ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
         print_output("Ruling 2a","")
     
-    print_output("Ruling_form 2b", ruling_form.split("delimiter"))
     ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
     second_ruling_splitter = dictloop(ruling_search,ruling_form,0,[])
     
@@ -946,6 +1024,7 @@ def get_childnos(ruling_og, year):
     childid_name = {}
 
     childnos = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling_og.lower())
+    
     childnos = [x.replace(' ', '') for x in childnos]
     childnos = list(dict.fromkeys(childnos))
 
@@ -974,12 +1053,34 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
     if childid_name:
         
         for i in childid_name:
+            print_output("childid", i)
+            names = []
             relev = updated_ruling.split(i)[0]
-            p_name = word_classify(relev, "PER")[0]
-            names = [x['word'] for x in p_name]
+            print_output("relevant part for childid name", relev)
+            print_output("Child names",word_classify(relev, "PER",0.99))
             
-            child_first = [x for x in names if x[0:3].upper() == x[0:3]]
-            
+            #NLP cant get name if only word in relev is the name, so get these names in first if
+            name = re.split(",|\s", relev)
+            name = [x.strip() for x in name if x.strip()]
+            if len(name) == 1:
+                names = name
+            else:
+                p_name = word_classify(relev, "PER",0.99)
+                
+                if p_name:
+                    p_name = p_name[-1]
+                    names = [x['word'] for x in p_name]
+                else:
+                    relev = relev.split()
+                    relev = relev[::-1]
+                    for word in relev:
+                        if not word[0].isupper():
+                            break
+                        else:
+                            names.append(word.strip(','))
+
+            child_first = [x for x in names if x[0:3].isupper()]
+
             if not child_first:
                 child_first = names[0]
             else:
@@ -997,7 +1098,7 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
                 break
             else:
                 relev = ruling_og
-        p_name = word_classify(relev, "PER")
+        p_name = word_classify(relev, "PER", 0.99)
         pd_names = plaint_name + defend_name
         
         for x in p_name:
@@ -1028,11 +1129,11 @@ def defend_unreachable(defend_first, defend_godman, fulltext_og):
     Get info whether defendant is reachable
     In reachable: Took out genom sin gode man because this must not mean that SV and God Man were in contact (see 396-15)
     """
+    print(defend_first)
     for name in defend_first:
         unreach_key = [['okontaktbar'],['förordnat god man', name],['varken kan bestrida eller medge'],
                       ['någon kontakt', 'huvudman'],['någon kontakt', name],['okän', 'befinn',name],
                       [name, 'avsaknad',' av ',' instruktioner',' från']]    
-        
         for term in unreach_key:
             if findterms(term, fulltext_og):
                 unreach = 1
@@ -1084,11 +1185,9 @@ def get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, p
     """
     ruling = ruling_og.lower()
     
+    #Clean the ruling to prevent false positives
     findVardn = findenumerated(['vård', child_id], ruling_og)
     findVardn = findenumerated(['vård'], ruling_og) if not findVardn else findVardn
-    findVardn = findVardn.replace('gemen-sam', 'gemensam') if 'gemen-sam' in findVardn else findVardn
-    if any([x in findVardn for x in shared_child]):
-        findVardn = findVardn.replace('gemen', 'XXX')
     findVardn = findVardn.strip('2. ') + ' '
     
     print_output("For output: child_first", child_first)
@@ -1118,8 +1217,9 @@ def get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, p
         print_output("Outcome 2", out)
         print_output("Condition 1", 'vård' not in ruling and 'vård' not in firstpage_form.lower())
         print_output("Condition 2", any([x in findVardn for x in remind_key]) and 'äktenskaps' in ruling)
-        print_output("Condition 3", 'vård' not in findenumerated([child_first], ruling_og) and child_first != 'not found')
-        
+        print_output("Condition 3", 'vård' not in findenumerated([child_first], ruling_og) and child_first != 'not found')        
+        print_output("For condition 3", findenumerated([child_first], ruling_og))
+
     else:
         out = 999
 
@@ -1392,13 +1492,6 @@ def contested(defend_first, fulltext_og, fulltext):
     contested = 1 if not 'medge' in fulltext else contested
     
     return contested
-        
-
-
-def joint_application(firstpage_form, out):
-    joint = 1 if 'sökande' in firstpage_form.lower() and 'motpart' not in firstpage_form.lower() and out != 0 else 0
-    
-    return joint
 
 
 
@@ -1544,7 +1637,6 @@ def filldict_rulings(
     defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
     out = get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, plaint_first, defend_first)
     divorce = get_divorce(out, ruling)
-    joint = joint_application(firstpage_form, out)
     visit = get_visitation(child_first, ruling_og)
     phys = get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_first)
     alimony = get_alimony(ruling_og)
@@ -1575,7 +1667,6 @@ def filldict_rulings(
         data_rulings['date'].append(date)
         data_rulings['deldom'].append(part)
         data_rulings['divorce_only'].append(divorce)
-        data_rulings['joint_application_custody'].append(joint)
         data_rulings['plaintiff_id'].append(plaint_no) 
         data_rulings['defendant_id'].append(defend_no)   
         data_rulings['defendant_address_secret'].append(defend_secret)  
@@ -1627,7 +1718,7 @@ def filldict_register(
 
 def save(dictionary, SAVE, COUNT, location):
     df = pd.DataFrame(dictionary)
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
         if PRINT == 1:
             print(df)
     if SAVE == 1:
@@ -1679,9 +1770,11 @@ def main(file, jpgs):
         judge_string = re.split(appeal, lastpage_form)[-1] + ' '.join(judge_small) + ' '.join(judge_large) 
         correction = 0
         readable = 0
-
+        
+    fulltext_form = clean_text(fulltext_form)
+    firstpage_form = clean_text(firstpage_form)
     header_form = get_header(firstpage_form)
-    plaint_og, plaint_first, plaint_no, plaint_lawyer,defend_og, defend_first, defend_no, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext_form, header_form)
+    plaint_og, plaint_first, plaint_no, plaint_lawyer,defend_og, defend_first, defend_no, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext_form, header_form)    
     fulltext_og, fulltext = format_text(fulltext_form)
     caseno, courtname, date, year = basic_caseinfo(file, topwords)
     doc_type = get_doctype(file, topwords, fulltext_og)
@@ -1690,6 +1783,7 @@ def main(file, jpgs):
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
         judge, judgetitle = get_judge_scans(judge_string)
+
     judge_gender = gend.get_gender((judge.replace('-', ' ')).split()[0])
     
     if doc_type == 'dom' or doc_type == 'deldom':
