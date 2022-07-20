@@ -17,6 +17,7 @@ from pdf2image import convert_from_path
 from page_dewarp import dewarp_main
 from io import StringIO
 import pandas as pd
+import numpy as np
 
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
@@ -26,8 +27,7 @@ pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesserac
 
 #General settings
 LANG = 'swe'
-CONFIG_TEXTBODY = '--psm 6 --oem 3'
-CONFIG_ONELINE = '--psm 7 --oem 3'
+CONFIG_TEXTBODY = '--psm 6 --oem 3' 
 CONFIG_FULL = '--psm 11 --oem 3'
 
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
@@ -75,6 +75,27 @@ def detect_text(imread_img):
     right = (confident_words_df["left"] + confident_words_df["width"]).max()
     
     return top, left, bot, right
+
+
+
+def reduce_noise(imread_img, filename):
+    """
+    Applies a binary threshold to reduce noise in the form of text shining
+    through from the next page
+    Applies opening/median blur to deal with salt and pepper noise
+    resulting from shadow at left page edge
+    Saves threshed image under the same image name as unthreshed page
+    
+    Notes:
+        - If median fails, use opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel)
+
+    """
+
+    gray = cv2.cvtColor(imread_img,cv2.COLOR_BGR2GRAY)
+    ret,thresh = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+    median = cv2.medianBlur(thresh, 3)
+
+    cv2.imwrite(filename + '.jpg', median)
 
 
 
@@ -245,22 +266,8 @@ def final_passage(lastpage):
 
 
 
-def reduce_noise(imread_img, filename):
-    """
-    Applies a binary threshold to reduce noise in the form of text shining
-    through from the next page
-    Saves threshed image under the same image name as unthreshed page
-
-    """
-    gray = cv2.cvtColor(imread_img,cv2.COLOR_BGR2GRAY)
-    ret,thresh = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
-    cv2.imwrite(filename + '.jpg', thresh)
-
-
-
 def ocr_main(file):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
-    
     full_text = []
     header = []
     pdf = 0
@@ -283,10 +290,16 @@ def ocr_main(file):
             top, left, bot, right = detect_text(img)
             img = img[top:bot,left:right]
         
+
         reduce_noise(img, filename)
-        dewarp_main(filename + '.jpg')
+        try:
+            dewarp_main(filename + '.jpg')
+            ocr_error = ''
+        except:
+            cv2.imwrite(filename + 'straight.png', img)
+            ocr_error = 'dewarp error'
         text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
-        """
+        
         if page_no == len(path)-1:
 
             last = cv2.imread(filename + '_straight.png')
@@ -295,15 +308,15 @@ def ocr_main(file):
 
             judge_small = final_passage(judge_small)
             judge_large = final_passage(judge_large)
-        """
-        judge_small = judge_large = [""] # only to speed up testing docs
+
+        #judge_small = judge_large = [""] # only to speed up testing docs
         full_text.append(text)
         header.append(text[:10])
+
         if pdf == 1:
             os.remove(filename + '.jpg')
             os.remove(filename + '_straight.png')
 
-    return full_text, judge_small, judge_large
+    return full_text, judge_small, judge_large, ocr_error
 
-#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Dom T 163-03_pg1.jpg")
-
+#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Scan 22 Apr 2022 at 1116_pg2.jpg")

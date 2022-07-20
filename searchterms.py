@@ -28,7 +28,6 @@ appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
 citizen = 'medbor[a-z]*\s*i\s*[a-z]*'
 
-defend_search = ' Svarande|SVARANDE|Motpart|MOTPART|SVARANDE och KÄRANDE |MANNEN|Mannen'
 id_pattern ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
 name_pattern = '([A-z ]+),\s*\d{6,10}'
 
@@ -46,18 +45,7 @@ date_search = {
     '4' : '(\d{4}-\d{2}-\d{2})'
     }
 
-defend_response = {
-    'agree1': ['medge'],
-    'agree2': ['medgav'],
-    'agree3': ['bevilj'],
-    'agree4': ['överens'],
-    'contest1': ['bestr'],
-    'contest2': ['mots'],
-    'contest3': ['inkommit','egna','yrkand'],
-    'contest4': ['egen','del','yrkat'],
-    'agree5': ['varken','medg','bestr'],
-    'tvistat':['part','tvist ']
-    }
+
 
 judgesearch = {
     '1': '\n\s*\n\s*((' + allLetters + '+\s+){2,4})\n\s*\n', #normal names
@@ -157,6 +145,13 @@ cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'boll
 cooperation_key = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
 contest_key = [['bestritt'], ['bestridit'], ['har','för','egen','del','yrkat'], ['har','istället','yrkat'],['som','slutligen','bestämt','i','sin','talan']]
 
+defend_response = [['medge','agree'],['medgav','agree'],['bevilj','agree'],['bestr','contest'],['mots','contest']]
+defend_resp_dict = {
+    'agree': [['varken','medg','bestr']],
+    'contest': [['egen','del','yrkat'],['inkommit','egna','yrkand']],
+    'tvistat': [['part','tvist ']]
+    }
+
 exclude_phys = ['jämna' , 'växelvis', 'skyddat']
 exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
@@ -203,7 +198,8 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 
-shared_child = ['gemen-sam','gemensamme','gemensamma barn','gemensamma dot','gemensamma son']
+shared_child = ['gemensamme','gemensamma barn','gemensamma dot','gemensamma son']
+svarande_karande = ['varande','VARANDE','ÄRANDE','ärande']
 
 unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','för','februari',
                        'ges','ha','hovrätt','hovrätten',

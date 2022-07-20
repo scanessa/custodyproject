@@ -756,20 +756,20 @@ def optimize_params(name, small, dstpoints, span_counts, params):
         ppts = project_keypoints(pvec, keypoint_index)
         return np.sum((dstpoints - ppts)**2)
 
-    #print('  initial objective is', objective(params))
+    #print ('  initial objective is', objective(params))
 
     if DEBUG_LEVEL >= 1:
         projpts = project_keypoints(params, keypoint_index)
         display = draw_correspondences(small, dstpoints, projpts)
         debug_show(name, 4, 'keypoints before', display)
 
-    #print('  optimizing', len(params), 'parameters...')
-    #start = datetime.datetime.now()
+    #print ('  optimizing', len(params), 'parameters...')
+    start = datetime.datetime.now()
     res = scipy.optimize.minimize(objective, params,
                                   method='SLSQP')
-    #end = datetime.datetime.now()
-    #print('  optimization took', round((end-start).total_seconds(), 2), 'sec.')
-    #print('  final objective is', res.fun)
+    end = datetime.datetime.now()
+    #print ('  optimization took', round((end-start).total_seconds(), 2), 'sec.')
+    #print ('  final objective is', res.fun)
     params = res.x
 
     if DEBUG_LEVEL >= 1:
@@ -779,33 +779,7 @@ def optimize_params(name, small, dstpoints, span_counts, params):
 
     return params
 
-def project_xy_test(xy_coords, pvec):
 
-    # get cubic polynomial coefficients given
-    #
-    #  f(0) = 0, f'(0) = alpha
-    #  f(1) = 0, f'(1) = beta
-
-    alpha, beta = tuple(pvec[CUBIC_IDX])
-
-    poly = np.array([
-        alpha + beta,
-        -2*alpha - beta,
-        alpha,
-        0])
-    
-    xy_coords = xy_coords.reshape((-1, 2))
-    
-    z_coords = np.polyval(poly, xy_coords[:, 0])
-
-    objpoints = np.hstack((xy_coords, z_coords.reshape((-1, 1))))
-
-    image_points, _ = cv2.projectPoints(objpoints,
-                                        pvec[RVEC_IDX],
-                                        pvec[TVEC_IDX],
-                                        K, np.zeros(5))
-    
-    return image_points
 
 def get_page_dims(corners, rough_dims, params):
 
@@ -813,38 +787,39 @@ def get_page_dims(corners, rough_dims, params):
     dims = np.array(rough_dims)
     
     def objective(dims):
-        proj_br = project_xy_test(dims, params)
+        proj_br = project_xy(dims, params)
         return np.sum((dst_br - proj_br.flatten())**2)
     
     res = scipy.optimize.minimize(objective, dims, method='Powell')
     dims = res.x
 
-    #print('  got page dims', dims[0], 'x', dims[1])
+    #print ('  got page dims', dims[0], 'x', dims[1])
 
     return dims
 
 
 def remap_image(name, img, small, page_dims, params):
-    
-    #print("remap image")
-    
+        
     height = 0.5 * page_dims[1] * OUTPUT_ZOOM * img.shape[0]
+
+    
     height = round_nearest_multiple(height, REMAP_DECIMATE)
 
     width = round_nearest_multiple(height * page_dims[0] / page_dims[1],
                                    REMAP_DECIMATE)
-
-    #print('  output will be {}x{}'.format(width, height))
+    
+    if height > 10000 or width > 6000:
+        None.split() #create an error for too large files which we process manually
+    
+    #print ('  output will be {}x{}'.format(width, height))
 
     height_small = height / REMAP_DECIMATE
     width_small = width / REMAP_DECIMATE
-    
-    
+
     #print("TYPES: ", page_dims[0],(int(width_small)),int(page_dims[1]),int(height_small))
     
     page_x_range = np.linspace(0, page_dims[0], int(width_small))  #error => cast float to int
     page_y_range = np.linspace(0, page_dims[1], int(height_small)) #error => cast float to int
-    
 
     page_x_coords, page_y_coords = np.meshgrid(page_x_range, page_y_range)
 
@@ -852,21 +827,17 @@ def remap_image(name, img, small, page_dims, params):
                                 page_y_coords.flatten().reshape((-1, 1))))
 
     page_xy_coords = page_xy_coords.astype(np.float32)
-
     image_points = project_xy(page_xy_coords, params)
     image_points = norm2pix(img.shape, image_points, False)
-
     image_x_coords = image_points[:, 0, 0].reshape(page_x_coords.shape)
     image_y_coords = image_points[:, 0, 1].reshape(page_y_coords.shape)
 
     image_x_coords = cv2.resize(image_x_coords, (width, height),
                                 interpolation=cv2.INTER_CUBIC)
-
     image_y_coords = cv2.resize(image_y_coords, (width, height),
                                 interpolation=cv2.INTER_CUBIC)
-
     img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
+    
     remapped = cv2.remap(img_gray, image_x_coords, image_y_coords,
                          cv2.INTER_CUBIC,
                          None, cv2.BORDER_REPLICATE)
@@ -896,7 +867,6 @@ def dewarp_main(imgfile):
     img = cv2.imread(imgfile)
     small = resize_to_screen(img)
     
-    
     basename = os.path.basename(imgfile)
     name, _ = os.path.splitext(basename)
             
@@ -906,25 +876,24 @@ def dewarp_main(imgfile):
         debug_show(name, 0.0, 'original', small)
 
     pagemask, page_outline = get_page_extents(small)
-
     cinfo_list = get_contours(name, small, pagemask, 'text')
     spans = assemble_spans(name, small, pagemask, cinfo_list)
-    
+
     if len(spans) < 3:
-        #print('  detecting lines because only', len(spans), 'text spans')
+        #print ('  detecting lines because only', len(spans), 'text spans')
         cinfo_list = get_contours(name, small, pagemask, 'line')
         spans2 = assemble_spans(name, small, pagemask, cinfo_list)
+        
         if len(spans2) > len(spans):
             spans = spans2
 
     if len(spans) < 1:
-        #print('skipping', name, 'because only', len(spans), 'spans')
+        #print ('skipping', name, 'because only', len(spans), 'spans')
         sys.exit()
 
     span_points = sample_spans(small.shape, spans)
 
-    #print('  got', len(spans), 'spans','\nwith', sum([len(pts) for pts in span_points]), 'points.')
-
+    #print ('  got', len(spans), 'spans','\nwith', sum([len(pts) for pts in span_points]), 'points.')
 
     corners, ycoords, xcoords = keypoints_from_samples(name, small,
                                                        pagemask,
@@ -939,16 +908,18 @@ def dewarp_main(imgfile):
     params = optimize_params(name, small,
                              dstpoints,
                              span_counts, params)
+    
     page_dims = get_page_dims(corners, rough_dims, params)
 
     outfile = remap_image(name, img, small, page_dims, params)
 
     outfiles.append(outfile)
 
-    #print('  wrote', outfile)
+    #print ('  wrote', outfile)
+    #print("")
 
-    #print('to convert to PDF (requires ImageMagick):')
-    #print('  convert -compress Group4 ' + ' '.join(outfiles) + ' output.pdf')
+    #print ('to convert to PDF (requires ImageMagick):')
+    #print ('  convert -compress Group4 ' + ' '.join(outfiles) + ' output.pdf')
 
 def dewarp(name, img):
 
@@ -960,14 +931,14 @@ def dewarp(name, img):
     spans = assemble_spans(name, small, pagemask, cinfo_list)
 
     if len(spans) < 3:
-        #print('  detecting lines because only', len(spans), 'text spans')
+        #print ('  detecting lines because only', len(spans), 'text spans')
         cinfo_list = get_contours(name, small, pagemask, 'line')
         spans2 = assemble_spans(name, small, pagemask, cinfo_list)
         if len(spans2) > len(spans):
             spans = spans2
 
     if len(spans) < 1:
-        #print('skipping', name, 'because only', len(spans), 'spans')
+        #print ('skipping', name, 'because only', len(spans), 'spans')
         return None
 
     span_points = sample_spans(small.shape, spans)
@@ -1003,14 +974,14 @@ def is_curve(name, img):
     spans = assemble_spans(name, small, pagemask, cinfo_list)
 
     if len(spans) < 3:
-        #print('  detecting lines because only', len(spans), 'text spans')
+        #print ('  detecting lines because only', len(spans), 'text spans')
         cinfo_list = get_contours(name, small, pagemask, 'line')
         spans2 = assemble_spans(name, small, pagemask, cinfo_list)
         if len(spans2) > len(spans):
             spans = spans2
 
     if len(spans) < 1:
-        #print('skipping', name, 'because only', len(spans), 'spans')
+        #print ('skipping', name, 'because only', len(spans), 'spans')
         return None
 
     span_points = sample_spans(small.shape, spans)
@@ -1033,7 +1004,8 @@ def is_curve(name, img):
     if abs(params[0]) < 0.1 and abs(params[1]) < 0.1 and abs(params[2]) < 0.1:
         return True
     else:
-        #print(params[:8])
+        print(params[:8])
         return False
 
-
+if __name__ == '__main__':
+    dewarp_main()
