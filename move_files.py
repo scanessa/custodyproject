@@ -10,6 +10,8 @@ import os.path
 import re
 import glob
 import random
+from pdf2image import convert_from_path
+
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = ''
@@ -66,6 +68,23 @@ def true_file(files):
 def file_counter(path, searchkey):
     fileCount = len(glob.glob1(path,searchkey))   
     return fileCount
+
+def convert_to_img(path):
+    """ Convert PDF to into seperate JPG files."""
+
+    for file in glob.glob(path + '*.pdf'):
+        img_files = []
+        pages = convert_from_path(file, 300)
+        if len(pages) > 2:
+            pages = pages[-2:]
+        i = 1
+        pdf_name = ''.join(file.split('.')[:-1])
+        for page in pages:
+            image_name = pdf_name + '_pg' + str(i) + ".jpg"
+            page.save(image_name, "JPEG")
+            i = i+1
+            img_files.append(image_name)
+        os.remove(file)
          
 def newname(rootdir):
     """
@@ -114,9 +133,19 @@ def randomsample(rootdir, destination):
                 
                 allfiles = [x for x in os.listdir(dirpath) if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
-                if len(allfiles) > 4:
-                    filenames = random.sample(allfiles, 4)
+                if len(allfiles) > 15:
+                    filenames = random.sample(allfiles, 15)
+                    filenames = [os.path.join(dirpath, x) for x in filenames]
+                    copy_files(filenames, DESTINATION)
+                else:
+                    filenames = random.sample(allfiles, len(allfiles))
                     filenames = [os.path.join(dirpath, x) for x in filenames]
                     copy_files(filenames, DESTINATION)
 
-randomsample(ROOTDIR, DESTINATION)
+
+paths = glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/1/*.jpg")
+paths = random.sample(paths, 12)
+pdf_dir = "P:/2020/14/Kodning/Scans/ML_appendix/testing/1/"
+
+move_files(paths, error_paths, pdf_dir)
+

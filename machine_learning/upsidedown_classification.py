@@ -90,10 +90,10 @@ le.fit(train_labels)
 train_labels_encoded = le.transform(train_labels)
 
 #Split data into validate and train datasets (already split but assigning to meaningful convention)
-x_train, y_train, x_validation, y_validation = train_images, train_labels_encoded, validation_images, validation_labels_encoded
+X_train, y_train, X_valid, y_valid = train_images, train_labels_encoded, validation_images, validation_labels_encoded
 
 # Normalize pixel values to between 0 and 1
-x_train, x_validation = x_train / 255.0, x_validation / 255.0
+X_train, X_valid = X_train / 255.0, X_valid / 255.0
 
 #Load model without classifier/fully connected layers
 VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(SIZE, SIZE, 3))
@@ -106,7 +106,7 @@ VGG_model.summary()  #Trainable parameters will be 0
 
 
 #Now, let us use features from convolutional network for RF
-feature_extractor=VGG_model.predict(x_train)
+feature_extractor=VGG_model.predict(X_train)
 
 features = feature_extractor.reshape(feature_extractor.shape[0], -1)
 
@@ -118,7 +118,7 @@ model = xgb.XGBClassifier()
 model.fit(X_for_training, y_train) #For sklearn no one hot encoding
 
 #Send test data through same feature extractor process
-X_validation_feature = VGG_model.predict(x_validation)
+X_validation_feature = VGG_model.predict(X_valid)
 X_validation_features = X_validation_feature.reshape(X_validation_feature.shape[0], -1)
 
 #Now predict using the trained RF model. 
@@ -138,8 +138,8 @@ cm = confusion_matrix(validation_labels, prediction)
 sns.heatmap(cm, annot=True)
 
 #Check results on a few select images
-n=np.random.randint(0, x_validation.shape[0])
-img = x_validation[n]
+n=np.random.randint(0, X_valid.shape[0])
+img = X_valid[n]
 plt.imshow(img)
 input_img = np.expand_dims(img, axis=0) #Expand dims so the input is (num images, x, y, c)
 input_img_feature=VGG_model.predict(input_img)

@@ -144,6 +144,17 @@ countries = ['saknas', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'alg
 cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'bollnäs', 'borgholm', 'borlänge', 'borås', 'djursholm', 'eksjö', 'enköping', 'eskilstuna', 'eslöv', 'fagersta', 'falkenberg', 'falköping', 'falsterbo', 'falun', 'filipstad', 'flen', 'gothenburg', 'gränna', 'gävle', 'hagfors', 'halmstad', 'haparanda', 'hedemora', 'helsingborg', 'hjo', 'hudiksvall', 'huskvarna', 'härnösand', 'hässleholm', 'höganäs', 'jönköping', 'kalmar', 'karlshamn', 'karlskoga', 'karlskrona', 'karlstad', 'katrineholm', 'kiruna', 'kramfors', 'kristianstad', 'kristinehamn', 'kumla', 'kungsbacka', 'kungälv', 'köping', 'laholm', 'landskrona', 'lidingö', 'lidköping', 'lindesberg', 'linköping', 'ljungby', 'ludvika', 'luleå', 'lund', 'lycksele', 'lysekil', 'malmö', 'mariefred', 'mariestad', 'marstrand', 'mjölby', 'motala', 'nacka', 'nora', 'norrköping', 'norrtälje', 'nybro', 'nyköping', 'nynäshamn', 'nässjö', 'oskarshamn', 'oxelösund', 'piteå', 'ronneby', 'sala', 'sandviken', 'sigtuna', 'simrishamn', 'skanör', 'skanör med falsterbo', 'skara', 'skellefteå', 'skänninge', 'skövde', 'sollefteå', 'solna', 'stockholm', 'strängnäs', 'strömstad', 'sundbyberg', 'sundsvall', 'säffle', 'säter', 'sävsjö', 'söderhamn', 'söderköping', 'södertälje', 'sölvesborg', 'tidaholm', 'torshälla', 'tranås', 'trelleborg', 'trollhättan', 'trosa', 'uddevalla', 'ulricehamn', 'umeå', 'uppsala', 'vadstena', 'varberg', 'vaxholm', 'vetlanda', 'vimmerby', 'visby', 'vänersborg', 'värnamo', 'västervik', 'västerås', 'växjö', 'ystad', 'åmål', 'ängelholm', 'örebro', 'öregrund', 'örnsköldsvik', 'östersund', 'östhammar']
 cooperation_key = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
 contest_key = [['bestritt'], ['bestridit'], ['har','för','egen','del','yrkat'], ['har','istället','yrkat'],['som','slutligen','bestämt','i','sin','talan']]
+clean_general = {
+    '|':'',
+    'vårdera':'',
+    'vårdagen':'',
+    'gemen-sam':'gemensam',
+    'gemensamme':'xxx',
+    'gemensamma barn':'xxx',
+    'gemensamma dot':'xxx',
+    'gemensamma son':'xxx'
+    }
+
 
 defend_response = [['medge','agree'],['medgav','agree'],['bevilj','agree'],['bestr','contest'],['mots','contest']]
 defend_resp_dict = {
@@ -173,7 +184,7 @@ outcomes_key = ["vård", "umgänge", "boende"]
 
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
-party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'och', 'sökande']
+party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
 plaint_terms = [
     ['yrka','vård'], ['begär','vård'], ['väckt','vård'],
     ['yrka','boende'], ['begär','boende'], ['väckt','boende'],

@@ -35,7 +35,7 @@ from searchterms import reject_outcome, visitation_key, reject, exclude_phys, ph
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
-from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande
+from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general, clean_header
 
 from OCR import ocr_main
 
@@ -355,20 +355,15 @@ def clean_ocr(topwords, firstpage_form, fulltext_form):
 
 
 
-def clean_text(inp):
+def clean_text(inp, cleaning_dict):
     """
     Cleans text used as basis for remaining analysis to prevent false positives
     """
-    inp = re.sub('[.]\n\d, ', '. 9.', inp)
-    inp = inp.replace('|', '')
-    inp = inp.replace('vårdera', '')
-    inp = inp.replace('vårdagen', '')
-    inp = inp.replace('gemen-sam', 'gemensam')
-    for x in shared_child:
-        inp = inp.replace(x, "xxx")
-
+    
+    for noise, clean in cleaning_dict.items():
+        inp = inp.replace(noise, clean)
+    
     return inp
-
 
 
 def format_text(unformatted):
@@ -484,13 +479,21 @@ def word_classify(text, entity_req, strictness):
 
 
 def get_partyname(parties, part_for_name, use_ner):
+    """
+    Gets party (plaintiff, defendant) characteristics based on Swedish Bert NER for cases
+    where plaintiff and defendant are NOT labeled Kärande and Svarande
     
+    For cases where parties are clearly labeled Kärande or Svarande, code goes into else
+    """
     print_output("Part for name", part_for_name)
     print_output("Party names", word_classify(part_for_name, 'PER', 0))
+    p_name = None
     
     if use_ner:
         part_for_name = part_for_name.split("advokat")[0]
         p_name = word_classify(part_for_name, 'PER', 0.95)
+        
+    if p_name:
         p_name = p_name[0] #flattens list assuming only 1 name is in sentence
         name = [x['word'] for x in p_name]
         name = [x for x in name if x.lower() not in party_headings if not any([c in x.lower() for c in cities])]
@@ -507,7 +510,6 @@ def get_partyname(parties, part_for_name, use_ner):
 
 def get_party(parties, part_for_name, use_ner):
     """
-    Gets party (plaintiff, defendant) characteristics based on Swedish Bert NER
     Gets name based on similarity, to account for misspelled characters a match is 
     considered to be a string that needs max. 1 character swap to be equal to the name
     (in each of the elements of parties)
@@ -619,6 +621,18 @@ def get_response(fulltext, custodybattle):
     
 
 def get_custodybattle(fulltext):
+    """
+    Defines whether case is:
+        1) custodybattle where defendant agreed to plaint
+        2) custodybattle where defendant contested plaint
+        3) custodybattle with tvistat
+        4) shared application
+        5) none of the above found
+    
+    Will return no custodybattle found if the case does not include legal custody
+    
+    Returns casetype (see above) and sentence indicating custodybattle
+    """
     
     searchtext = fulltext.replace("YRKANDEN", "")
     for term in plaint_terms:  
@@ -1815,9 +1829,10 @@ def main(file, jpgs):
         correction = 0
         readable = 0
     
-    fulltext_form = clean_text(fulltext_form)
-    firstpage_form = clean_text(firstpage_form)
+    fulltext_form = clean_text(fulltext_form, clean_general)
+    firstpage_form = clean_text(firstpage_form, clean_general)
     header_form = get_header(firstpage_form)
+    header_form = clean_text(header_form, clean_header)
     plaint_og, plaint_first, plaint_no, plaint_lawyer,defend_og, defend_first, defend_no, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext_form, header_form)    
     fulltext_og, fulltext = format_text(fulltext_form)
     caseno, courtname, date, year = basic_caseinfo(file, topwords)

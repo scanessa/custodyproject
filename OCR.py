@@ -37,7 +37,7 @@ def pdf_to_jpg(pdf):
     """ Convert PDF to into seperate JPG files."""
 
     img_files = []
-    pages = convert_from_path(pdf, 350)
+    pages = convert_from_path(pdf, 300)
     i = 1
     pdf_name = ''.join(pdf.split('.')[:-1])
     for page in pages:
