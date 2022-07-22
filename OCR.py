@@ -11,16 +11,20 @@ import time
 import pytesseract
 import cv2
 import itertools
-from PIL import Image
-from pdf2image import convert_from_path
-#from signature_extractor import extract_signature
-from page_dewarp import dewarp_main
-from io import StringIO
 import pandas as pd
 import numpy as np
 
+from fpdf import FPDF
+from PIL import Image
+from pdf2image import convert_from_path
+from signature_extractor import extract_signature
+from page_dewarp import dewarp_main
+from io import StringIO
+from appendix_classification import predict
+
 os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
+pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
@@ -34,19 +38,36 @@ kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 
 
 def pdf_to_jpg(pdf):
-    """ Convert PDF to into seperate JPG files."""
+    """
+    Convert PDF to into seperate JPG files and classifies pages in appendix/court page
+    appendix = True if page is an appendix page
+    """
 
     img_files = []
-    pages = convert_from_path(pdf, 300)
+    appendix_files = []
     i = 1
-    pdf_name = ''.join(pdf.split('.')[:-1])
+    
+    pages = convert_from_path(pdf, 300)
+    pdf_name = ''.join(pdf.split('.pdf')[:-1])
+    
     for page in pages:
         image_name = pdf_name + '_pg' + str(i) + ".jpg"
         page.save(image_name, "JPEG")
-        i = i+1
-        img_files.append(image_name)
+        
+        print(image_name)
+        appendix = predict(image_name)
+        
+        if appendix:
+            appendix_files.append(appendix)
+        else:
+            img_files.append(image_name)
+            i = i+1
+            
+    if appendix_files:
+        pdf_converter.output(pdf_name + "_appendix.pdf", "F")
 
     return img_files
+
 
 
 
@@ -282,9 +303,9 @@ def ocr_main(file):
         img = cv2.imread(image)
         filename = ''.join(image.split('.')[:-1])
         if page_no == len(path)-1:
-            #fp = path[-1].split('\\')[0] + '/'
-            #fn = path[-1].split('\\')[1]
-            #extract_signature(fp, fn)
+            fp = path[-1].split('\\')[0] + '/'
+            fn = path[-1].split('\\')[1]
+            extract_signature(fp, fn)
             img = remove_color(image)
         if "Sodertorn" in filename:
             top, left, bot, right = detect_text(img)

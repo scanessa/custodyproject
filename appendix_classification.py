@@ -81,71 +81,63 @@ def resize_all(src, pklname, include, width=150, height=None):
         joblib.dump(data, pklname)
 
 #resize_all(src=data_path, pklname=base_name, width=width, include=include)
- 
-data = joblib.load(f'{base_name}_{width}x{width}px.pkl')
- 
-print('number of samples: ', len(data['data']))
-print('keys: ', list(data.keys()))
-print('description: ', data['description'])
-print('image shape: ', data['data'][0].shape)
-print('labels:', np.unique(data['label']))
- 
-Counter(data['label'])
 
-X = np.array(data['data'])
-y = np.array(data['label'])
-
-X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
-X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
-
-#Load model without classifier/fully connected layers
-VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
-
-#Make loaded layers as non-trainable. This is important as we want to work with pre-trained weights
-for layer in VGG_model.layers:
-	layer.trainable = False
+def train_model():
+    data = joblib.load(f'{base_name}_{width}x{width}px.pkl')
     
-VGG_model.summary()  #Trainable parameters will be 0
+    print('number of samples: ', len(data['data']))
+    print('keys: ', list(data.keys()))
+    print('description: ', data['description'])
+    print('image shape: ', data['data'][0].shape)
+    print('labels:', np.unique(data['label']))
+     
+    Counter(data['label'])
+    
+    X = np.array(data['data'])
+    y = np.array(data['label'])
+    
+    X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
+    X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
+    
+    #Load model without classifier/fully connected layers
+    VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
+    
+    #Make loaded layers as non-trainable. This is important as we want to work with pre-trained weights
+    for layer in VGG_model.layers:
+    	layer.trainable = False
+        
+    VGG_model.summary()  #Trainable parameters will be 0
+    
+    
+    #Now, let us use features from convolutional network for RF
+    feature_extractor=VGG_model.predict(X_train)
+    
+    features = feature_extractor.reshape(feature_extractor.shape[0], -1)
+    
+    X_for_training = features #This is our X input to RF
+    
+    #XGBOOST
+    model = xgb.XGBClassifier()
+    model.fit(X_for_training, y_train) #For sklearn no one hot encoding
+    
+    #Send test data through same feature extractor process
+    X_validation_feature = VGG_model.predict(X_valid)
+    X_validation_features = X_validation_feature.reshape(X_validation_feature.shape[0], -1)
+    
+    #Now predict using the trained RF model. 
+    prediction = model.predict(X_validation_features)
+    #Inverse le transform to get original label back. 
+    pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'wb'))
+    
+    #Print overall accuracy
+    print ("Accuracy = ", metrics.accuracy_score(y_valid, prediction))
+    
+    return VGG_model
 
-
-#Now, let us use features from convolutional network for RF
-feature_extractor=VGG_model.predict(X_train)
-
-features = feature_extractor.reshape(feature_extractor.shape[0], -1)
-
-X_for_training = features #This is our X input to RF
-
-#XGBOOST
-model = xgb.XGBClassifier()
-model.fit(X_for_training, y_train) #For sklearn no one hot encoding
-
-#Send test data through same feature extractor process
-X_validation_feature = VGG_model.predict(X_valid)
-X_validation_features = X_validation_feature.reshape(X_validation_feature.shape[0], -1)
-
-#Now predict using the trained RF model. 
-prediction = model.predict(X_validation_features)
-#Inverse le transform to get original label back. 
-
-#Print overall accuracy
-print ("Accuracy = ", metrics.accuracy_score(y_valid, prediction))
-
-#Confusion Matrix - verify accuracy of each class
-
-#cm = confusion_matrix(y_valid, prediction)
-#print(cm)
-#sns.heatmap(cm, annot=True)
-
-#Check results on a few select images
-n=np.random.randint(0, X_valid.shape[0])
-img = X_valid[n]
-plt.imshow(img)
-input_img = np.expand_dims(img, axis=0) #Expand dims so the input is (num images, x, y, c)
-input_img_feature=VGG_model.predict(input_img)
-input_img_features=input_img_feature.reshape(input_img_feature.shape[0], -1)
-
-
-def predict(img_path):
+def predict(img_path, VGG_model):
+    
+    model = pickle.load(open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'rb'))
+    
     im = imread(img_path)
     im = resize(im, (256, 256)) #[:,:,::-1]
     input_img = np.expand_dims(im, axis=0)
@@ -155,6 +147,8 @@ def predict(img_path):
     
     return prediction
 
+VGG_model = train_model()
+
 for file in glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/test_small/*.jpg"):
-    pred = predict(file)
+    pred = predict(file, VGG_model)
     print(file, pred)

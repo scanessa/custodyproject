@@ -35,7 +35,7 @@ from searchterms import reject_outcome, visitation_key, reject, exclude_phys, ph
 from searchterms import agreement_key, agreement_add, no_vard, agreement_excl, past, fastinfo_key
 from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key, reject_mainhearing
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
-from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general, clean_header
+from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 
 from OCR import ocr_main
 
@@ -1832,7 +1832,6 @@ def main(file, jpgs):
     fulltext_form = clean_text(fulltext_form, clean_general)
     firstpage_form = clean_text(firstpage_form, clean_general)
     header_form = get_header(firstpage_form)
-    header_form = clean_text(header_form, clean_header)
     plaint_og, plaint_first, plaint_no, plaint_lawyer,defend_og, defend_first, defend_no, defend_lawyer, defend_godman, casetype = get_plaint_defend(fulltext_form, header_form)    
     fulltext_og, fulltext = format_text(fulltext_form)
     caseno, courtname, date, year = basic_caseinfo(file, topwords)

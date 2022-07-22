@@ -1,5 +1,3 @@
-# https://youtu.be/2miw-69Xb0g
-
 """
 ORIGINAL CODE:
 @author: Sreenivas Bhattiprolu
