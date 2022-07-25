@@ -40,12 +40,13 @@ kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 def pdf_to_jpg(pdf):
     """
     Convert PDF to into seperate JPG files and classifies pages in appendix/court page
-    appendix = True if page is an appendix page
+    appendix = True if page is an appendix page, include i>1 in if statement because 
+    first page is never an appendix
     """
 
     img_files = []
-    appendix_files = []
     i = 1
+    appendix_files = False
     
     pages = convert_from_path(pdf, 300)
     pdf_name = ''.join(pdf.split('.pdf')[:-1])
@@ -54,20 +55,22 @@ def pdf_to_jpg(pdf):
         image_name = pdf_name + '_pg' + str(i) + ".jpg"
         page.save(image_name, "JPEG")
         
-        print(image_name)
         appendix = predict(image_name)
+        print(image_name, appendix)
         
-        if appendix:
-            appendix_files.append(appendix)
+        if appendix and i > 1:
+            pdf_converter.add_page()
+            pdf_converter.image(image_name,0,0,210,297)
+            appendix_files = True
+            os.remove(image_name)
         else:
             img_files.append(image_name)
-            i = i+1
-            
+        i = i+1
+
     if appendix_files:
         pdf_converter.output(pdf_name + "_appendix.pdf", "F")
 
     return img_files
-
 
 
 
@@ -292,20 +295,23 @@ def ocr_main(file):
     full_text = []
     header = []
     pdf = 0
+    
     if file.endswith('.pdf'):
         path = pdf_to_jpg(file)
         pdf = 1
+                
     elif file.endswith('.JPG') or file.endswith('.jpg'):
         path = []
         path.append(file)
 
     for page_no, image in enumerate(path):
+
         img = cv2.imread(image)
-        filename = ''.join(image.split('.')[:-1])
+        filename = ''.join(image.split('.jpg')[:-1])
         if page_no == len(path)-1:
-            fp = path[-1].split('\\')[0] + '/'
-            fn = path[-1].split('\\')[1]
-            extract_signature(fp, fn)
+            #fp = path[-1].split('\\')[0] + '/'
+            #fn = path[-1].split('\\')[1]
+            #extract_signature(fp, fn)
             img = remove_color(image)
         if "Sodertorn" in filename:
             top, left, bot, right = detect_text(img)
@@ -320,6 +326,7 @@ def ocr_main(file):
             cv2.imwrite(filename + 'straight.png', img)
             ocr_error = 'dewarp error'
         text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
+        #judge_small = judge_large = [""] # only to speed up testing docs
         
         if page_no == len(path)-1:
 
@@ -329,15 +336,16 @@ def ocr_main(file):
 
             judge_small = final_passage(judge_small)
             judge_large = final_passage(judge_large)
-
-        #judge_small = judge_large = [""] # only to speed up testing docs
+        
         full_text.append(text)
         header.append(text[:10])
 
         if pdf == 1:
             os.remove(filename + '.jpg')
             os.remove(filename + '_straight.png')
-
+    
+    print("FULLTEXT: ",full_text)
+    
     return full_text, judge_small, judge_large, ocr_error
 
-#ocr_main("P:/2020/14/Kodning/Scans/all_scans/Scan 22 Apr 2022 at 1116_pg2.jpg")
+#ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 29. Apr 2022 at 08.56 1_pg3.jpg")

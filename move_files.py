@@ -17,7 +17,7 @@ filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt'
 includes = ''
 ROOTDIR = 'P:/2020/14/Tingsratter/'
 INCLUDES = ["phone", "all_scans"]
-DESTINATION = "P:/2020/14/Kodning/Scans/all_scans/others/new"
+DESTINATION = "P:/2020/14/Kodning/Scans/ML_appendix/"
 
 error_paths = [] 
 
@@ -53,11 +53,11 @@ def copy_files(paths, pdf_dir):
         p = str(p.as_posix())
         try:
             shutil.copy(file,pdf_dir)
-        except:
+            print("Copied")
+        except Exception as e:
             errors += 1
-            print("Error: ",p)
+            print("Error: ",p,e)
     
-    print('%d files threw an error' %(errors))
     return errors
 
 def true_file(files):
@@ -75,8 +75,6 @@ def convert_to_img(path):
     for file in glob.glob(path + '*.pdf'):
         img_files = []
         pages = convert_from_path(file, 300)
-        if len(pages) > 2:
-            pages = pages[-2:]
         i = 1
         pdf_name = ''.join(file.split('.')[:-1])
         for page in pages:
@@ -130,7 +128,7 @@ def randomsample(rootdir, destination):
                     and not "1. Gemensamma dokument" in dirpath
                     
                 ):
-                
+                                
                 allfiles = [x for x in os.listdir(dirpath) if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
                 if len(allfiles) > 15:
@@ -143,9 +141,8 @@ def randomsample(rootdir, destination):
                     copy_files(filenames, DESTINATION)
 
 
-paths = glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/1/*.jpg")
-paths = random.sample(paths, 12)
-pdf_dir = "P:/2020/14/Kodning/Scans/ML_appendix/testing/1/"
-
-move_files(paths, error_paths, pdf_dir)
+allfiles = glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/remainder/*.jpg")
+filenames = random.sample(allfiles, 102)
+for file in filenames:
+    shutil.move(file,"P:/2020/14/Kodning/Scans/ML_appendix/0/")
 

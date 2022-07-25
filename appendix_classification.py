@@ -80,7 +80,6 @@ def resize_all(src, pklname, include, width=150, height=None):
  
         joblib.dump(data, pklname)
 
-#resize_all(src=data_path, pklname=base_name, width=width, include=include)
 
 def train_model():
     data = joblib.load(f'{base_name}_{width}x{width}px.pkl')
@@ -134,7 +133,11 @@ def train_model():
     
     return VGG_model
 
-def predict(img_path, VGG_model):
+def predict(img_path):
+    
+    VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
+    for layer in VGG_model.layers:
+    	layer.trainable = False
     
     model = pickle.load(open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'rb'))
     
@@ -145,10 +148,10 @@ def predict(img_path, VGG_model):
     input_img_features=input_img_feature.reshape(input_img_feature.shape[0], -1)
     prediction = model.predict(input_img_features)[0]
     
+    pred = True if prediction == 1 else False
+    
     return prediction
 
-VGG_model = train_model()
-
-for file in glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/test_small/*.jpg"):
-    pred = predict(file, VGG_model)
-    print(file, pred)
+#Execute
+#resize_all(src=data_path, pklname=base_name, width=width, include=include)
+#train_model()
