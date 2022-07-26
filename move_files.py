@@ -11,6 +11,7 @@ import re
 import glob
 import random
 from pdf2image import convert_from_path
+#from signature_extractor import extract_signature
 
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
@@ -53,7 +54,7 @@ def copy_files(paths, pdf_dir):
         p = str(p.as_posix())
         try:
             shutil.copy(file,pdf_dir)
-            print("Copied")
+            print("Copied to: ", pdf_dir)
         except Exception as e:
             errors += 1
             print("Error: ",p,e)
@@ -69,17 +70,29 @@ def file_counter(path, searchkey):
     fileCount = len(glob.glob1(path,searchkey))   
     return fileCount
 
-def convert_to_img(path):
-    """ Convert PDF to into seperate JPG files."""
+def convert_to_img(path, no_of_pages):
+    """
+    Convert PDF to into seperate JPG files
+    Input:
+    - path of target FOLDER
+    - no_of_pages = int of number of desired pages desired as images,
+      pages = pages[-(no_of_pages):] outputs last pages, change to pages = pages[:no_of_pages] for
+      first pages
+    
+    """
 
     for file in glob.glob(path + '*.pdf'):
         img_files = []
         pages = convert_from_path(file, 300)
+        
+        if len(pages) > no_of_pages:
+            pages = pages[-(no_of_pages):]
         i = 1
-        pdf_name = ''.join(file.split('.')[:-1])
+        pdf_name = ''.join(file.split('.pdf')[:-1])
         for page in pages:
             image_name = pdf_name + '_pg' + str(i) + ".jpg"
             page.save(image_name, "JPEG")
+            print(image_name)
             i = i+1
             img_files.append(image_name)
         os.remove(file)
@@ -109,7 +122,8 @@ def changename(rootdir):
     """
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         for file in files:
-            if includes in subdir and file.endswith('.JPG'):
+            print(subdir, file)
+            if includes in subdir and file.endswith('.jpg'):
                 file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("ö","o").replace("ü","u").replace("å","a")
                 print('OLD: ', os.path.join(subdir, file))
                 print('NEW: ', os.path.join(subdir, file_new))
@@ -134,15 +148,27 @@ def randomsample(rootdir, destination):
                 if len(allfiles) > 15:
                     filenames = random.sample(allfiles, 15)
                     filenames = [os.path.join(dirpath, x) for x in filenames]
-                    copy_files(filenames, DESTINATION)
+                    copy_files(filenames, destination)
                 else:
                     filenames = random.sample(allfiles, len(allfiles))
                     filenames = [os.path.join(dirpath, x) for x in filenames]
-                    copy_files(filenames, DESTINATION)
+                    copy_files(filenames, destination)
+                    
+                    
+def signature(path):
+    
+    split_path = path.split("\\")
+    
+    fp = split_path[0] + "/"
+    fn = split_path[1]
+    
+    print(fp,fn)
+    #extract_signature(fp, fn)
 
-
-allfiles = glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/remainder/*.jpg")
-filenames = random.sample(allfiles, 102)
-for file in filenames:
-    shutil.move(file,"P:/2020/14/Kodning/Scans/ML_appendix/0/")
-
+#randomsample(ROOTDIR, "P:/2020/14/Kodning/Scans/all_scans/100signatures/")
+#convert_to_img("P:/2020/14/Kodning/Scans/all_scans/100signatures/", 1)
+#for file in glob.glob("P:/2020/14/Kodning/Scans/all_scans/100signatures/*.jpg"):
+ #   signature(file)
+ 
+changename("P:/2020/14/Kodning/Scans/all_scans/100signatures/")
+ 

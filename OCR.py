@@ -56,7 +56,6 @@ def pdf_to_jpg(pdf):
         page.save(image_name, "JPEG")
         
         appendix = predict(image_name)
-        print(image_name, appendix)
         
         if appendix and i > 1:
             pdf_converter.add_page()
@@ -97,6 +96,7 @@ def detect_text(imread_img):
     left = confident_words_df["left"].min()
     bot = (confident_words_df["top"] + confident_words_df["height"]).max()
     right = (confident_words_df["left"] + confident_words_df["width"]).max()
+
     
     return top, left, bot, right
 
@@ -135,7 +135,14 @@ def get_text(filename):
     cv2.imwrite("rect.jpg", img)
     
     text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe", config = CONFIG_TEXTBODY)
-
+    
+    
+    ocr_data = pytesseract.image_to_data(img[top:bot+200, left:right, :], lang="swe", config='--psm 6')
+    ocr_df = pd.read_table(StringIO(ocr_data), quoting=3)
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
+        print(ocr_df)
+    
+    print(bot)
     return text
 
 
@@ -326,8 +333,9 @@ def ocr_main(file):
             cv2.imwrite(filename + 'straight.png', img)
             ocr_error = 'dewarp error'
         text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
-        #judge_small = judge_large = [""] # only to speed up testing docs
+        judge_small = judge_large = [""] # only to speed up testing docs
         
+        """
         if page_no == len(path)-1:
 
             last = cv2.imread(filename + '_straight.png')
@@ -336,7 +344,7 @@ def ocr_main(file):
 
             judge_small = final_passage(judge_small)
             judge_large = final_passage(judge_large)
-        
+        """
         full_text.append(text)
         header.append(text[:10])
 
@@ -348,4 +356,4 @@ def ocr_main(file):
     
     return full_text, judge_small, judge_large, ocr_error
 
-#ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 29. Apr 2022 at 08.56 1_pg3.jpg")
+ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 25. Apr 2022 at 15.36_pg1.jpg")

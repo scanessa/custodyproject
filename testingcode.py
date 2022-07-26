@@ -1,159 +1,201 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Jul 21 13:04:13 2022
+import numpy as np # linear algebra
+import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
 
-@author: ifau-SteCa
 
-This file uses a supervised machine learning algorithm (XGBoost) to classfiy whether a 
-page (image) is a court page (part of a case) or an appendix
-
-Code source:
-    - Loading data: https://kapernikov.com/tutorial-image-classification-with-scikit-learn/
-    - Split into train, validate, test: https://towardsdatascience.com/how-to-split-data-into-three-sets-train-validation-and-test-and-why-e50d22d3e54c
-"""
-
-import joblib
-from skimage.io import imread
-from skimage.transform import resize
 import os
-from collections import Counter
+import glob 
+
 import numpy as np
-from sklearn.model_selection import train_test_split
-from matplotlib import pyplot as plt
-from keras.applications.vgg16 import VGG16
-import seaborn as sns
-import pickle 
-from sklearn import metrics
-import xgboost as xgb
-from sklearn.metrics import confusion_matrix
-import glob
+import matplotlib.pyplot as plt
+import matplotlib.image as img
 
-base_name = 'casepg_appendix'
-width = 256
-include = {'0', '1'}
-data_path = "P:/2020/14/Kodning/Scans/ML_appendix/"
+import imageio
+import imgaug as ia
+from imgaug import augmenters as iaa
+import cv2
 
-def resize_all(src, pklname, include, width=150, height=None):
-    """
-    load images from path, resize them and write them as arrays to a dictionary, 
-    together with labels and metadata. The dictionary is written to a pickle file 
-    named '{pklname}_{width}x{height}px.pkl'.
-     
-    Parameter
-    ---------
-    src: str
-        path to data
-    pklname: str
-        path to output file
-    width: int
-        target width of the image in pixels
-    include: set[str]
-        set containing str
-    """
-     
-    height = height if height is not None else width
-     
-    data = dict()
-    data['description'] = 'resized ({0}x{1})animal images in rgb'.format(int(width), int(height))
-    data['label'] = []
-    data['filename'] = []
-    data['data'] = []   
-     
-    pklname = f"{pklname}_{width}x{height}px.pkl"
- 
-    # read all images in PATH, resize and write to DESTINATION_PATH
-    for subdir in os.listdir(src):
-        if subdir in include:
-            print(subdir)
-            current_path = os.path.join(src, subdir)
- 
-            for file in os.listdir(current_path):
-                if file[-3:] in {'jpg', 'png'}:
-                    im = imread(os.path.join(current_path, file))
-                    im = resize(im, (width, height)) #[:,:,::-1]
-                    
-                    print(int(subdir), file)
-                    
-                    data['label'].append(int(subdir))
-                    data['filename'].append(file)
-                    data['data'].append(im)
- 
-        joblib.dump(data, pklname)
+from keras.preprocessing import image
+from keras.models import Model, load_model
+from tensorflow.keras.optimizers import Adam
+from keras.callbacks import EarlyStopping, LearningRateScheduler, ModelCheckpoint
+from keras.layers import Input, Dense, Activation, BatchNormalization, Flatten, Conv2D, LeakyReLU
+from keras.layers import MaxPooling2D, Dropout, UpSampling2D
+from keras import regularizers
+import keras.backend as kb
+import zipfile
+# Input data files are available in the "../input/" directory.
+# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory
 
-#resize_all(src=data_path, pklname=base_name, width=width, include=include)
+import os
+for dirname, _, filenames in os.walk('/kaggle/input'):
+    for filename in filenames:
+        print(os.path.join(dirname, filename))
 
-def train_model():
-    data = joblib.load(f'{base_name}_{width}x{width}px.pkl')
-    
-    print('number of samples: ', len(data['data']))
-    print('keys: ', list(data.keys()))
-    print('description: ', data['description'])
-    print('image shape: ', data['data'][0].shape)
-    print('labels:', np.unique(data['label']))
-     
-    Counter(data['label'])
-    
-    X = np.array(data['data'])
-    y = np.array(data['label'])
-    
-    X_train, X_rem, y_train, y_rem = train_test_split(X,y, train_size=0.8)
-    X_valid, X_test, y_valid, y_test = train_test_split(X_rem,y_rem, test_size=0.5)
-    
-    #Load model without classifier/fully connected layers
-    VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
-    
-    #Make loaded layers as non-trainable. This is important as we want to work with pre-trained weights
-    for layer in VGG_model.layers:
-    	layer.trainable = False
+# Any results you write to the current directory are saved as output.
+
+plt.rcParams['figure.figsize'] = (10.0, 5.0) # set default size of plots
+
+zipfiles = ['train','test','train_cleaned', 'sampleSubmission.csv']
+
+for each_zip in zipfiles:
+    with zipfile.ZipFile("P:/2020/14/Kodning/Code/custodyproject/machine_learning/kaggle/input/denoising-dirty-documents/"+each_zip+".zip","r") as z:
+        z.extractall(".")
         
-    VGG_model.summary()  #Trainable parameters will be 0
-    
-    
-    #Now, let us use features from convolutional network for RF
-    feature_extractor=VGG_model.predict(X_train)
-    
-    features = feature_extractor.reshape(feature_extractor.shape[0], -1)
-    
-    X_for_training = features #This is our X input to RF
-    
-    #XGBOOST
-    model = xgb.XGBClassifier()
-    model.fit(X_for_training, y_train) #For sklearn no one hot encoding
-    
-    #Send test data through same feature extractor process
-    X_validation_feature = VGG_model.predict(X_valid)
-    X_validation_features = X_validation_feature.reshape(X_validation_feature.shape[0], -1)
-    
-    #Now predict using the trained RF model. 
-    prediction = model.predict(X_validation_features)
-    #Inverse le transform to get original label back. 
-    pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'wb'))
-    
-    #Print overall accuracy
-    print ("Accuracy = ", metrics.accuracy_score(y_valid, prediction))
-    
-    return VGG_model
-
-def predict(img_path):
-    
-    VGG_model = VGG16(weights='imagenet', include_top=False, input_shape=(256, 256, 3))
-    
-    #Make loaded layers as non-trainable. This is important as we want to work with pre-trained weights
-    for layer in VGG_model.layers:
-    	layer.trainable = False
-    
-    model = pickle.load(open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'rb'))
-    
-    im = imread(img_path)
-    im = resize(im, (256, 256)) #[:,:,::-1]
-    input_img = np.expand_dims(im, axis=0)
-    input_img_feature=VGG_model.predict(input_img)
-    input_img_features=input_img_feature.reshape(input_img_feature.shape[0], -1)
-    prediction = model.predict(input_img_features)[0]
-    
-    return prediction
+        
 
 
-for file in glob.glob("P:/2020/14/Kodning/Scans/ML_appendix/test_small/*.jpg"):
-    pred = predict(file)
-    print(file, pred)
+bsb = img.imread('P:/2020/14/Kodning/Code/custodyproject/machine_learning/kaggle/input/working/train/216.png')
+# test = img.imread('../kaggle/working/test/1.png')
+plt.imshow(bsb, cmap=plt.cm.gray)
+
+
+
+target_width = 540
+target_height = 420
+
+def load_image_from_dir(img_path):
+    file_list = glob.glob(img_path+'/*.png')
+    file_list.sort()
+    img_list = np.empty((len(file_list), target_height, target_width, 1))
+    for i, fig in enumerate(file_list):
+        img = image.load_img(fig, color_mode='grayscale', target_size=(target_height, target_width))
+        img_array = image.img_to_array(img).astype('float32')
+        img_array = img_array / 255.0
+        img_list[i] = img_array
+        print(img_list)
+    
+    return img_list
+
+def train_test_split(data,random_seed=55,split=0.75):
+    set_rdm = np.random.RandomState(seed=random_seed)
+    dsize = len(data)
+    ind = set_rdm.choice(dsize,dsize,replace=False)
+    train_ind = ind[:int(0.75*dsize)]
+    val_ind = ind[int(0.75*dsize):]
+    return data[train_ind],data[val_ind]
+
+def augment_pipeline(pipeline, images, seed=5):
+    ia.seed(seed)
+    processed_images = images.copy()
+    for step in pipeline:
+        temp = np.array(step.augment_images(images))
+        processed_images = np.append(processed_images, temp, axis=0)
+    return(processed_images)
+
+
+full_train = load_image_from_dir('P:/2020/14/Kodning/Code/custodyproject/machine_learning/kaggle/input/working/train')
+full_target = load_image_from_dir('P:/2020/14/Kodning/Code/custodyproject/machine_learning/kaggle/input/working/train_cleaned')
+
+
+rotate90 = iaa.Rot90(1) # rotate image 90 degrees
+rotate180 = iaa.Rot90(2) # rotate image 180 degrees
+rotate270 = iaa.Rot90(3) # rotate image 270 degrees
+random_rotate = iaa.Rot90((1,3)) # randomly rotate image from 90,180,270 degrees
+perc_transform = iaa.PerspectiveTransform(scale=(0.02, 0.1)) # Skews and transform images without black bg
+rotate10 = iaa.Affine(rotate=(10)) # rotate image 10 degrees
+rotate10r = iaa.Affine(rotate=(-10)) # rotate image 30 degrees in reverse
+crop = iaa.Crop(px=(5, 32)) # Crop between 5 to 32 pixels
+hflip = iaa.Fliplr(1) # horizontal flips for 100% of images
+vflip = iaa.Flipud(1) # vertical flips for 100% of images
+gblur = iaa.GaussianBlur(sigma=(1, 1.5)) # gaussian blur images with a sigma of 1.0 to 1.5
+motionblur = iaa.MotionBlur(8) # motion blur images with a kernel size 8
+
+seq_rp = iaa.Sequential([
+    iaa.Rot90((1,3)), # randomly rotate image from 90,180,270 degrees
+    iaa.PerspectiveTransform(scale=(0.02, 0.1)) # Skews and transform images without black bg
+])
+
+seq_cfg = iaa.Sequential([
+    iaa.Crop(px=(5, 32)), # crop images from each side by 5 to 32px (randomly chosen)
+    iaa.Fliplr(0.5), # horizontally flip 50% of the images
+    iaa.GaussianBlur(sigma=(0, 1.5)) # blur images with a sigma of 0 to 1.5
+])
+
+seq_fm = iaa.Sequential([
+    iaa.Flipud(1), # vertical flips all the images
+    iaa.MotionBlur(k=6) # motion blur images with a kernel size 6
+])
+
+
+pipeline = []
+pipeline.append(rotate90)
+pipeline.append(rotate180)
+pipeline.append(rotate270)
+pipeline.append(random_rotate)
+pipeline.append(perc_transform)
+pipeline.append(rotate10)
+pipeline.append(rotate10r)
+pipeline.append(crop)
+pipeline.append(hflip)
+pipeline.append(vflip)
+pipeline.append(gblur)
+pipeline.append(motionblur)
+pipeline.append(seq_rp)
+pipeline.append(seq_cfg)
+pipeline.append(seq_fm)
+
+processed_train = augment_pipeline(pipeline, full_train.reshape(-1,target_height,target_width))
+processed_target = augment_pipeline(pipeline, full_target.reshape(-1,target_height,target_width))
+
+processed_train = processed_train.reshape(-1,target_height,target_width,1)
+processed_target = processed_target.reshape(-1,target_height,target_width,1)
+
+print(processed_train.shape)
+
+
+### Multi layer auto encoder with LeakyRelu and Normalization
+input_layer = Input(shape=(None,None,1))
+
+# encoder
+e = Conv2D(32, (3, 3), padding='same')(input_layer)
+e = LeakyReLU(alpha=0.3)(e)
+e = BatchNormalization()(e)
+e = Conv2D(64, (3, 3), padding='same')(e)
+e = LeakyReLU(alpha=0.3)(e)
+e = BatchNormalization()(e)
+e = Conv2D(64, (3, 3), padding='same')(e)
+e = LeakyReLU(alpha=0.3)(e)
+e = MaxPooling2D((2, 2), padding='same')(e)
+
+# decoder
+d = Conv2D(64, (3, 3), padding='same')(e)
+d = LeakyReLU(alpha=0.3)(d)
+d = BatchNormalization()(d)
+
+d = Conv2D(64, (3, 3), padding='same')(d)
+d = LeakyReLU(alpha=0.3)(d)
+# e = BatchNormalization()(e)
+d = UpSampling2D((2, 2))(d)
+d = Conv2D(32, (3, 3), padding='same')(d)
+d = LeakyReLU(alpha=0.2)(d)
+# d = Conv2D(128, (3, 3), padding='same')(d)
+output_layer = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(d)
+
+# optimizer = Adam(lr=1e-4, decay=7e-6)
+optimizer = Adam(lr=9e-4, decay=1e-5)
+AEmodel = Model(input_layer,output_layer)
+AEmodel.compile(loss='mse', optimizer=optimizer)
+AEmodel.summary()
+
+early_stopping = EarlyStopping(monitor='val_loss',
+                               min_delta=0,
+                               patience=10,
+                               verbose=1, 
+                               mode='auto')
+
+checkpoint1 = ModelCheckpoint('best_val_loss.h5',
+                             monitor='val_loss',
+                             save_best_only=True)
+
+checkpoint2 = ModelCheckpoint('best_loss.h5',
+                             monitor='loss',
+                             save_best_only=True)
+
+
+
+history = AEmodel.fit(processed_train, processed_target,
+                      batch_size=16, epochs=300, verbose=1,callbacks=[early_stopping, checkpoint2])
+
+
+AEmodel.save('P:/2020/14/Kodning/Code/custodyproject/machine_learning/kaggle/AutoEncoderModelFull.h5')
+
