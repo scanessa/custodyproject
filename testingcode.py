@@ -85,16 +85,15 @@ def main_ocr(image):
     filename = filename +'_clean'
     dewarp_main(filename + '.jpg')
     
-    """
+    
     name = image.split(".", 2)
-    with open("P:/2020/14/Kodning/Scans/all_scans/"+name[0]+".txt", "w") as file:
-        file.write("_____"+image+"_______")
+    
+    with open(name[0]+".txt", "w") as file:
+        file.write("_____"+image+"_______\n")
         text = get_text(filename + '_straight.png')
         file.write(text)
-        file.write("_____"+image+"_______")
-        print(image)
         file.close()
-    """
+    
 
 
 
