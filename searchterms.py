@@ -22,14 +22,13 @@ OCR_CORR = {
     }
 
 #Define search terms
-allLetters = '[A-ZÅÐÄÖÉÜÆØÞ][a-zåäáïüóöéæøßþîčćžđšžůúýëçâêè]'
+allLetters = '[A-ZÅÐÄÖÉÜÆ][a-zåäáïüóöéæøßîčćžđšžůúýëçâêè]'
 appeal = 'ÖVERKLAG|Överklag|överklag'
 appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
 citizen = 'medbor[a-z]*\s*i\s*[a-z]*'
 
 id_pattern ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
-name_pattern = '([A-z ]+),\s*\d{6,10}'
 
 
 caseno_search = {
@@ -131,7 +130,9 @@ ruling_search = {
     '1':'\n\s*\n\s*[A-ZÅÄÖ., ]{3,}\s*\n',
     '2':'YRKANDEN',
     '3':'\nYrkanden',
-    '4':'\n\s*[A-ZÅÄÖ., ]{4,}\s*\n'
+    '4': 'rkanden m.m.',
+    '5':'\n\s*[A-ZÅÄÖ., ]{4,}\s*\n',
+    '6': 'SAKEN'
     }
 
 #Define keys for simple word search
@@ -144,6 +145,7 @@ countries = ['saknas', 'u.s.a.', 'u.s.a', 'usa', 'afghanistan', 'albanien', 'alg
 cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'bollnäs', 'borgholm', 'borlänge', 'borås', 'djursholm', 'eksjö', 'enköping', 'eskilstuna', 'eslöv', 'fagersta', 'falkenberg', 'falköping', 'falsterbo', 'falun', 'filipstad', 'flen', 'gothenburg', 'gränna', 'gävle', 'hagfors', 'halmstad', 'haparanda', 'hedemora', 'helsingborg', 'hjo', 'hudiksvall', 'huskvarna', 'härnösand', 'hässleholm', 'höganäs', 'jönköping', 'kalmar', 'karlshamn', 'karlskoga', 'karlskrona', 'karlstad', 'katrineholm', 'kiruna', 'kramfors', 'kristianstad', 'kristinehamn', 'kumla', 'kungsbacka', 'kungälv', 'köping', 'laholm', 'landskrona', 'lidingö', 'lidköping', 'lindesberg', 'linköping', 'ljungby', 'ludvika', 'luleå', 'lund', 'lycksele', 'lysekil', 'malmö', 'mariefred', 'mariestad', 'marstrand', 'mjölby', 'motala', 'nacka', 'nora', 'norrköping', 'norrtälje', 'nybro', 'nyköping', 'nynäshamn', 'nässjö', 'oskarshamn', 'oxelösund', 'piteå', 'ronneby', 'sala', 'sandviken', 'sigtuna', 'simrishamn', 'skanör', 'skanör med falsterbo', 'skara', 'skellefteå', 'skänninge', 'skövde', 'sollefteå', 'solna', 'stockholm', 'strängnäs', 'strömstad', 'sundbyberg', 'sundsvall', 'säffle', 'säter', 'sävsjö', 'söderhamn', 'söderköping', 'södertälje', 'sölvesborg', 'tidaholm', 'torshälla', 'tranås', 'trelleborg', 'trollhättan', 'trosa', 'uddevalla', 'ulricehamn', 'umeå', 'uppsala', 'vadstena', 'varberg', 'vaxholm', 'vetlanda', 'vimmerby', 'visby', 'vänersborg', 'värnamo', 'västervik', 'västerås', 'växjö', 'ystad', 'åmål', 'ängelholm', 'örebro', 'öregrund', 'örnsköldsvik', 'östersund', 'östhammar']
 cooperation_key = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
 contest_key = [['bestritt'], ['bestridit'], ['har','för','egen','del','yrkat'], ['har','istället','yrkat'],['som','slutligen','bestämt','i','sin','talan']]
+
 clean_general = {
     '|':'',
     'vårdera':'',
@@ -152,9 +154,35 @@ clean_general = {
     'gemensamme':'xxx',
     'gemensamma barn':'xxx',
     'gemensamma dot':'xxx',
-    'gemensamma son':'xxx'
+    'gemensamma son':'xxx',
+    'OMSLUT':'DOMSLUT',
+    'MSLUT':'DOMSLUT',
+    '\nSLUT':'DOMSLUT',
+    'omslut':'Domslut',
+    '\nsvarande\n':'\n Svarande \n',
+    '\nvarande\n':'\n Svarande \n',
+    '«':'',
+    '\'':'',
+    '”':'',
+    '\"':''
     }
-
+clean_partyname = {
+    'Sökande':'',
+    'Motpart':'',
+    'Hustrun':'',
+    'Mannen':'',
+    'Kärande':'',
+    'Svarande':'',
+    'och':'',
+    ')':',',
+    'Gensvarande':',',
+    ')':','
+    }
+clean_header = {
+    '.':',',
+    '$':'s',
+    '\nbud:':'\n ombud:'
+    }
 
 defend_response = [['medge','agree'],['medgav','agree'],['bevilj','agree'],['bestr','contest'],['mots','contest']]
 defend_resp_dict = {
@@ -176,6 +204,11 @@ legalguardian_terms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel'
 
 mainhearing_key = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , ' förhör ', 
                    'tingsrättens förhandling','huvud- förhandling' ]
+name_pattern = {
+    '1':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ]+),\s*\d{6,10}',
+    '2':'([A-ZÅÐÄÖÉÜ]\D+)[,|(]\s+',
+    '3':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ]+[A-ZÅÐÄÖÉÜÆ][a-zåäáïüóöéæøßîčćžđšžůúýëçâêè]+)[\n]'
+    }
 
 nocontant = ['någon', 'inte']
 no_vard = ['umgänge', 'boende', ' bo ']
@@ -194,7 +227,8 @@ plaint_terms = [
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
 physicalcust = ['boende','bo tillsammans',' bo ',' ska ','bosatt']
-party_split = r'\s(?=\w+VARANDE|Svarande|svarande|Ombud|Ställföreträdare|ÖKANDE|ökande|Hustrun)'
+party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|\\\
+    tällföreträdare|ÖKANDE|ökande|Hustrun|HUSTRUN|Mannen|MANNEN)'
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
@@ -202,15 +236,13 @@ reject = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarst�
 reject_invest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
 reject_outcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
 reject_mainhearing = ['skulle ', 'utan', ' ingen', 'inför huvudförhandling']
-
-
 remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
 
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
 
 shared_child = ['gemensamme','gemensamma barn','gemensamma dot','gemensamma son']
-svarande_karande = ['varande','VARANDE','ÄRANDE','ärande']
+svarande_karande = ['varande','VARANDE','ÄRANDE','ärande','Svarande','SVARANDE','KÄRANDE','Kärande']
 
 unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','för','februari',
                        'ges','ha','hovrätt','hovrätten',

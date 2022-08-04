@@ -15,9 +15,8 @@ from pdf2image import convert_from_path
 
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
-includes = ''
+includes = 'all_scans'
 ROOTDIR = 'P:/2020/14/Tingsratter/'
-INCLUDES = ["phone", "all_scans"]
 DESTINATION = "P:/2020/14/Kodning/Scans/ML_appendix/"
 
 error_paths = [] 
@@ -113,7 +112,7 @@ def newname(rootdir):
                 file_new = court + counter + '.JPG'
                 print('OLD: ', os.path.join(subdir, file))
                 print('NEW: ', os.path.join(subdir, file_new))
-                os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
+                #os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
                 existing += 1
                 
 def changename(rootdir):
@@ -122,8 +121,7 @@ def changename(rootdir):
     """
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         for file in files:
-            print(subdir, file)
-            if includes in subdir and file.endswith('.jpg'):
+            if includes in subdir:
                 file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("ö","o").replace("ü","u").replace("å","a")
                 print('OLD: ', os.path.join(subdir, file))
                 print('NEW: ', os.path.join(subdir, file_new))
@@ -135,6 +133,9 @@ def randomsample(rootdir, destination):
     for rootdir, dirs, files in os.walk(rootdir):
         for subdir in dirs:
             dirpath = os.path.join(rootdir, subdir)
+            
+            print(dirpath)
+            
             if (
                     "phone" in dirpath
                     and not "1. Gemensamma dokument" in dirpath
@@ -145,8 +146,8 @@ def randomsample(rootdir, destination):
                                 
                 allfiles = [x for x in os.listdir(dirpath) if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
-                if len(allfiles) > 15:
-                    filenames = random.sample(allfiles, 15)
+                if len(allfiles) > 10:
+                    filenames = random.sample(allfiles, 10)
                     filenames = [os.path.join(dirpath, x) for x in filenames]
                     copy_files(filenames, destination)
                 else:
@@ -165,10 +166,5 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-#randomsample(ROOTDIR, "P:/2020/14/Kodning/Scans/all_scans/100signatures/")
-#convert_to_img("P:/2020/14/Kodning/Scans/all_scans/100signatures/", 1)
-#for file in glob.glob("P:/2020/14/Kodning/Scans/all_scans/100signatures/*.jpg"):
- #   signature(file)
- 
-changename("P:/2020/14/Kodning/Scans/all_scans/100signatures/")
- 
+    
+

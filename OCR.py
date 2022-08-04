@@ -17,12 +17,10 @@ import numpy as np
 from fpdf import FPDF
 from PIL import Image
 from pdf2image import convert_from_path
-from signature_extractor import extract_signature
 from page_dewarp import dewarp_main
 from io import StringIO
 from appendix_classification import predict
 
-os.chdir('P:/2020/14/Kodning/Scans/all_scans')
 start_time = time.time()
 pdf_converter = FPDF()
 
@@ -43,11 +41,12 @@ def pdf_to_jpg(pdf):
     appendix = True if page is an appendix page, include i>1 in if statement because 
     first page is never an appendix
     """
-
+        
     img_files = []
+    appendix_pages = 0
+    ocr_error = ''
     i = 1
     appendix_files = False
-    
     pages = convert_from_path(pdf, 300)
     pdf_name = ''.join(pdf.split('.pdf')[:-1])
     
@@ -55,21 +54,33 @@ def pdf_to_jpg(pdf):
         image_name = pdf_name + '_pg' + str(i) + ".jpg"
         page.save(image_name, "JPEG")
         
+        
         appendix = predict(image_name)
         
-        if appendix and i > 1:
+        if (
+                appendix and i > 1
+                or appendix and len(pages) == 1
+                ):
+            
             pdf_converter.add_page()
             pdf_converter.image(image_name,0,0,210,297)
             appendix_files = True
             os.remove(image_name)
+            appendix_pages += 1
         else:
             img_files.append(image_name)
+        
+        
+        if appendix_pages == len(pages):
+                ocr_error = 'appendix'
+        
+        
         i = i+1
-
+        
     if appendix_files:
         pdf_converter.output(pdf_name + "_appendix.pdf", "F")
 
-    return img_files
+    return img_files, ocr_error
 
 
 
@@ -97,7 +108,7 @@ def detect_text(imread_img):
     bot = (confident_words_df["top"] + confident_words_df["height"]).max()
     right = (confident_words_df["left"] + confident_words_df["width"]).max()
 
-    
+
     return top, left, bot, right
 
 
@@ -112,14 +123,15 @@ def reduce_noise(imread_img, filename):
     
     Notes:
         - If median fails, use opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel)
+        - Thresh at 130 because with 127 defend ID in Dom T 256-99 not read correctly
 
     """
 
     gray = cv2.cvtColor(imread_img,cv2.COLOR_BGR2GRAY)
-    ret,thresh = cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+    ret,thresh = cv2.threshold(gray,130,255,cv2.THRESH_BINARY)
     median = cv2.medianBlur(thresh, 3)
 
-    cv2.imwrite(filename + '.jpg', median)
+    cv2.imwrite(filename + '_clean.jpg', median)
 
 
 
@@ -130,19 +142,8 @@ def get_text(filename):
     """
     img = cv2.imread(filename)
     top, left, bot, right = detect_text(img)
-    
-    cv2.rectangle(img, (left,top),(right,bot),(10,100,0),2)
-    cv2.imwrite("rect.jpg", img)
-    
     text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe", config = CONFIG_TEXTBODY)
-    
-    
-    ocr_data = pytesseract.image_to_data(img[top:bot+200, left:right, :], lang="swe", config='--psm 6')
-    ocr_df = pd.read_table(StringIO(ocr_data), quoting=3)
-    with pd.option_context('display.max_rows', None, 'display.max_columns', None):
-        print(ocr_df)
-    
-    print(bot)
+
     return text
 
 
@@ -299,43 +300,44 @@ def final_passage(lastpage):
 
 def ocr_main(file):
     """Main function gets OCR'ed text from bounding boxes and saves to strings."""
+    
     full_text = []
+    judge_small = judge_large = ['']
     header = []
+    ocr_error = ''
     pdf = 0
     
+    directory = '/'.join(file.split("\\")[:-1]) + '/'
+    
+    os.chdir(directory)
+    
     if file.endswith('.pdf'):
-        path = pdf_to_jpg(file)
+        path, ocr_error = pdf_to_jpg(file)
         pdf = 1
-                
     elif file.endswith('.JPG') or file.endswith('.jpg'):
         path = []
         path.append(file)
-
+        
     for page_no, image in enumerate(path):
-
         img = cv2.imread(image)
         filename = ''.join(image.split('.jpg')[:-1])
         if page_no == len(path)-1:
-            #fp = path[-1].split('\\')[0] + '/'
-            #fn = path[-1].split('\\')[1]
-            #extract_signature(fp, fn)
             img = remove_color(image)
         if "Sodertorn" in filename:
             top, left, bot, right = detect_text(img)
             img = img[top:bot,left:right]
-        
 
         reduce_noise(img, filename)
+        filename = filename +'_clean'
+
         try:
             dewarp_main(filename + '.jpg')
-            ocr_error = ''
         except:
-            cv2.imwrite(filename + 'straight.png', img)
+            cv2.imwrite(filename + '_straight.png', img)
             ocr_error = 'dewarp error'
-        text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
-        judge_small = judge_large = [""] # only to speed up testing docs
         
-        """
+        text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
+        
         if page_no == len(path)-1:
 
             last = cv2.imread(filename + '_straight.png')
@@ -344,16 +346,15 @@ def ocr_main(file):
 
             judge_small = final_passage(judge_small)
             judge_large = final_passage(judge_large)
-        """
+
         full_text.append(text)
         header.append(text[:10])
 
         if pdf == 1:
             os.remove(filename + '.jpg')
             os.remove(filename + '_straight.png')
-    
-    print("FULLTEXT: ",full_text)
-    
+            os.remove(filename.strip('_clean') + '.jpg')
+        
     return full_text, judge_small, judge_large, ocr_error
 
-ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 25. Apr 2022 at 15.36_pg1.jpg")
+#ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 25. Apr 2022 at 15.36_pg1.jpg")

@@ -847,7 +847,7 @@ def remap_image(name, img, small, page_dims, params):
 
     pil_image = Image.fromarray(thresh)
     pil_image = pil_image.convert('1')
-
+        
     threshfile = name + '_straight.png'
     pil_image.save(threshfile, dpi=(OUTPUT_DPI, OUTPUT_DPI))
 
@@ -862,6 +862,7 @@ def remap_image(name, img, small, page_dims, params):
 
 
 def dewarp_main(imgfile):
+    
     outfiles = []
         
     img = cv2.imread(imgfile)
