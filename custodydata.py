@@ -78,8 +78,8 @@ COUNT = 1
 
 SAVE = 1
 PRINT = 0
-FULLSAMPLE = 0
-APPEND = 0
+FULLSAMPLE = 1
+APPEND = 1
 
 #Specify folders to search PDFs in
 if FULLSAMPLE == 1: #to create actual dataset
@@ -89,7 +89,7 @@ if FULLSAMPLE == 1: #to create actual dataset
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
     EXCLUDE = set(['Sodertorns', 'Örebro'])
     INCLUDE = set(['all_scans'])
-    LAST = ''
+    LAST = 'P:/2020/14/Tingsratter/Attunda\\Domar\\all_scans\\Scan_17_Jun_2022_at_14.30.pdf'
 
 else: #for testing and debugging
     ROOTDIR = "P:/2020/14/Kodning/Scans/"
@@ -2001,10 +2001,7 @@ if LAST:
 pics = cases_from_imgs()
 
 
-with Pool(60) as p:
-    p.map(main, files)
 
-"""
 #For scanned pdfs
 for file in files:
     flag = []
@@ -2034,7 +2031,7 @@ for file in files:
 
     else:
         main(file, jpgs)
-"""
+
         
         
 #For scans as photos (jpgs)

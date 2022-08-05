@@ -303,7 +303,6 @@ def ocr_main(file):
     
     full_text = []
     judge_small = judge_large = ['']
-    header = []
     ocr_error = ''
     pdf = 0
     
@@ -348,7 +347,6 @@ def ocr_main(file):
             judge_large = final_passage(judge_large)
 
         full_text.append(text)
-        header.append(text[:10])
 
         if pdf == 1:
             os.remove(filename + '.jpg')
