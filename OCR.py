@@ -13,13 +13,15 @@ import cv2
 import itertools
 import pandas as pd
 import numpy as np
+import glob
 
 from fpdf import FPDF
 from PIL import Image
 from pdf2image import convert_from_path
 from page_dewarp import dewarp_main
 from io import StringIO
-from appendix_classification import predict
+from multiprocessing import Pool
+from collections import defaultdict
 
 start_time = time.time()
 pdf_converter = FPDF()
@@ -51,34 +53,12 @@ def pdf_to_jpg(pdf):
     pdf_name = ''.join(pdf.split('.pdf')[:-1])
     
     for page in pages:
-        image_name = pdf_name + '_pg' + str(i) + ".jpg"
+        image_name = pdf_name + '--pg' + str(i) + ".jpg"
         page.save(image_name, "JPEG")
         
-        
-        appendix = predict(image_name)
-        
-        if (
-                appendix and i > 1
-                or appendix and len(pages) == 1
-                ):
-            
-            pdf_converter.add_page()
-            pdf_converter.image(image_name,0,0,210,297)
-            appendix_files = True
-            os.remove(image_name)
-            appendix_pages += 1
-        else:
-            img_files.append(image_name)
-        
-        
-        if appendix_pages == len(pages):
-                ocr_error = 'appendix'
-        
+        img_files.append(image_name)
         
         i = i+1
-        
-    if appendix_files:
-        pdf_converter.output(pdf_name + "_appendix.pdf", "F")
 
     return img_files, ocr_error
 
@@ -113,7 +93,7 @@ def detect_text(imread_img):
 
 
 
-def reduce_noise(imread_img, filename):
+def reduce_noise(image):
     """
     Applies a binary threshold to reduce noise in the form of text shining
     through from the next page
@@ -126,12 +106,13 @@ def reduce_noise(imread_img, filename):
         - Thresh at 130 because with 127 defend ID in Dom T 256-99 not read correctly
 
     """
-
-    gray = cv2.cvtColor(imread_img,cv2.COLOR_BGR2GRAY)
+    filename = ''.join(image.split('.jpg')[:-1])
+    img = cv2.imread(image)    
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     ret,thresh = cv2.threshold(gray,130,255,cv2.THRESH_BINARY)
     median = cv2.medianBlur(thresh, 3)
 
-    cv2.imwrite(filename + '_clean.jpg', median)
+    cv2.imwrite(filename + '--clean.jpg', median)
 
 
 
@@ -173,9 +154,7 @@ def remove_color(image):
     im = Image.merge('RGB', (R, R, R))
     im.save(image)
     
-    imread_img = cv2.imread(image)
-
-    return imread_img
+    return im
 
 
 
@@ -298,61 +277,119 @@ def final_passage(lastpage):
 
 
 
-def ocr_main(file):
-    """Main function gets OCR'ed text from bounding boxes and saves to strings."""
+def ocr_img(image):
+    remove_color(image)
+    reduce_noise(image)
+    filename = ''.join(image.split('.jpg')[:-1])
+    filename = filename +'--clean'
+    dewarp_main(filename + '.jpg')
+
+    name = image.split(".", 2)
+    with open(name[0]+".txt", "w") as file:
+        file.write("\n__newpage__\n")
+        text = get_text(filename + '--straight.png')
+        file.write(text)
+        file.close()
+
+
+
+def judge_dets(image):
+    name = image.split("--")
+    last = cv2.imread(image)
     
-    full_text = []
-    judge_small = judge_large = ['']
-    ocr_error = ''
-    pdf = 0
+    with open(name[0] + "--pg99.txt", "w") as file:
+        """
+        judge_small = txt_box(image, kernal_sign)
+        judge_small = final_passage(judge_small)
+        judge_small = ' '.join(judge_small)
+        file.write(judge_small)
+        """
+        judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
+        judge_large = final_passage(judge_large)
+        judge_large = ' '.join(judge_large)
+        file.write(judge_large)
+
+    file.close()
+
+
+
+def main():
+    path = "P:/2020/14/Kodning/Scans/all_scans/"
+    os.chdir(path)
+
+    lst = glob.glob(path + '*.pdf')
+    print(lst)
+
+    #Converts each page in a pdf to an image
+    with Pool(60) as p:
+        p.map(pdf_to_jpg, lst)
     
-    directory = '/'.join(file.split("\\")[:-1]) + '/'
+    #To do: classify each image as appendix or not
+
+    #Save OCR'd text from image to txt file
+    imgs = glob.glob(path + '*.jpg')
+    with Pool(60) as p:
+        p.map(ocr_img, imgs)
     
-    os.chdir(directory)
     
-    if file.endswith('.pdf'):
-        path, ocr_error = pdf_to_jpg(file)
-        pdf = 1
-    elif file.endswith('.JPG') or file.endswith('.jpg'):
-        path = []
-        path.append(file)
-        
-    for page_no, image in enumerate(path):
-        img = cv2.imread(image)
-        filename = ''.join(image.split('.jpg')[:-1])
-        if page_no == len(path)-1:
-            img = remove_color(image)
-        if "Sodertorn" in filename:
-            top, left, bot, right = detect_text(img)
-            img = img[top:bot,left:right]
+    
+    #Extract more detailed text for judges from last page
+    pngs = glob.glob(path + '*.png')
+    files = imgs + pngs
+    lastpg = []
+    
+    #Paths of last page of each case
+    group_dict = defaultdict(list)
+    for fn in files:
+        key = fn.split("--")[0]
+        group_dict[key].append(fn)
+    
+    for k,v in group_dict.items():
+        lastpg.append(v[-1])
+    
+    #OCR read last page in more detail
+    with Pool(60) as p:
+        p.map(judge_dets, lastpg)
+    
+    
+    
+    #Join txt files of the same court document to 1 file
+    group_dict = defaultdict(list)
+    for fn in glob.glob("*.txt"):
+        key = fn.split("--")[0]
+        group_dict[key].append(fn)
+    
+    for name, content in group_dict.items():
+        with open(path + name + ".txt", "wb") as outfile:
+            for f in content:
+                with open(f, "rb") as infile:
+                    outfile.write(infile.read())
+    
+    #Delete jpg, png, txt files created in the intermediary
+    for fname in os.listdir(path):
+        if '--' in fname:
+            os.remove(os.path.join(path, fname))
 
-        reduce_noise(img, filename)
-        filename = filename +'_clean'
 
-        try:
-            dewarp_main(filename + '.jpg')
-        except:
-            cv2.imwrite(filename + '_straight.png', img)
-            ocr_error = 'dewarp error'
-        
-        text = get_text(filename + '_straight.png') #transform to list for clean text version, final passage will be list
-        
-        if page_no == len(path)-1:
 
-            last = cv2.imread(filename + '_straight.png')
-            judge_small = txt_box(filename + '_straight.png', kernal_sign)
-            judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
+if __name__ == '__main__':
+    
+    path = "P:/2020/14/Kodning/Scans/all_scans/"
+    files = glob.glob(path + '*.pdf')
+    
+    start = time.time()
+    
+    """
+    for file in files:
+        print(file)
+        ocr_main(file)
+    """
+    main()
+    
+    done = time.time()
+    elapsed = done - start
+    print(elapsed)
+    
+    
 
-            judge_small = final_passage(judge_small)
-            judge_large = final_passage(judge_large)
 
-        full_text.append(text)
-
-        if pdf == 1:
-            os.remove(filename + '.jpg')
-            os.remove(filename + '_straight.png')
-            os.remove(filename.strip('_clean') + '.jpg')
-        
-    return full_text, judge_small, judge_large, ocr_error
-
-#ocr_main("P:/2020/14/Kodning/Scans/all_scans\\Scan 25. Apr 2022 at 15.36_pg1.jpg")

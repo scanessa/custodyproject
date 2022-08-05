@@ -41,9 +41,6 @@ from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, jud
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_header, clean_partyname, party_city
 
-import OCR
-from OCR import ocr_main
-
 #General settings
 
 NLP = pipeline('ner', model='KB/bert-base-swedish-cased-ner', tokenizer='KB/bert-base-swedish-cased-ner')
@@ -76,10 +73,10 @@ start_time = time.time()
 flag = []
 COUNT = 1
 
-SAVE = 1
-PRINT = 0
-FULLSAMPLE = 1
-APPEND = 1
+SAVE = 0
+PRINT = 1
+FULLSAMPLE = 0
+APPEND = 0
 
 #Specify folders to search PDFs in
 if FULLSAMPLE == 1: #to create actual dataset
@@ -177,7 +174,7 @@ def findfirst(stringlist, part):
 
 
 #Main functions
-def paths():
+def paths(ending):
     filecounter = 0
     pdf_files = []
     for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
@@ -186,7 +183,7 @@ def paths():
                 dirs.remove(term)
         for file in files: 
             for term in INCLUDE:
-                if term in subdir and file.endswith('.pdf'):
+                if term in subdir and file.endswith(ending):
                     filecounter += 1
                     print(f"Dealing with file {subdir}/{file}")
                     pdf_dir = (os.path.join(subdir, file))
@@ -207,81 +204,7 @@ def topwords_from_jpd(text):
 
 
 def cases_from_imgs():
-    """
-    Retrieve text information from "scanned" documents in JPG (picture) form
-    Assumes documents in folder are in order, meaning first page of case is 
-    followed by second page etc (like docs named Sodertorns1, Sodertorns2,...)
-    Returns list of dictionaries through which execution loops and passes each
-    dictionary to main function
-    
-    Notes:
-    - Initialize case within loop to clear fulltext_form column, otherwise text
-    of previous cases is still saved in fulltext_form
-    - Take start == 1 as condition into elif statements so that pages are only processed
-    if the code already found a first page, this is to not process PROTOKOLL or other
-    non-DOM pages
-    """
-    start = 0
-    cases = []
-
-    for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
-        for term in EXCLUDE:
-            if term in dirs:
-                dirs.remove(term)
-        for file in files:
-            for term in INCLUDE:
-                if term in subdir and file.endswith('.JPG'):
-                    print(f"\nReading file {subdir}/{file}")
-
-                    pdf_dir = (os.path.join(subdir, file))
-                    text, _, judge_small, judge_large, ocr_error = ocr_main(file)
-                    flag.append(ocr_error)
-                    text = [item for sublist in text for item in sublist]
-                    
-                    #First page
-                    if (
-                            start == 0
-                            and len([x for x in text if "DOMSLUT" in x]) >= 1
-                        ):
-                        
-                        start = 1
-                        page_count = 1
-                        case = {'fulltext_form': [], 'topwords': []}
-                        case['fulltext_form'].append(text.copy())
-                        case['firstpage_form'] = text.copy()
-                        case['topwords'].append(topwords_from_jpd(text).copy())
-                   
-                    #Last page
-                    elif (
-                            start == 1
-                            and len([x for x in text if "ÖVERKLAG" in x]) >= 1
-                            and not 'notfinal' in file
-                            or start == 1
-                            and 'last' in file
-                          ):
-                        
-                        start = 0
-                        page_count += 1
-                        os.rename("".join(pdf_dir.split(".JPG")) + "_thresh_straight.png",
-                                  "".join(pdf_dir.split(".JPG")) + "_last.JPG")
-                        
-                        case['fulltext_form'].append(text.copy())
-                        case['lastpage_form'] = text.copy()
-                        case['judge_string'] = text[-2:]
-                        case['filepath'] = pdf_dir
-                        case['page_count'] = page_count
-                        case['topwords'].append(topwords_from_jpd(text).copy())
-                        
-                        cases.append(case.copy())
-                    
-                    #In between page
-                    elif start == 1:
-                        
-                        page_count += 1
-                        case['fulltext_form'].append(text.copy())
-                        case['topwords'].append(topwords_from_jpd(text).copy())
-
-    return cases
+    pass
 
 
 
@@ -346,6 +269,10 @@ def get_ocrtext(full_text):
     Use OCR fulltext and header to return first page, topwords, judge, fulltext formatted and cleaned
     Topwords are first 10 words found on page
     """
+    
+    full_text = full_text.split('__newpage__')
+    full_text = [x for x in full_text if not x == '\n']
+    
     firstpage_form = ''.join(full_text[0])
     page_count = len(full_text)
     lastpage_form = ''.join(full_text[-1])
@@ -1913,31 +1840,10 @@ def main(file, jpgs):
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
-        full_text, judge_small, judge_large, ocr_error = ocr_main(file)
-        flag.append(ocr_error)
-        
-        if ocr_error:
-            print_output('Quit because of OCR error', ocr_error)
-            dict_rulings = filldict_rulings(
-                    DATA_RULINGS, 'error', file, 'error', 'error', 'error', 'error',
-                    'error', 'error', 'error', 'error', 'error', 'error','error',
-                    'error', 'error', 'error', 'error','error', 'error', 'error',
-                    'error', 'error','error', 'error', 'error', 'error', 'error',
-                    'error', 'error', 'error', 'error', flag, 'error'
-                    )
-            save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
-            
-            dict_register = filldict_register(
-                DATA_REGISTER, 'error', 'error', 'error', 'error',
-                'error', 'error', 'error', 'error', 'error', file, flag
-                )
-            save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
-            
-            return
-        
-        flag.append(ocr_error)
+        text = open(file, "r")
+        full_text = text.read()
         fulltext_form, firstpage_form, topwords, page_count, lastpage_form = get_ocrtext(full_text)
-        judge_string = re.split(appeal, lastpage_form)[-1] + ' '.join(judge_small) + ' '.join(judge_large) 
+        judge_string = re.split(appeal, lastpage_form)[-1] 
         correction = 0
         readable = 0
     
@@ -1994,16 +1900,16 @@ def main(file, jpgs):
 
 
 #Execute
-files = paths()
+files = paths('.pdf')
 if LAST:
     last_index = files.index(LAST)
     files = files[last_index + 1:]
 pics = cases_from_imgs()
 
-
+scans = paths('.txt')
 
 #For scanned pdfs
-for file in files:
+for file in scans:
     flag = []
     jpgs = 0
     
