@@ -12,22 +12,22 @@ import pytesseract
 import cv2
 import itertools
 import pandas as pd
-import numpy as np
 import glob
 
 from fpdf import FPDF
 from PIL import Image
 from pdf2image import convert_from_path
-from page_dewarp import dewarp_main
 from io import StringIO
 from multiprocessing import Pool
 from collections import defaultdict
+from page_dewarp import dewarp_main
 
 start_time = time.time()
 pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
+PATH = "P:/2020/14/Tingsratter/Skelleftea/Domar/all_scans/"
 
 #General settings
 LANG = 'swe'
@@ -45,10 +45,8 @@ def pdf_to_jpg(pdf):
     """
         
     img_files = []
-    appendix_pages = 0
     ocr_error = ''
     i = 1
-    appendix_files = False
     pages = convert_from_path(pdf, 300)
     pdf_name = ''.join(pdf.split('.pdf')[:-1])
     
@@ -123,7 +121,10 @@ def get_text(filename):
     """
     img = cv2.imread(filename)
     top, left, bot, right = detect_text(img)
-    text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe", config = CONFIG_TEXTBODY)
+    if top > 0 and left > 0 and bot > 0 and right > 0:
+        text = pytesseract.image_to_string(img[top:bot, left:right, :], lang="swe", config = CONFIG_TEXTBODY)
+    else:
+        text = pytesseract.image_to_string(img, lang="swe", config = CONFIG_TEXTBODY)
 
     return text
 
@@ -278,43 +279,52 @@ def final_passage(lastpage):
 
 
 def ocr_img(image):
-    remove_color(image)
-    reduce_noise(image)
-    filename = ''.join(image.split('.jpg')[:-1])
-    filename = filename +'--clean'
-    dewarp_main(filename + '.jpg')
-
-    name = image.split(".", 2)
-    with open(name[0]+".txt", "w") as file:
-        file.write("\n__newpage__\n")
-        text = get_text(filename + '--straight.png')
-        file.write(text)
-        file.close()
+    try:
+        remove_color(image)
+        reduce_noise(image)
+        filename = ''.join(image.split('.jpg')[:-1])
+        filename = filename +'--clean'
+        dewarp_main(filename + '.jpg')
+    
+        name = image.rsplit(".", 1)
+        with open(name[0]+".txt", "w") as file:
+            file.write("\n__newpage__\n")
+            text = get_text(filename + '--straight.png')
+            file.write(text)
+            file.close()
+    except Exception as e:
+        print(image, e)
 
 
 
 def judge_dets(image):
-    name = image.split("--")
-    last = cv2.imread(image)
     
-    with open(name[0] + "--pg99.txt", "w") as file:
-        """
-        judge_small = txt_box(image, kernal_sign)
-        judge_small = final_passage(judge_small)
-        judge_small = ' '.join(judge_small)
-        file.write(judge_small)
-        """
-        judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
-        judge_large = final_passage(judge_large)
-        judge_large = ' '.join(judge_large)
-        file.write(judge_large)
-
-    file.close()
+    try:
+    
+        name = image.split("--")
+        last = cv2.imread(image)
+        
+        with open(name[0] + "--pg99.txt", "w") as file:
+            """
+            judge_small = txt_box(image, kernal_sign)
+            judge_small = final_passage(judge_small)
+            judge_small = ' '.join(judge_small)
+            file.write(judge_small)
+            """
+            judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
+            judge_large = final_passage(judge_large)
+            judge_large = ' '.join(judge_large)
+            file.write(judge_large)
+    
+        file.close()
+    
+    except Exception as e:
+        print(image, e)
 
 
 
 def main():
-    path = "P:/2020/14/Kodning/Scans/all_scans/"
+    path = PATH
     os.chdir(path)
 
     lst = glob.glob(path + '*.pdf')
@@ -374,16 +384,11 @@ def main():
 
 if __name__ == '__main__':
     
-    path = "P:/2020/14/Kodning/Scans/all_scans/"
+    path = PATH
     files = glob.glob(path + '*.pdf')
     
     start = time.time()
-    
-    """
-    for file in files:
-        print(file)
-        ocr_main(file)
-    """
+
     main()
     
     done = time.time()

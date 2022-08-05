@@ -166,5 +166,5 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-    
+changename(ROOTDIR)
 

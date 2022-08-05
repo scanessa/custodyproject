@@ -809,7 +809,15 @@ def remap_image(name, img, small, page_dims, params):
                                    REMAP_DECIMATE)
     
     if height > 10000 or width > 6000:
-        None.split() #create an error for too large files which we process manually
+        #Files that are too large after the dewarp are just resaved in the original under the dewarp name
+        current_path = os.getcwd()
+        cv2.imwrite(name + '--straight.png', img)
+        
+        os.chdir(current_path + '/ocr_errors/')
+        cv2.imwrite(name.replace('--','_') + '_dewarperror.png', img)
+        os.chdir(current_path)
+        
+        return
     
     #print ('  output will be {}x{}'.format(width, height))
 
@@ -922,48 +930,6 @@ def dewarp_main(imgfile):
     #print ('to convert to PDF (requires ImageMagick):')
     #print ('  convert -compress Group4 ' + ' '.join(outfiles) + ' output.pdf')
 
-def dewarp(name, img):
-
-    small = resize_to_screen(img)
-
-    pagemask, page_outline = get_page_extents(small)
-
-    cinfo_list = get_contours(name, small, pagemask, 'text')
-    spans = assemble_spans(name, small, pagemask, cinfo_list)
-
-    if len(spans) < 3:
-        #print ('  detecting lines because only', len(spans), 'text spans')
-        cinfo_list = get_contours(name, small, pagemask, 'line')
-        spans2 = assemble_spans(name, small, pagemask, cinfo_list)
-        if len(spans2) > len(spans):
-            spans = spans2
-
-    if len(spans) < 1:
-        #print ('skipping', name, 'because only', len(spans), 'spans')
-        return None
-
-    span_points = sample_spans(small.shape, spans)
-
-    corners, ycoords, xcoords = keypoints_from_samples(name, small,
-                                                        pagemask,
-                                                        page_outline,
-                                                        span_points)
-
-    rough_dims, span_counts, params = get_default_params(corners,
-                                                            ycoords, xcoords)
-
-    dstpoints = np.vstack((corners[0].reshape((1, 1, 2)),) +
-                            tuple(span_points))
-
-    params = optimize_params(name, small,
-                                dstpoints,
-                                span_counts, params)
-    
-    page_dims = get_page_dims(corners, rough_dims, params)
-
-    outfile = remap_image(name, img, small, page_dims, params)
-
-    return outfile
 
 def is_curve(name, img):
     

@@ -1842,6 +1842,7 @@ def main(file, jpgs):
         
         text = open(file, "r")
         full_text = text.read()
+        file.close()
         fulltext_form, firstpage_form, topwords, page_count, lastpage_form = get_ocrtext(full_text)
         judge_string = re.split(appeal, lastpage_form)[-1] 
         correction = 0
