@@ -17,7 +17,7 @@ from pdf2image import convert_from_path
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'all_scans'
 ROOTDIR = 'P:/2020/14/Tingsratter/'
-DESTINATION = "P:/2020/14/Kodning/Scans/ML_appendix/"
+DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/"
 
 error_paths = [] 
 
@@ -31,7 +31,7 @@ def read_filepaths(doc):
         paths = f.read().splitlines() 
     return paths
 
-def move_files(paths, error_files, pdf_dir):
+def move_files(paths, pdf_dir):
     errors = 0
     for file in paths:
         p = pathlib.PureWindowsPath(file)
@@ -41,10 +41,9 @@ def move_files(paths, error_files, pdf_dir):
             shutil.move(file,pdf_dir)
         except:
             errors += 1
-            error_files.append(file)
     
-    print('%d files threw an error: ' %(errors), error_paths)
-    return errors, error_files
+    print('%d files threw an error: ' %(errors))
+    return errors
 
 def copy_files(paths, pdf_dir):
     errors = 0
@@ -133,27 +132,27 @@ def randomsample(rootdir, destination):
     for rootdir, dirs, files in os.walk(rootdir):
         for subdir in dirs:
             dirpath = os.path.join(rootdir, subdir)
-            
-            print(dirpath)
-            
             if (
-                    "phone" in dirpath
+                    "all_scans" in dirpath
                     and not "1. Gemensamma dokument" in dirpath
-                    or "all_scans" in dirpath
-                    and not "1. Gemensamma dokument" in dirpath
+                    and not "ocr_errors" in dirpath
                     
                 ):
-                                
-                allfiles = [x for x in os.listdir(dirpath) if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
-                if len(allfiles) > 10:
-                    filenames = random.sample(allfiles, 10)
-                    filenames = [os.path.join(dirpath, x) for x in filenames]
-                    copy_files(filenames, destination)
-                else:
-                    filenames = random.sample(allfiles, len(allfiles))
-                    filenames = [os.path.join(dirpath, x) for x in filenames]
-                    copy_files(filenames, destination)
+                paths = glob.glob(dirpath + "/*.pdf")
+
+                allfiles = [x for x in paths if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
+                
+                prop = round(len(allfiles) * 0.05)
+                
+                filenames = random.sample(allfiles, prop)
+                filenames = [os.path.join(dirpath, x) for x in filenames]
+                filetxts = [x.split(".pdf")[0]+".txt" for x in filenames]
+                filetxts = [os.path.join(dirpath, x) for x in filetxts]
+                copy_files(filenames, destination)
+                copy_files(filetxts, destination)
+                
+
                     
                     
 def signature(path):
@@ -166,5 +165,12 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-changename(ROOTDIR)
 
+
+"""
+paths = glob.glob("P:/2020/14/Kodning/Test-round-5-Anna/*.pdf")
+filenames = random.sample(paths, 520)
+filetxts = [x.split(".pdf")[0]+".txt" for x in filenames]
+move_files(filetxts, "P:/2020/14/Kodning/Test-round-5-Anna/first500")
+move_files(filenames, "P:/2020/14/Kodning/Test-round-5-Anna/first500")
+"""

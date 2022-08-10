@@ -1,13 +1,11 @@
-# -*- coding: utf-8 -*-
+
 """
 @author: Stella Canessa
-
 This is the main code for creating the datasets for the ifo/IFAU custody research
 project. Outputs are: 
     1) Dataset of rulings outcomes incl. controls of digital and scanned documents, identifying variable child ID
     2) Dataset of all court records available, identifying variable case number, court, date
     l
-
 """
 import re
 import time
@@ -73,8 +71,8 @@ start_time = time.time()
 flag = []
 COUNT = 1
 
-SAVE = 0
-PRINT = 1
+SAVE = 1
+PRINT = 0
 FULLSAMPLE = 0
 APPEND = 0
 
@@ -89,11 +87,11 @@ if FULLSAMPLE == 1: #to create actual dataset
     LAST = 'P:/2020/14/Tingsratter/Attunda\\Domar\\all_scans\\Scan_17_Jun_2022_at_14.30.pdf'
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Scans/"
-    OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/all_scans/case_register_data.csv"
-    OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/all_scans/rulings_data.csv"
+    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
+    OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
-    EXCLUDE = set(['exclude'])
+    EXCLUDE = set(['others'])
     INCLUDE = set(['all_cases','all_scans'])
     LAST = ''
     
@@ -116,7 +114,6 @@ def searchkey(string, part, g):
     """
     Takes a searchstring and part, uses regex to search for string in part
     Returns string of search result group
-
     """
     finder = re.compile(string)
     match = finder.search(part)
@@ -134,7 +131,6 @@ def dictloop(dictionary, part, g, exclude_terms):
     input to searchkey function
     If re.search returns result and none of the terms in exclude terms are in the result:
     Returns string of search result group
-
     """
     for i in dictionary:
         result = searchkey(dictionary[i], part, g)
@@ -483,7 +479,6 @@ def get_party(parties, part_for_name, use_ner):
     Note:
         - else after if p_name gets names that NER didn't recognize as such by
         capturing the words before 6-10 consecutive numbers
-
     """
     
     plaint_lst = []
@@ -558,7 +553,6 @@ def get_response(fulltext, custodybattle):
     
     Pass: fulltext capitalized, custodybattle capitalized
     Returns variable outcome as string
-
     """
     matches = []
 
@@ -670,7 +664,6 @@ def get_plaint_defend(fulltext, header):
     """
     Extract plaintiff and defendant boxes from first page (including lawyer info if applicable)
     for readable and scanned docs
-
     Returns:
         - casetype
         - part (name, address), first name, lawyer dummy for plaintiff and defendant
@@ -1124,7 +1117,7 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
             if len(name) == 1:
                 names = name
             else:
-                p_name = word_classify(relev, "PER",0.99)
+                p_name = word_classify(relev, "PER",0.9)
                 
                 if p_name:
                     p_name = p_name[-1]
@@ -1492,7 +1485,6 @@ def get_agreement(domskal, domskal_og, fulltext, out):
     Returns 2 dummies:
         1) agree_cust = 1 if parties agreed on legal custody ruling
         2) agree_any = 1 if parties agreed on any part of the ruling
-
     Notes for agreementExclude:
     - potentially include god man and gode mannen, misses cases where the defendant agrees to the ruling through their god man eg Sundsvalls TR T 2022-19 
     - included talan for this case: Eftersom talan har medgetts och då det får anses vara bäst för barnet, ska JCI anförtros ensam vårdnad om sonen.
@@ -1842,7 +1834,7 @@ def main(file, jpgs):
         
         text = open(file, "r")
         full_text = text.read()
-        file.close()
+        text.close()
         fulltext_form, firstpage_form, topwords, page_count, lastpage_form = get_ocrtext(full_text)
         judge_string = re.split(appeal, lastpage_form)[-1] 
         correction = 0
@@ -1968,7 +1960,6 @@ for case in pics:
                 'error', 'error', 'error', 'error', 'error', file, flag
                 )
             save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
-
     else:
         main(case, jpgs)
 """

@@ -13,6 +13,7 @@ import cv2
 import itertools
 import pandas as pd
 import glob
+import shutil
 
 from fpdf import FPDF
 from PIL import Image
@@ -27,7 +28,8 @@ pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PATH = "P:/2020/14/Tingsratter/Skelleftea/Domar/all_scans/"
+
+PATH = "P:/2020/14/Tingsratter/Goteborgs/Domar/all_scans/"
 
 #General settings
 LANG = 'swe'
@@ -43,22 +45,32 @@ def pdf_to_jpg(pdf):
     appendix = True if page is an appendix page, include i>1 in if statement because 
     first page is never an appendix
     """
-        
-    img_files = []
-    ocr_error = ''
-    i = 1
-    pages = convert_from_path(pdf, 300)
-    pdf_name = ''.join(pdf.split('.pdf')[:-1])
     
-    for page in pages:
-        image_name = pdf_name + '--pg' + str(i) + ".jpg"
-        page.save(image_name, "JPEG")
+    try:
         
-        img_files.append(image_name)
+        img_files = []
+        ocr_error = ''
+        i = 1
+        pages = convert_from_path(pdf, 300)
+        pdf_name = ''.join(pdf.split('.pdf')[:-1])
         
-        i = i+1
-
-    return img_files, ocr_error
+        for page in pages:
+            image_name = pdf_name + '--pg' + str(i) + ".jpg"
+            page.save(image_name, "JPEG")
+            
+            img_files.append(image_name)
+            
+            i = i+1
+    
+        return img_files, ocr_error
+    
+    except:
+        current_path = os.getcwd()
+        new_path = current_path + '/ocr_errors/'
+        os.chdir(new_path)
+        shutil.copy(pdf,new_path)
+        os.chdir(current_path)
+        return
 
 
 
@@ -292,15 +304,18 @@ def ocr_img(image):
             text = get_text(filename + '--straight.png')
             file.write(text)
             file.close()
-    except Exception as e:
-        print(image, e)
+    except:
+        current_path = os.getcwd()
+        os.chdir(current_path + '/ocr_errors/')
+        img = cv2.imread(image)
+        cv2.imwrite(image.replace('--','_') + '_dewarperror.png', img)
+        os.chdir(current_path)
+        return
 
 
 
 def judge_dets(image):
-    
     try:
-    
         name = image.split("--")
         last = cv2.imread(image)
         
@@ -317,9 +332,13 @@ def judge_dets(image):
             file.write(judge_large)
     
         file.close()
-    
-    except Exception as e:
-        print(image, e)
+    except:
+        current_path = os.getcwd()
+        os.chdir(current_path + '/ocr_errors/')
+        img = cv2.imread(image)
+        cv2.imwrite(image.replace('--','_') + '_dewarperror.png', img)
+        os.chdir(current_path)
+        return
 
 
 

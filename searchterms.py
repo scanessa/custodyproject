@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Mar  3 12:04:28 2022
-
 @author: ifau-SteCa
-
 File to provide dictionaries, strings and lists with searchterms for building
 the court rulings and custody cases databases
 """
@@ -255,20 +253,3 @@ unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','f
                       ]
      
 visitation_key = ['umgänge', 'umgås']
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

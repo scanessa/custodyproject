@@ -21,19 +21,13 @@ import pytesseract
 import sys
 sys.path.append('P:/2020/14/Kodning/Code/custodyproject/')
 
-from OCR import txt_box, final_passage, kernal_sign, LANG, CONFIG_FULL
-from custodydata import get_judge_scans
 
 #Runtime
 import time
 start_time = time.time()
 
 #Read in CSV created by domar_preprocessing.py
-path = 'P:/2020/14/Data/Rulings/custody_data_allfiles.csv'
-#/Rulings/custody_data_allfiles.csv
-#/Judges/judges_selection.csv
-output_path  = 'P:/2020/14/Data/Judges/uniquejudges.csv'
-datafr = pd.read_csv(path)
+output_path  = "P:/2020/14/Kodning/Data/rulings_data_altjudges.csv"
 
 
 def condensed_df(df, keep_cols):
@@ -127,66 +121,88 @@ def changed_name(df):
     return df
 
 
-def sodertorns_lastpages(filepath):
-    """
-    Pass filepath as string, folder where Sodertorn files are located
+
+def main_clean_digital():
+    path = 'P:/2020/14/Data/Rulings/custody_data_allfiles.csv'
+    datafr = pd.read_csv(path)
+
+    condensed = condensed_df(datafr, ['court','judge','date', 'case'])
+    print('Runtime so far: ', (time.time() - start_time))
+    base_df = clean_judge_names(condensed)
+    print('Runtime so far: ', (time.time() - start_time))
+    base_df['month'], base_df['year'] = add_column(base_df, 'date', '-', 1),  add_column(base_df, 'date', '-', 0) 
+    base_df['firstname'], base_df['lastname'] = add_column(base_df, 'judge', ' ', 0), add_column(base_df, 'judge', ' ', -1)
+    print('Runtime so far: ', (time.time() - start_time))
+    df3 = base_df.drop_duplicates(subset=(['judge','court','month','year']))
+    print('Runtime so far: ', (time.time() - start_time))
+    double_names(df3, ['judge','month','year'])
+    print('Runtime so far: ', (time.time() - start_time))
+    first_last(df3, ['court','judge'])
+    changed_name(df3)
+    print('Runtime so far: ', (time.time() - start_time))
+    #partial_names(df3)
     
-    """
-    print("hi")
-    
-    files = glob.glob(filepath + "*last.JPG")
-    for file in files:
-        print(file)
-        last = cv2.imread(file)
-        judge_small = txt_box(file, kernal_sign)
-        judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
-
-        passg = "judge_small"
-        judge_small = final_passage(judge_small,passg)
-        passg = "judge_large"
-        judge_large = final_passage(judge_large, passg)
-        
-        judge_string = " ".join(judge_small) + " ".join(judge_large)
-        print(judge_string)
-        
-        judge_name = get_judge_scans(judge_string)
-        
-        print("JUDGE STRING: ",judge_string, "JUDGE NAME: ",judge_name)
-
-
-
-
-
-#Execute
-sodertorns_lastpages("P:/2020/14/Kodning/Scans/all_scans/")
-
+    #Print
+    with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
+        print('\nNew DF\n',df3)
+    df3.to_csv(output_path, sep = ',', encoding='utf-8-sig')
 
 
 """
-condensed = condensed_df(datafr, ['court','judge','date', 'case'])
-print('Runtime so far: ', (time.time() - start_time))
-base_df = clean_judge_names(condensed)
-print('Runtime so far: ', (time.time() - start_time))
-base_df['month'], base_df['year'] = add_column(base_df, 'date', '-', 1),  add_column(base_df, 'date', '-', 0) 
-base_df['firstname'], base_df['lastname'] = add_column(base_df, 'judge', ' ', 0), add_column(base_df, 'judge', ' ', -1)
-print('Runtime so far: ', (time.time() - start_time))
-df3 = base_df.drop_duplicates(subset=(['judge','court','month','year']))
-print('Runtime so far: ', (time.time() - start_time))
-double_names(df3, ['judge','month','year'])
-print('Runtime so far: ', (time.time() - start_time))
-first_last(df3, ['court','judge'])
-changed_name(df3)
-print('Runtime so far: ', (time.time() - start_time))
-#partial_names(df3)
-
-#Print
-with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
-    print('\nNew DF\n',df3)
-df3.to_csv(output_path, sep = ',', encoding='utf-8-sig')
-    
-#Runtime    
-print("\nRuntime: \n" + "--- %s seconds ---" % (time.time() - start_time))
+Find existing judge names in noisy judge names from scans
 """
+def import_judges(path):
+    data = pd.read_csv(path)
+    data = data['judge'].values
+    
+    return list(data)
+
+def clean_names(lst):
+    lst = [x for x in lst if not "tingsr" in x]
+    lst = [x for x in lst if not " dom " in x]
+    lst = [x for x in lst if not " sid " in x]
+    lst = [' '.join(list(set(name.split()))) for name in lst]
+    lst = list(set(lst))
+
+    return lst
+
+def compare_name(df, lst):
+    for index,row in df.iterrows():
+        print(".")
+        altern_j = []
+        noisy_j = row['judge']
+        for clean_j in lst:
+            
+            contain = fuzz.partial_ratio(noisy_j, clean_j)
+
+            if contain > 90 and noisy_j != clean_j:
+                altern_j.append(clean_j)
+        if len(altern_j) < 3:
+            altern_j = ",". join(altern_j)
+            df.loc[index,'alternative_names'] = altern_j
+        
+    return df
+            
+    
+    
+def clean_scanned_judges():
+    j_scans = import_judges("P:/2020/14/Data/Judges/scan_judges_10plus_cases.csv")
+    j_digital = import_judges("P:/2020/14/Data/Judges/digital_judges_10plus_cases.csv")
+    j_comb= j_scans + j_digital
+    
+    j_comb = clean_names(j_comb)
+    scans = pd.read_csv("P:/2020/14/Kodning/Data/rulings_data.csv")
+    print("Comparing names...")
+    scans = compare_name(scans, j_comb)
+    scans.to_csv(output_path, sep = ',', encoding='utf-8-sig')
+    print("Saved")
+
+if __name__ == '__main__':
+    clean_scanned_judges()    
+    
+    #Runtime    
+    print("\nRuntime: \n" + "--- %s seconds ---" % (time.time() - start_time))
+
 
 
 
