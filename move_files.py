@@ -121,7 +121,7 @@ def changename(rootdir):
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         for file in files:
             if includes in subdir:
-                file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("ö","o").replace("ü","u").replace("å","a")
+                file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a")
                 print('OLD: ', os.path.join(subdir, file))
                 print('NEW: ', os.path.join(subdir, file_new))
                 os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
@@ -165,7 +165,7 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-
+changename(ROOTDIR)
 
 """
 paths = glob.glob("P:/2020/14/Kodning/Test-round-5-Anna/*.pdf")

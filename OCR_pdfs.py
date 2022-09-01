@@ -5,6 +5,8 @@
 This code reads in scanned documents, draws bounding boxes around text blocks
 and OCR's the bounding boxes
 
+When converting pages to imgs it starts numbering with 10 to keep the correct order,
+otherwise python will read pages 1,2,3,4,5,6,7,8,9,10 as 1,10,2,3,4,5....
 """
 import os
 import time
@@ -28,8 +30,7 @@ pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-
-PATH = "P:/2020/14/Tingsratter/Goteborgs/Domar/all_scans/"
+PATH = "P:/2020/14/Kodning/Scans/all_scans/"
 
 #General settings
 LANG = 'swe'
@@ -50,7 +51,7 @@ def pdf_to_jpg(pdf):
         
         img_files = []
         ocr_error = ''
-        i = 1
+        i = 10
         pages = convert_from_path(pdf, 300)
         pdf_name = ''.join(pdf.split('.pdf')[:-1])
         
@@ -347,7 +348,6 @@ def main():
     os.chdir(path)
 
     lst = glob.glob(path + '*.pdf')
-    print(lst)
 
     #Converts each page in a pdf to an image
     with Pool(60) as p:
@@ -359,8 +359,6 @@ def main():
     imgs = glob.glob(path + '*.jpg')
     with Pool(60) as p:
         p.map(ocr_img, imgs)
-    
-    
     
     #Extract more detailed text for judges from last page
     pngs = glob.glob(path + '*.png')
@@ -380,8 +378,6 @@ def main():
     with Pool(60) as p:
         p.map(judge_dets, lastpg)
     
-    
-    
     #Join txt files of the same court document to 1 file
     group_dict = defaultdict(list)
     for fn in glob.glob("*.txt"):
@@ -395,9 +391,11 @@ def main():
                     outfile.write(infile.read())
     
     #Delete jpg, png, txt files created in the intermediary
+    
     for fname in os.listdir(path):
         if '--' in fname:
             os.remove(os.path.join(path, fname))
+    
 
 
 
@@ -405,7 +403,6 @@ if __name__ == '__main__':
     
     path = PATH
     files = glob.glob(path + '*.pdf')
-    
     start = time.time()
 
     main()

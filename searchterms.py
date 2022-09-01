@@ -16,7 +16,8 @@ OCR_CORR = {
     'DOMSKILL':'DOMSKÄL',
     '\x0c':'',
     'vard':'vård',
-    'värd':'vård'
+    'värd':'vård',
+    'omhänderha': ' ha '
     }
 
 #Define search terms
@@ -125,7 +126,7 @@ judgetitle_search = {
     }
 
 ruling_search = {
-    '1':'\n\s*\n\s*[A-ZÅÄÖ., ]{3,}\s*\n',
+    '1':'\n\s*\n\s*[A-ZÅÄÖ., ]{5,}\s*\n' + allLetters,
     '2':'YRKANDEN',
     '3':'\nYrkanden',
     '4': 'rkanden m.m.',
@@ -148,6 +149,9 @@ clean_general = {
     '|':'',
     'vårdera':'',
     'vårdagen':'',
+    ' cnsam ':' ensam ',
+    ' ensom ':' ensam ',
+    ' ensarn ':' ensam ',
     'gemen-sam':'gemensam',
     'gemensamme':'xxx',
     'gemensamma barn':'xxx',
@@ -162,8 +166,13 @@ clean_general = {
     '«':'',
     '\'':'',
     '”':'',
-    '\"':''
+    '\"':'',
+    'rattshjalpslagen':'rättshjälpslagen',
+    'rättshjalpslagen':'rättshjälpslagen',
+    'rattshjalpslägen':'rättshjälpslagen',
+    "jur kand" : "jur.kand"
     }
+
 clean_partyname = {
     'Sökande':'',
     'Motpart':'',
@@ -171,7 +180,7 @@ clean_partyname = {
     'Mannen':'',
     'Kärande':'',
     'Svarande':'',
-    'och':'',
+    ' och ':'',
     ')':',',
     'Gensvarande':',',
     ')':','
@@ -189,7 +198,7 @@ defend_resp_dict = {
     'tvistat': [['part','tvist ']]
     }
 
-exclude_phys = ['jämna' , 'växelvis', 'skyddat']
+exclude_phys = ['skyddat', ' inte ']
 exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
 fastinfo_key = ['snabbupplysning', 'upplysning', 'snabbyttrande']
@@ -201,7 +210,8 @@ lawyer_key = ['ombud', 'god man',  'advokat']
 legalguardian_terms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
 
 mainhearing_key = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , ' förhör ', 
-                   'tingsrättens förhandling','huvud- förhandling' ]
+                   'tingsrättens förhandling','huvud- förhandling', 'vittnesförhör',
+                   'vittnen', 'skriftlig bevisning', 'muntlig bevisning', 'åberopa']
 name_pattern = {
     '1':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ]+),\s*\d{6,10}',
     '2':'([A-ZÅÐÄÖÉÜ]\D+)[,|(]\s+',
@@ -224,7 +234,7 @@ plaint_terms = [
 
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
-physicalcust = ['boende','bo tillsammans',' bo ',' ska ','bosatt']
+physicalcust = ['boende','bo tillsammans',' bo ','bosatt']
 party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|\\\
     tällföreträdare|ÖKANDE|ökande|Hustrun|HUSTRUN|Mannen|MANNEN)'
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
@@ -238,17 +248,18 @@ remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfaran
 
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
-
+stay_in_home_key = ['kvarsittanderätt','kvarboenderätt', 'rätt att bo kvar','tills dess bodelning sker']
 shared_child = ['gemensamme','gemensamma barn','gemensamma dot','gemensamma son']
+shared_phys = ['varannan vecka', 'växelvist', 'halva tiden','jämn vecka', 'följande vecka']
 svarande_karande = ['varande','VARANDE','ÄRANDE','ärande','Svarande','SVARANDE','KÄRANDE','Kärande']
 
-unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december','den','för','februari',
-                       'ges','ha','hovrätt','hovrätten',
-                       'inkommit','inte','in','inlagan','januari','juni','juli','krävs', 
-                       'men','mars','maj','mening','november','norrland', 'övre','oktober',
-                       'över','och','överklagande','prövningstillstånd','på','protokollsbilaga',
-                       'skall','senast','september','ställt','skåne','ställs','skiljaktig','se',
-                       'sverige','svea','tingsrätten','tingsrättens','till',
+unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december',' den ','för','februari',
+                       ' ges ','göta hovrätt',' ha ','hovrätt','hovrätten',
+                       'inkommit','inte',' in ','inlagan','januari','juni','juli','krävs', 
+                       ' men ','mars',' maj ','mening','november','norrland','nedre','övre','oktober',
+                       'över',' och ','överklagande','prövningstillstånd','på','protokollsbilaga',
+                       'skall','senast','september','ställt','skåne','ställs','skiljaktig',' se ',
+                       'sverige','svea hovrätt','tingsrätten','tingsrättens',' till ',
                        'vägnar','vagnar','västra'
                       ]
      
