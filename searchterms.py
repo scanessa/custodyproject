@@ -192,6 +192,7 @@ clean_header = {
     }
 
 defend_response = [['medge','agree'],['medgav','agree'],['bevilj','agree'],['bestr','contest'],['mots','contest']]
+divorce_terms = [['yrka','äktenskaps'], ['begär','äktenskaps'], ['väckt','äktenskaps']]
 defend_resp_dict = {
     'agree': [['varken','medg','bestr']],
     'contest': [['egen','del','yrkat'],['inkommit','egna','yrkand']],

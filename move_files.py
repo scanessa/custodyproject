@@ -165,12 +165,4 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-changename(ROOTDIR)
 
-"""
-paths = glob.glob("P:/2020/14/Kodning/Test-round-5-Anna/*.pdf")
-filenames = random.sample(paths, 520)
-filetxts = [x.split(".pdf")[0]+".txt" for x in filenames]
-move_files(filetxts, "P:/2020/14/Kodning/Test-round-5-Anna/first500")
-move_files(filenames, "P:/2020/14/Kodning/Test-round-5-Anna/first500")
-"""

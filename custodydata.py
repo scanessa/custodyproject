@@ -37,7 +37,7 @@ from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_header, clean_partyname, party_city, shared_phys,stay_in_home_key
-from searchterms import physicalcust
+from searchterms import physicalcust, divorce_terms
 
 #General settings
 
@@ -47,8 +47,8 @@ gend = gender.Detector(case_sensitive=False)
 
 DATA_RULINGS = {
     
-    'child_id':[], 'child_name':[], 'case_no':[], 'court':[], 'date':[], 'casetype':[], 'deldom':[],
-    'divorce_only': [], 'divorce': [], 'plaintiff_id':[],'plaintiff_name':[],
+    'child_id':[], 'child_name':[], 'case_no':[], 'court':[], 'date':[], 'casetype_custody':[], 'deldom':[],
+    'divorce_only': [], 'divorce': [], 'casetype_divorce':[],'plaintiff_id':[],'plaintiff_name':[],
     'defendant_id':[], 'defendant_name':[],'plaintiff_lawyer':[], 'p_legalguard':[], 
     'defendant_lawyer':[], 'd_legalguard':[], 'p_lawyer_legalaidact':[], 'd_lawyer_legalaidact':[], 
     'p_lawyer_name':[], 'd_lawyer_name':[], 'p_lawyer_title':[], 'd_lawyer_title':[], 
@@ -647,8 +647,16 @@ def get_response(fulltext, plaint_made):
                 matches.append((resp,terms,index))
     
     matches = sorted(matches, key=lambda x: int(x[2]), reverse=False)
-    if matches:
+    
+    if (
+            findterms(['yrkade', 'för','egen','del'], fulltext)
+            or findterms(['bestred','talan',' i ','övrigt'], fulltext)
+            ):
+        match = 'contest'
+        
+    elif matches:
         match = matches[0][0]
+        
     else:
         match = 'plaint made, no response found'
 
@@ -656,7 +664,7 @@ def get_response(fulltext, plaint_made):
 
     
 
-def get_custodybattle(fulltext):
+def get_custodybattle(fulltext, searchterms):
     """
     Defines whether case is:
         1) custodybattle where defendant agreed to plaint
@@ -671,9 +679,12 @@ def get_custodybattle(fulltext):
     """
     
     searchtext = fulltext.replace("YRKANDEN", "")
-    for term in plaint_terms:  
+    
+    for term in searchterms:
         plaint_made = findfirst(term, searchtext)
         if plaint_made:
+            print_output('Term for Plaint_made', term)
+            print_output('Plaint_Made', plaint_made)
             break
     print_output("Text indicating plaint_made", plaint_made.split("delimiter"))
     if 'parterna har' in plaint_made.lower():
@@ -752,7 +763,7 @@ def get_plaint_defend(fulltext, header, year):
     
     print_output("Part for parties (header)", header.split("delimiter"))
     
-    casetype, plaint_made = get_custodybattle(fulltext)
+    casetype, plaint_made = get_custodybattle(fulltext, plaint_terms)
     parties, partyhead = get_parties(header)
     
 
@@ -1297,6 +1308,14 @@ def defend_unreachable(defend_first, defend_godman, fulltext_og):
         else:
             continue
         break
+    
+    #Exception: if defendant is active in case, they cannot be unreachable
+    if (
+            findterms(['yrkade' 'för' 'egen' 'del'], fulltext_og)
+            or findterms(['yrkade', defend_first[0]], fulltext_og)
+            ):
+        
+        unreach = 0
 
     return unreach
 
@@ -1853,12 +1872,15 @@ def get_lawyerinfo(lawyer):
 
 def get_stay_in_home(ruling_og, plaint_first, defend_first):
     for term in stay_in_home_key:
-        print_output("Searchterm for stay in home", term)
-        print_output("Target for stay in home", findterms([term], ruling_og))
+        
         if any(x.lower() in findterms([term], ruling_og) for x in plaint_first):
+            print_output("Searchterm for stay in home", term)
+            print_output("Target for stay in home", findterms([term], ruling_og))
             res = 1
             break
         elif any(x.lower() in findterms([term], ruling_og) for x in defend_first):
+            print_output("Searchterm for stay in home", term)
+            print_output("Target for stay in home", findterms([term], ruling_og))
             res = 2
             break
         else:
@@ -1950,7 +1972,7 @@ def filldict_rulings(
     estate_dist = get_estate_dist(ruling_og)
     stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
     plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
-    
+    casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_terms)
     
     
     data_rulings['plaint_legal'].append(plaint_legal)
@@ -1980,7 +2002,8 @@ def filldict_rulings(
     data_rulings['page_count'].append(page_count)
     data_rulings['correction_firstpage'].append(correction)
     data_rulings['case_no'].append(caseno)
-    data_rulings['casetype'].append(casetype)
+    data_rulings['casetype_custody'].append(casetype)
+    data_rulings['casetype_divorce'].append(casetype_divorce)
     data_rulings['judge'].append(judge)
     data_rulings['judge_gender'].append(judge_gender)
     data_rulings['court'].append(courtname)
