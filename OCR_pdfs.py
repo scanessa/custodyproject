@@ -24,6 +24,7 @@ from io import StringIO
 from multiprocessing import Pool
 from collections import defaultdict
 from page_dewarp import dewarp_main
+from appendix_classification import predict
 
 start_time = time.time()
 pdf_converter = FPDF()
@@ -291,6 +292,14 @@ def final_passage(lastpage):
 
 
 
+def classify(file):
+    res = predict(file)
+    if res == 1:
+        newname = file.split('.jpg')[0] + '_appendix.jpg'
+        os.rename(file, newname)
+    
+
+
 def ocr_img(image):
     try:
         remove_color(image)
@@ -347,16 +356,19 @@ def main():
     path = PATH
     os.chdir(path)
 
+    #Convert each page in a pdf to an image
     lst = glob.glob(path + '*.pdf')
-
-    #Converts each page in a pdf to an image
     with Pool(60) as p:
         p.map(pdf_to_jpg, lst)
     
-    #To do: classify each image as appendix or not
-
+    #Classify each image as appendix or not
+    imgs = glob.glob(path + '*.jpg')
+    with Pool(60) as p:
+        p.map(classify, imgs)
+        
     #Save OCR'd text from image to txt file
     imgs = glob.glob(path + '*.jpg')
+    imgs = [x for x in imgs if not 'appendix' in x]
     with Pool(60) as p:
         p.map(ocr_img, imgs)
     
@@ -393,7 +405,7 @@ def main():
     #Delete jpg, png, txt files created in the intermediary
     
     for fname in os.listdir(path):
-        if '--' in fname:
+        if '--' in fname and not 'appendix' in fname:
             os.remove(os.path.join(path, fname))
     
 

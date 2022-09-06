@@ -16,8 +16,8 @@ from pdf2image import convert_from_path
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'all_scans'
-ROOTDIR = 'P:/2020/14/Tingsratter/'
-DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/"
+ROOTDIR = 'P:/2020/14/Kodning/Scans/ML_appendix/remainder/'
+DESTINATION = "P:/2020/14/Kodning/Scans/ML_appendix/0/"
 
 error_paths = [] 
 
@@ -128,29 +128,40 @@ def changename(rootdir):
 
 
 
+def changename_one_folder(rootdir):
+    """
+    Remove () from filename
+    """
+    for file in glob.glob(rootdir + "*.pdf"):
+        file_new = file.replace("-","_99")
+        print('OLD: ', file)
+        print('NEW: ', file_new)
+        os.rename(file, file_new)
+
+
+
 def randomsample(rootdir, destination):
     for rootdir, dirs, files in os.walk(rootdir):
         for subdir in dirs:
             dirpath = os.path.join(rootdir, subdir)
+            
             if (
-                    "all_scans" in dirpath
-                    and not "1. Gemensamma dokument" in dirpath
+                    not "1. Gemensamma dokument" in dirpath
+                    #and "all_scans" in dirpath
                     and not "ocr_errors" in dirpath
                     
                 ):
                 
-                paths = glob.glob(dirpath + "/*.pdf")
-
+                
+                paths = glob.glob(dirpath + "/*.jpg")
+                print(paths)
                 allfiles = [x for x in paths if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
                 prop = round(len(allfiles) * 0.05)
                 
-                filenames = random.sample(allfiles, prop)
+                filenames = random.sample(allfiles, 400)
                 filenames = [os.path.join(dirpath, x) for x in filenames]
-                filetxts = [x.split(".pdf")[0]+".txt" for x in filenames]
-                filetxts = [os.path.join(dirpath, x) for x in filetxts]
-                copy_files(filenames, destination)
-                copy_files(filetxts, destination)
+                move_files(filenames, destination)
                 
 
                     
@@ -165,4 +176,4 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-
+changename_one_folder("P:/2020/14/Tingsratter/Stockholms/Domar/all_scans/")

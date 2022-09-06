@@ -126,7 +126,7 @@ def train_model():
     #Now predict using the trained RF model. 
     prediction = model.predict(X_validation_features)
     #Inverse le transform to get original label back. 
-    pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'wb'))
+    pickle.dump(model, open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_appendix.pkl', 'wb'))
     
     #Print overall accuracy
     print ("Accuracy = ", metrics.accuracy_score(y_valid, prediction))
@@ -139,7 +139,7 @@ def predict(img_path):
     for layer in VGG_model.layers:
     	layer.trainable = False
     
-    model = pickle.load(open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_img_rotation.pkl', 'rb'))
+    model = pickle.load(open('P:/2020/14/Kodning/Code/custodyproject/machine_learning/MLmodel_appendix.pkl', 'rb'))
     
     im = imread(img_path)
     im = resize(im, (256, 256)) #[:,:,::-1]
@@ -148,10 +148,9 @@ def predict(img_path):
     input_img_features=input_img_feature.reshape(input_img_feature.shape[0], -1)
     prediction = model.predict(input_img_features)[0]
     
-    pred = True if prediction == 1 else False
-    
     return prediction
 
 #Execute
-#resize_all(src=data_path, pklname=base_name, width=width, include=include)
-#train_model()
+if __name__ == '__main__':
+    resize_all(src=data_path, pklname=base_name, width=width, include=include)
+    train_model()
