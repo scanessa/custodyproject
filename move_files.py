@@ -159,7 +159,7 @@ def randomsample(rootdir, destination):
                 
                 prop = round(len(allfiles) * 0.05)
                 
-                filenames = random.sample(allfiles, 400)
+                filenames = random.sample(allfiles, 200)
                 filenames = [os.path.join(dirpath, x) for x in filenames]
                 move_files(filenames, destination)
                 
@@ -176,4 +176,4 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-changename_one_folder("P:/2020/14/Tingsratter/Stockholms/Domar/all_scans/")
+randomsample(ROOTDIR, DESTINATION)

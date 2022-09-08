@@ -16,10 +16,12 @@ import itertools
 import gender_guesser.detector as gender
 import spacy
 import numpy as np
+import shutil
 
 from fuzzywuzzy import fuzz
 from Levenshtein import distance
 from transformers import pipeline
+from itertools import chain
 
 from pdfminer.layout import LAParams
 from pdfminer.pdfpage import PDFPage
@@ -37,7 +39,7 @@ from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_header, clean_partyname, party_city, shared_phys,stay_in_home_key
-from searchterms import physicalcust, divorce_terms
+from searchterms import physicalcust, divorce_terms, no_ruling, ruling_end
 
 #General settings
 
@@ -75,8 +77,8 @@ start_time = time.time()
 flag = []
 COUNT = 1
 
-SAVE = 1
-PRINT = 0
+SAVE = 0
+PRINT = 1
 FULLSAMPLE = 0
 APPEND = 0
 
@@ -91,7 +93,7 @@ if FULLSAMPLE == 1: #to create actual dataset
     LAST = ''
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    ROOTDIR = "P:/2020/14/Kodning/Scans/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
@@ -201,9 +203,6 @@ def topwords_from_jpd(text):
 
     return out
 
-def cases_from_imgs():
-    pass
-
 
 
 def read_file(file):
@@ -267,10 +266,9 @@ def get_ocrtext(full_text):
     Use OCR fulltext and header to return first page, topwords, judge, fulltext formatted and cleaned
     Topwords are first 10 words found on page
     """
-    
     full_text = full_text.split('__newpage__')
     full_text = [x for x in full_text if not x == '\n']
-    
+        
     firstpage_form = ''.join(full_text[0])
     page_count = len(full_text)
     lastpage_form = ''.join(full_text[-1])
@@ -330,7 +328,7 @@ def get_header(firstpage_form):
     """
     try:
         header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
-        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE', 'DOM']:
+        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE', 'SÖKANDE','DOM']:
             header2 = header1.split(term)
             if len(header2) != 1:
                 break
@@ -435,15 +433,18 @@ def get_partyname(parties, part_for_name):
     For cases where parties are clearly labeled Kärande or Svarande, code goes into else
     """
 
-    print_output("Part for name", part_for_name)
-    print_output("Party names", word_classify(part_for_name, 'PER', 0))
-
     name_for_part = []
+
     party_lst = [x.split() for x in parties]
     party_lst = list(np.concatenate(party_lst).flat)
     party_lst = [x.strip(',').strip('(').strip(')') for x in party_lst]
-
+    #skulle tillkomma
     part_for_name = part_for_name.split("advokat")[0]
+    if "skulle tillkomma" in part_for_name:
+        part_for_name = part_for_name.split("skulle tillkomma")[1]
+    
+    print_output("Part for name", part_for_name)
+    print_output("Party names", word_classify(part_for_name, 'PER', 0))
     p_name = word_classify(part_for_name, 'PER', 0.95)
     
     if p_name:
@@ -467,9 +468,9 @@ def get_partyname(parties, part_for_name):
     else:
         part = parties[0]
         part = part.replace('Kärande', "").replace('Svarande', "")
-        name_for_part = name = (dictloop(name_pattern, part, 1, [])).split()
+        name = (dictloop(name_pattern, part, 1, [])).split()
     
-    return name, name_for_part
+    return name
         
 
 
@@ -481,14 +482,20 @@ def get_party(parties, part_for_name, use_ner):
     Note:
         - else after if p_name gets names that NER didn't recognize as such by
         capturing the words before 6-10 consecutive numbers
+        - name = name[0] if len(name)>1 else name: sometimes names are captured twice 
+        (eg Marie Meier Marie Meier) -> if name[0] causes errors can use set as well
     """
     
     plaint_lst = []
     lawyer_part = ""
+    #number = "-"
     
     if use_ner:
         print_output("use_ner=True", '')
-        name, part_for_name = get_partyname(parties, part_for_name)
+        name = get_partyname(parties, part_for_name)
+        
+        if any(isinstance(i, list) for i in name):
+            name = name[0]
         
     else:
         print_output("use_ner=False", '')
@@ -496,16 +503,16 @@ def get_party(parties, part_for_name, use_ner):
         part = parties[0]
         part = clean_text(part, clean_partyname)
         print_output("Part for name if user_ner = False", part)
-        name = part_for_name = (dictloop(name_pattern, part, 1, [])).split()
+        name = (dictloop(name_pattern, part, 1, [])).split()
     
     print_output("Party name", name)
-
     for index, part in enumerate(parties):
         print_output("Part in loop for parties", part)
+    
         # Party (name + address)
-        if all(x in part for x in part_for_name):
+        if all(x.lower() in part.lower() for x in name):
             plaint_lst.append(part)
-
+                        
             # ID
             try:
                 number = ''.join(searchkey(id_pattern, part.lower(), 2).split())
@@ -535,14 +542,12 @@ def get_party(parties, part_for_name, use_ner):
     
             else:
                 lawyer = 0
+    
+    name = name.split('delimiter') if type(name) == str else name
     name_full = name
     name = name[:-1] if len(name) > 1 else name
-    
-    print_output('Final plaint_lst', plaint_lst)
     print_output('parties', parties)
-    
     new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
-    
     print_output('new_parties', new_parties)
     
     return part, name, name_full, number, lawyer, lawyer_part, new_parties
@@ -637,8 +642,10 @@ def get_custodybattle(fulltext, searchterms):
 def get_parties(header):
     # Split header into 2 parties
     parties = re.split(party_split, header)
+    parties = [x.split('\n2, ') for x in parties]
+    parties = list(chain(*parties))    
     parties = [x for x in parties if x if not x == " " if not 'saken' in x if not x == '\n']
-    
+        
     print_output("Parties", parties)
     
     if len(parties) == 1:
@@ -977,6 +984,9 @@ def get_doctype(file, topwords, fulltext_og):
         doc_type = 'dom'
     else:
         doc_type = 'Not found'
+    
+    print_output("get_doctype", doc_type)
+    
     return doc_type
 
 
@@ -1026,6 +1036,8 @@ def get_ruling(fulltext_form):
     """
     Extract only ruling text headed usually 'Domslut'
     """
+    matches = []
+    
     try:
         print_output("Ruling 1","")
         ruling_form = ''.join(re.split('MSLUT|Domslut\n', ''.join(fulltext_form))[1:])
@@ -1039,11 +1051,27 @@ def get_ruling(fulltext_form):
         ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
         print_output("Ruling 2a","")
     
-    ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
-    second_ruling_splitter = dictloop(ruling_search,ruling_form,0,[])
+    
+    for term in ruling_end:
+        index = fulltext_form.find(term)
+        if index > 0:
+            matches.append((term,index))
+    
+    matches = sorted(matches, key=lambda x: int(x[1]), reverse=False)
+    print_output("matches", matches)
+
+    if not matches:
+        ruling_form = ''.join(re.split('DELDOM|DOM',ruling_form))
+        second_ruling_splitter = dictloop(ruling_search,ruling_form,0,[])
+    else:
+        second_ruling_splitter = matches[0][0]
+        print_output("second_ruling_splitter", second_ruling_splitter)
+    
+    print_output('second_ruling_splitter',second_ruling_splitter)
     
     ruling_form = re.split(second_ruling_splitter, ruling_form)[0]
-    
+    after_domslut = ''.join(re.split(second_ruling_splitter, fulltext_form)[1:])
+        
     try:
         if searchkey('\d\d\s*–\s*\d\d', ruling_form, 0):
             ruling1 = re.sub('\s*–\s*','–',ruling_form)
@@ -1069,7 +1097,7 @@ def get_ruling(fulltext_form):
     ruling = ruling_og.lower()
     print_output("Ruling: ",ruling)
     
-    return ruling_form, ruling_og, ruling
+    return ruling_form, ruling_og, ruling,after_domslut
 
 
 
@@ -1138,7 +1166,6 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
             names = []
             relev = updated_ruling.split(i)[0]
             print_output("relevant part for childid name", relev)
-            print_output("Child names",word_classify(relev, "PER",0.99))
             
             #NLP cant get name if only word in relev is the name, so get these names in first if
             name = re.split(",|\s", relev)
@@ -1147,6 +1174,7 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
                 names = name
             else:
                 p_name = word_classify(relev, "PER",0.9)
+                print_output("Child names",p_name)
                 
                 if p_name:
                     p_name = p_name[-1]
@@ -1168,7 +1196,6 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
                 child_first = child_first[0].capitalize()
 
             childid_name[i] = child_first
-            
             # Remove used part of string from ruling to look for new names
             updated_ruling = ' '.join([x for x in updated_ruling.split(i) if not x == relev])
 
@@ -1439,7 +1466,6 @@ def get_visitation(child_first, ruling_og, plaint_first, defend_first):
                     break
             
             else:
-                print_output("Visitation 3", key + term)
                 visit = 0
 
         else:
@@ -1514,7 +1540,7 @@ def get_alimony(ruling_og, plaint_first, defend_first):
     print_output("Target sentence for alimony search", findterms(['underhåll'], ruling_og))
     
     if 'noll' in findterms(['underhåll'], ruling_og):
-        alimony = 4
+        alimony = 3
     elif findterms(['underhåll'], ruling_og) and not any([x in findterms(['underhåll'], ruling_og) for x in reject]):
         target = findterms(['underhåll'], ruling_og).split(' ska')[0]
         if any(x.lower() in target for x in plaint_first):
@@ -1782,7 +1808,7 @@ def get_lawyerinfo(lawyer):
     for term in ["advokat", "jur.kand"]:
         if term in lawyer.lower():
             lawyer_title = term
-            lawyer_name = " ".join(lawyer.lower().split(term)[1:]).strip().replace("\n", " ")
+            lawyer_name = " ".join(lawyer.lower().split(term)[1:]).strip()
             
             if lawyer_name.startswith("en"):
                 lawyer_name = lawyer_name.split("en", 1)[1]
@@ -1791,6 +1817,8 @@ def get_lawyerinfo(lawyer):
         else:
             lawyer_title = 'Not found'
             lawyer_name = lawyer
+    
+    lawyer_name = lawyer_name.replace("\n", " ")
     
     return legalguard, legalaid, lawyer_title, lawyer_name
 
@@ -1861,28 +1889,26 @@ def get_plaintcategory(plaint_made):
 
 
 
-def get_initial_temp(plaint_made, fulltext, plaint_first, defend_first,child_first):
+def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,child_first):
     
-    second_ruling_splitter = dictloop(ruling_search,fulltext,0,[])
-    relev = re.split(second_ruling_splitter, fulltext)[1]
-    relev = relev.split(plaint_made)    
-    before_plaint = relev[0].lower()
+    relev = after_domslut.replace("\n", " ")
+    if plaint_made:
+        before_plaint = relev.split(plaint_made)[0].lower()
+    else:
+        before_plaint = relev
     plaint_first = [x.lower() for x in plaint_first]
     defend_first = [x.lower() for x in defend_first]
     child_first = child_first.lower()
     
-    print_output("before_plaint for initial situation",before_plaint)
+    print_output("before_plaint for initial situation",before_plaint.split("delimit"))
 
     if len(relev)<=1:
         before_plaint = ".".join(before_plaint.split(".")[:10])
-        after_plaint = relev[0].lower()
-    else:
-        after_plaint = relev[1].lower()
-    
+
     #Initial legal
     if (
             findterms(['vård', ' om ' , 'gemensam'], before_plaint)
-            or findterms([ 'dom' ,'förordnades' ,'delad', 'vård'], before_plaint)
+            or findterms([ 'dom' ,'förordnades' ,'delad', 'vård', 'gemensam'], before_plaint)
             ):
         init_l = 1
     
@@ -1923,26 +1949,26 @@ def get_initial_temp(plaint_made, fulltext, plaint_first, defend_first,child_fir
     
     #Temp legal
     if (
-            findterms(['vård','förordn', 'interimistiskt', ' gemensam'], after_plaint)
-            or findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
-            or findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint)
-            or findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
+            findterms(['vård','förordn', 'interimistiskt', ' gemensam'], relev)
+            or findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], relev)
+            or findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], relev)
+            or findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], relev)
             ):
         temp_l = 1
     
     elif (
-            any(x in findterms(['vård','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
+            any(x in findterms(['vård','förordn', 'interimistiskt'], relev) for x in plaint_first)
+            or any(x in findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
+            or any(x in findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in plaint_first)
+            or any(x in findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
             ):
         temp_l = 2
         
     elif (
-            any(x in findterms(['vård','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first) 
-            or any(x in findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first)
+            any(x in findterms(['vård','förordn', 'interimistiskt'], relev) for x in defend_first)
+            or any(x in findterms(['vård','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in defend_first) 
+            or any(x in findterms(['vård','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in defend_first)
+            or any(x in findterms(['vård', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in defend_first)
 
             ):
         temp_l = 3
@@ -1952,26 +1978,41 @@ def get_initial_temp(plaint_made, fulltext, plaint_first, defend_first,child_fir
         
     #Temp physical
     if (
-            findterms(['boende','förordn', 'interimistiskt', ' gemensam'], after_plaint)
-            or findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
-            or findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint)
-            or findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
+            findterms([' bo ','förordn', 'interimistiskt', ' gemensam'], relev)
+            or findterms([' bo ','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], relev)
+            or findterms([' bo ','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], relev)
+            or findterms([' bo ', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], relev)
+            
+            or findterms(['boende','förordn', 'interimistiskt', ' gemensam'], relev)
+            or findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], relev)
+            or findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], relev)
+            or findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], relev)
             ):
         temp_p = 1
     
     elif (
-            any(x in findterms(['boende','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
+            any(x in findterms([' bo ','förordn', 'interimistiskt'], relev) for x in plaint_first)
+            or any(x in findterms([' bo ','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
+            or any(x in findterms([' bo ','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in plaint_first)
+            or any(x in findterms([' bo ', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
+            
+            or any(x in findterms(['boende','förordn', 'interimistiskt'], relev) for x in plaint_first)
+            or any(x in findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
+            or any(x in findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in plaint_first)
+            or any(x in findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
             ):
         temp_p = 2
         
     elif (
-            any(x in findterms(['boende','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first) 
-            or any(x in findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first)
+            any(x in findterms([' bo ','förordn', 'interimistiskt'], relev) for x in defend_first)
+            or any(x in findterms([' bo ','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in defend_first) 
+            or any(x in findterms([' bo ','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in defend_first)
+            or any(x in findterms([' bo ', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in defend_first)
+            
+            or any(x in findterms(['boende','förordn', 'interimistiskt'], relev) for x in defend_first)
+            or any(x in findterms(['boende','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in defend_first) 
+            or any(x in findterms(['boende','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in defend_first)
+            or any(x in findterms(['boende', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in defend_first)
 
             ):
         temp_p = 3
@@ -1982,26 +2023,18 @@ def get_initial_temp(plaint_made, fulltext, plaint_first, defend_first,child_fir
 
     #Temp visitation
     if (
-            findterms(['umgänge','förordn', 'interimistiskt', ' gemensam'], after_plaint)
-            or findterms(['umgänge','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
-            or findterms(['umgänge','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint)
-            or findterms(['umgänge', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint)
-            ):
-        temp_v = 1
-    
-    elif (
-            any(x in findterms(['umgänge','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['umgänge','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['umgänge','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in plaint_first)
-            or any(x in findterms(['umgänge', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in plaint_first)
+            any(x in findterms(['umgänge','förordn', 'interimistiskt'], relev) for x in plaint_first)
+            or any(x in findterms(['umgänge','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
+            or any(x in findterms(['umgänge','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in plaint_first)
+            or any(x in findterms(['umgänge', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in plaint_first)
             ):
         temp_v = 2
         
     elif (
-            any(x in findterms(['umgänge','förordn', 'interimistiskt', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['umgänge','interimistiskt' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first) 
-            or any(x in findterms(['umgänge','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas', ' gemensam'], after_plaint) for x in defend_first)
-            or any(x in findterms(['umgänge', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt',' gemensam'], after_plaint) for x in defend_first)
+            any(x in findterms(['umgänge','förordn', 'interimistiskt'], relev) for x in defend_first)
+            or any(x in findterms(['umgänge','interimistiskt' ,'beslut' ,'tingsrätt'], relev) for x in defend_first) 
+            or any(x in findterms(['umgänge','förordn', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas'], relev) for x in defend_first)
+            or any(x in findterms(['umgänge', ' för ', 'tiden', 'till', 'dess', 'dom', 'meddelas' ,'beslut' ,'tingsrätt'], relev) for x in defend_first)
 
             ):
         temp_v = 3
@@ -2014,110 +2047,118 @@ def get_initial_temp(plaint_made, fulltext, plaint_first, defend_first,child_fir
 
 
 
+def remove_nonruling_pages(full_text):
+    """
+    Renoves pages that contain any of the following strings:
+    ['Dagbok', 'Protokoll', 'TLIGT BESLUT', 'Slutligt Beslut', 'PROTOKOLL', 'DAGBOK']
+    """
+    pages = full_text.split("__newpage__")
+    pages = [p for p in pages if not any(word in p for word in no_ruling) if not '\n']    
+    if pages:
+        full_text = "__newpage__".join(pages)
+    
+    return full_text
+
+
+
 def filldict_rulings(
         data_rulings, child_id, file, page_count, correction, topwords, fulltext_og,
-        ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
+        after_domslut, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
         defend_og, defend_first, defend_no, defend_lawyer, defend_godman, 
         casetype, domskal_og, ruling_og, child_first, firstpage_form, 
         domskal, fulltext, caseno, courtname, date, year, judge, judgetitle,
         judge_gender, flag, judge_string, plaint_full, defend_full,
         d_lawyer_part, p_lawyer_part, plaint_made
         ):
+    defend_secret = secret_address(defend_og)
+    plaint_secret = secret_address(plaint_og)
+    part = part_ruling(topwords)
     
-    try:
-        defend_secret = secret_address(defend_og)
-        plaint_secret = secret_address(plaint_og)
-        part = part_ruling(topwords)
-        
-        defend_abroad = get_defendabroad(defend_og, defend_first, defend_godman, fulltext_og, domskal_og)
-        defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
-        out = get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, plaint_first, defend_first)
-        visit = get_visitation(child_first, ruling_og, plaint_first, defend_first)
-        phys = get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_first)
-        alimony = get_alimony(ruling_og, plaint_first, defend_first)
-        divorce_only, divorce_dummy = get_divorce(out, phys, visit, alimony, ruling)
-        agree_cust, agree_any = get_agreement(domskal, domskal_og, fulltext, out)
-        fastinfo = get_fastinfo(fulltext, fulltext_og)
-        cooperation = get_cooperation(fulltext_og, fulltext)
-        investigation = get_investigation(fulltext, fulltext_og)
-        separate = separation_year(fulltext_og, fulltext)
-        mainhear = get_mainhearing(fulltext_og)
-        judge_string = judge_string.replace('\n', ' ')
-        contact_person = get_contactp(ruling)
-        visitation_type = get_visitation_type(ruling_og)
-        p_legalguard, p_lawyer_legalaidact, p_lawyer_title, p_lawyer_name = get_lawyerinfo(p_lawyer_part)
-        _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = get_lawyerinfo(d_lawyer_part)
-        child_id = child_id.replace(' ','')
-        estate_dist = get_estate_dist(ruling_og)
-        stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
-        plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
-        casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_terms)
-        init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made, fulltext_og, plaint_first, defend_first,child_first)
-        
-        data_rulings['initial_legal'].append(init_l)
-        data_rulings['initial_physical'].append(init_p)
-        data_rulings['temp_legal'].append(temp_l)
-        data_rulings['temp_physical'].append(temp_p)
-        data_rulings['temp_visitation'].append(temp_v)    
-        data_rulings['plaint_legal'].append(plaint_legal)
-        data_rulings['plaint_physical'].append(plaint_physical)
-        data_rulings['plaint_visitation'].append(plaint_visit)
-        data_rulings['plaint_alimony'].append(plaint_alim)
-        data_rulings['file_path'].append(file)
-        data_rulings['plaint_made'].append(plaint_made)
-        data_rulings['flag'].append(flag)
-        data_rulings['child_id'].append(child_id)
-        data_rulings['stay_in_home'].append(stay_in_home)
-        data_rulings['estate_distribution_executor'].append(estate_dist)
-        data_rulings['divorce'].append(divorce_dummy)
-        data_rulings['p_lawyer_title'].append(p_lawyer_title)
-        data_rulings['d_lawyer_title'].append(d_lawyer_title) 
-        data_rulings['p_lawyer_name'].append(p_lawyer_name)
-        data_rulings['d_lawyer_name'].append(d_lawyer_name) 
-        data_rulings['p_lawyer_legalaidact'].append(p_lawyer_legalaidact)
-        data_rulings['d_lawyer_legalaidact'].append(d_lawyer_legalaidact)  
-        data_rulings['d_legalguard'].append(defend_godman)
-        data_rulings['p_legalguard'].append(p_legalguard)
-        data_rulings['contactperson'].append(contact_person)
-        data_rulings['visitation_type'].append(visitation_type)
-        data_rulings['plaintiff_name'].append(' '.join(plaint_full))
-        data_rulings['defendant_name'].append(' '.join(defend_full))
-        data_rulings['child_name'].append(child_first)
-        data_rulings['page_count'].append(page_count)
-        data_rulings['correction_firstpage'].append(correction)
-        data_rulings['case_no'].append(caseno)
-        data_rulings['casetype_custody'].append(casetype)
-        data_rulings['casetype_divorce'].append(casetype_divorce)
-        data_rulings['judge'].append(judge)
-        data_rulings['judge_gender'].append(judge_gender)
-        data_rulings['court'].append(courtname)
-        data_rulings['date'].append(date)
-        data_rulings['deldom'].append(part)
-        data_rulings['divorce_only'].append(divorce_only)
-        data_rulings['plaintiff_id'].append(plaint_no) 
-        data_rulings['defendant_id'].append(defend_no)   
-        data_rulings['defendant_address_secret'].append(defend_secret)  
-        data_rulings['plaintiff_address_secret'].append(plaint_secret)  
-        data_rulings['plaintiff_lawyer'].append(plaint_lawyer) 
-        data_rulings['defendant_lawyer'].append(defend_lawyer)
-        data_rulings['defendant_abroad'].append(defend_abroad)
-        data_rulings['defendant_unreachable'].append(defend_unreach)
-        data_rulings['outcome'].append(out)   
-        data_rulings['visitation'].append(visit)
-        data_rulings['physical_custody'].append(phys)
-        data_rulings['alimony'].append(alimony)                
-        data_rulings['agreement_legalcustody'].append(agree_cust)    
-        data_rulings['agreement_any'].append(agree_any)  
-        data_rulings['fastinfo'].append(fastinfo)          
-        data_rulings['cooperation_talks'].append(cooperation)
-        data_rulings['investigation'].append(investigation)
-        data_rulings['separation_year'].append(separate)
-        data_rulings['mainhearing'].append(mainhear)
-        data_rulings['judge_text'].append(judge_string)
-
-    except: 
-        for i in data_rulings:
-            data_rulings[i].append('error')
+    defend_abroad = get_defendabroad(defend_og, defend_first, defend_godman, fulltext_og, domskal_og)
+    defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
+    out = get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, plaint_first, defend_first)
+    visit = get_visitation(child_first, ruling_og, plaint_first, defend_first)
+    phys = get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_first)
+    alimony = get_alimony(ruling_og, plaint_first, defend_first)
+    divorce_only, divorce_dummy = get_divorce(out, phys, visit, alimony, ruling)
+    agree_cust, agree_any = get_agreement(domskal, domskal_og, fulltext, out)
+    fastinfo = get_fastinfo(fulltext, fulltext_og)
+    cooperation = get_cooperation(fulltext_og, fulltext)
+    investigation = get_investigation(fulltext, fulltext_og)
+    separate = separation_year(fulltext_og, fulltext)
+    mainhear = get_mainhearing(fulltext_og)
+    judge_string = judge_string.replace('\n', ' ')
+    contact_person = get_contactp(ruling)
+    visitation_type = get_visitation_type(ruling_og)
+    p_legalguard, p_lawyer_legalaidact, p_lawyer_title, p_lawyer_name = get_lawyerinfo(p_lawyer_part)
+    _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = get_lawyerinfo(d_lawyer_part)
+    child_id = child_id.replace(' ','')
+    estate_dist = get_estate_dist(ruling_og)
+    stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
+    plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
+    casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_terms)
+    init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,child_first)
+    
+    data_rulings['initial_legal'].append(init_l)
+    data_rulings['initial_physical'].append(init_p)
+    data_rulings['temp_legal'].append(temp_l)
+    data_rulings['temp_physical'].append(temp_p)
+    data_rulings['temp_visitation'].append(temp_v)    
+    data_rulings['plaint_legal'].append(plaint_legal)
+    data_rulings['plaint_physical'].append(plaint_physical)
+    data_rulings['plaint_visitation'].append(plaint_visit)
+    data_rulings['plaint_alimony'].append(plaint_alim)
+    data_rulings['file_path'].append(file)
+    data_rulings['plaint_made'].append(plaint_made)
+    data_rulings['flag'].append(flag)
+    data_rulings['child_id'].append(child_id)
+    data_rulings['stay_in_home'].append(stay_in_home)
+    data_rulings['estate_distribution_executor'].append(estate_dist)
+    data_rulings['divorce'].append(divorce_dummy)
+    data_rulings['p_lawyer_title'].append(p_lawyer_title)
+    data_rulings['d_lawyer_title'].append(d_lawyer_title) 
+    data_rulings['p_lawyer_name'].append(p_lawyer_name)
+    data_rulings['d_lawyer_name'].append(d_lawyer_name) 
+    data_rulings['p_lawyer_legalaidact'].append(p_lawyer_legalaidact)
+    data_rulings['d_lawyer_legalaidact'].append(d_lawyer_legalaidact)  
+    data_rulings['d_legalguard'].append(defend_godman)
+    data_rulings['p_legalguard'].append(p_legalguard)
+    data_rulings['contactperson'].append(contact_person)
+    data_rulings['visitation_type'].append(visitation_type)
+    data_rulings['plaintiff_name'].append(' '.join(plaint_full))
+    data_rulings['defendant_name'].append(' '.join(defend_full))
+    data_rulings['child_name'].append(child_first)
+    data_rulings['page_count'].append(page_count)
+    data_rulings['correction_firstpage'].append(correction)
+    data_rulings['case_no'].append(caseno)
+    data_rulings['casetype_custody'].append(casetype)
+    data_rulings['casetype_divorce'].append(casetype_divorce)
+    data_rulings['judge'].append(judge)
+    data_rulings['judge_gender'].append(judge_gender)
+    data_rulings['court'].append(courtname)
+    data_rulings['date'].append(date)
+    data_rulings['deldom'].append(part)
+    data_rulings['divorce_only'].append(divorce_only)
+    data_rulings['plaintiff_id'].append(plaint_no) 
+    data_rulings['defendant_id'].append(defend_no)   
+    data_rulings['defendant_address_secret'].append(defend_secret)  
+    data_rulings['plaintiff_address_secret'].append(plaint_secret)  
+    data_rulings['plaintiff_lawyer'].append(plaint_lawyer) 
+    data_rulings['defendant_lawyer'].append(defend_lawyer)
+    data_rulings['defendant_abroad'].append(defend_abroad)
+    data_rulings['defendant_unreachable'].append(defend_unreach)
+    data_rulings['outcome'].append(out)   
+    data_rulings['visitation'].append(visit)
+    data_rulings['physical_custody'].append(phys)
+    data_rulings['alimony'].append(alimony)                
+    data_rulings['agreement_legalcustody'].append(agree_cust)    
+    data_rulings['agreement_any'].append(agree_any)  
+    data_rulings['fastinfo'].append(fastinfo)          
+    data_rulings['cooperation_talks'].append(cooperation)
+    data_rulings['investigation'].append(investigation)
+    data_rulings['separation_year'].append(separate)
+    data_rulings['mainhearing'].append(mainhear)
+    data_rulings['judge_text'].append(judge_string)
 
     return data_rulings
 
@@ -2163,12 +2204,9 @@ def save(dictionary, SAVE, COUNT, location):
 
 
 
-def main(file, jpgs):
-    
-    if jpgs == 1:
-        outpath = file['filepath'].split('\\')[0]
-    else:
-        outpath = file.split('\\')[0]
+def main(file):
+
+    outpath = file.split('\\')[0]
     os.chdir(outpath)
     
     if 'all_cases' in file:
@@ -2177,31 +2215,15 @@ def main(file, jpgs):
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count = read_file(file)
         topwords = get_topwords(firstpage_form)
         readable = 1
-        
-    elif jpgs == 1:
-        print('\nImage file: ',file['filepath'])
-
-        fulltext_form = file['fulltext_form']
-        fulltext_form = ' '.join([item for sublist in fulltext_form for item in sublist])        
-        firstpage_form = ' '.join(file['firstpage_form'])
-        judge_string = ' '.join(file['judge_string'])
-
-        topwords = file['topwords']
-        topwords = (' '.join([item for sublist in topwords for item in sublist])).lower()        
-        page_count = file['page_count']
-        lastpage_form = ' '.join(file['lastpage_form'])
-        file = file['filepath']
-
-        topwords, firstpage_form, fulltext_form, judge_string = clean_ocr(topwords, firstpage_form, fulltext_form, judge_string)
-        correction = 0
-        readable = 0
 
     elif 'all_scans' in file:
         print('\nScan: ', file)
         
-        text = open(file, "r")
-        full_text = text.read()
-        text.close()
+        doc = open(file, "r")
+        full_text = doc.read()
+        doc.close()
+        
+        full_text = remove_nonruling_pages(full_text)
         fulltext_form, firstpage_form, topwords, page_count, lastpage_form = get_ocrtext(full_text)
         judge_string = re.split(appeal, lastpage_form)[-1] 
         correction = 0
@@ -2212,7 +2234,7 @@ def main(file, jpgs):
     firstpage_form = clean_text(firstpage_form, clean_general)
     header_form = get_header(firstpage_form)
     header_form = clean_text(header_form, clean_header)
-    fulltext_og, fulltext = format_text(fulltext_form)
+    fulltext_og, fulltext = format_text(fulltext_form)    
     caseno, courtname, date, year = basic_caseinfo(file, topwords)
     doc_type = get_doctype(file, topwords, fulltext_og)
 
@@ -2223,10 +2245,16 @@ def main(file, jpgs):
 
     judge_gender = gend.get_gender((judge.replace('-', ' ')).split()[0])
     
+    if any(x in fulltext_form for x in ['SLUT', 'Domslut', 'Beslut']):
+        #This attempts to capture docs that have a plaintiff and defendant header
+        plaint_og, plaint_first, plaint_full, plaint_no, plaint_lawyer, p_lawyer_part, defend_og, defend_first, defend_full, defend_no, defend_lawyer, d_lawyer_part, defend_godman, casetype, plaint_made = get_plaint_defend(fulltext_form, header_form, year)    
+    else:
+        #This attempts to capture other docs (eg protokoll that's just a body of text)
+        defend_no, plaint_no = '-','-'
+    
     if doc_type == 'dom' or doc_type == 'deldom':
     
-        plaint_og, plaint_first, plaint_full, plaint_no, plaint_lawyer, p_lawyer_part, defend_og, defend_first, defend_full, defend_no, defend_lawyer, d_lawyer_part, defend_godman, casetype, plaint_made = get_plaint_defend(fulltext_form, header_form, year)    
-        ruling_form, ruling_og, ruling = get_ruling(fulltext_form)
+        ruling_form, ruling_og, ruling, after_domslut = get_ruling(fulltext_form)
         case_type = get_casetype(defend_og, plaint_og, fulltext_og, ruling, firstpage_form)
 
         if not case_type == '1216B':
@@ -2239,7 +2267,7 @@ def main(file, jpgs):
                 # Save rulings data to file
                 dict_rulings = filldict_rulings(
                     DATA_RULINGS, child_id, file, page_count, correction, topwords, fulltext_og,
-                    ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
+                    after_domslut, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
                     defend_og, defend_first, defend_no, defend_lawyer, defend_godman, 
                     casetype, domskal_og, ruling_og, child_first, firstpage_form, 
                     domskal, fulltext, caseno, courtname, date, year, judge, judgetitle,
@@ -2262,20 +2290,16 @@ def main(file, jpgs):
 
 
 #Execute
-pics = cases_from_imgs()
 scans = paths('.txt')
-
-print("Pics: ", pics)
 print("Scans: ", scans)
 
 #For scanned pdfs
 for file in scans:
     flag = []
-    jpgs = 0
     
     if SAVE == 1:
         try:
-            main(file, jpgs)
+            main(file)
             print('+')
             
         except Exception as e:
@@ -2283,12 +2307,12 @@ for file in scans:
             flag.append(e)
             dict_rulings = filldict_rulings(
                 DATA_RULINGS, 'error', file, 'error', 'error', 'error', 'error',
-            'error', 'error', 'error', 'error', 'error',
-            'error', 'error', 'error', 'error', 'error', 
-            'error', 'error', 'error', 'error', 'error', 
-            'error', 'error', 'error', 'error', 'error', 'error', 'error', 'error',
-            'error', flag, 'error', 'error', 'error',
-            'error', 'error', 'error'
+        'error', 'error', 'error', 'error', 'error', 'error',
+        'error', 'error', 'error', 'error', 'error', 
+        'error', 'error', 'error', 'error', 'error', 
+        'error', 'error', 'error', 'error', 'error', 'error', 'error', 'error',
+        'error', flag, 'error', 'error', 'error',
+        'error', 'error', 'error'
                     )
             
             save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
@@ -2298,41 +2322,16 @@ for file in scans:
                 'error', 'error', 'error', 'error', 'error', file, flag
                 )
             save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
+            
+            current_path = os.getcwd()
+            new_path = current_path + '/ocr_errors/'
+            os.chdir(new_path)
+            shutil.copy(file,new_path)
+            os.chdir(current_path)
 
     else:
-        main(file, jpgs)
+        main(file)
 
-        
-        
-#For scans as photos (jpgs)
-"""
-for case in pics:
-    jpgs = 1
-    flag = []
-    
-    if SAVE == 1:
-        try:
-            main(case, jpgs)
-            
-        except Exception as e:
-            
-            flag.append(e)
-            dict_rulings = filldict_rulings(
-                    DATA_RULINGS, 'error', file, 'error', 'error', 'error', 'error',
-                    'error', 'error', 'error', 'error', 'error', 'error','error',
-                    'error', 'error', 'error', 'error','error', 'error', 'error',
-                    'error', 'error','error', 'error', 'error', 'error', 'error',
-                    'error', 'error', 'error', 'error', flag
-                    )
-            save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
-            
-            dict_register = filldict_register(
-                DATA_REGISTER, 'error', 'error', 'error', 'error',
-                'error', 'error', 'error', 'error', 'error', file, flag
-                )
-            save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
-    else:
-        main(case, jpgs)
-"""
+
 end_time = time.time()
 print("\n----Time to run in minutes: ", (end_time-start_time)/60)

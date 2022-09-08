@@ -126,7 +126,7 @@ judgetitle_search = {
     }
 
 ruling_search = {
-    '1':'\n\s*\n\s*[A-ZÅÄÖ., ]{5,}\s*\n' + allLetters,
+    '1':'\n\s*[A-ZÅÄÖ., ]{5,}\s*\n\s*' + allLetters,
     '2':'YRKANDEN',
     '3':'\nYrkanden',
     '4': 'rkanden m.m.',
@@ -149,14 +149,17 @@ clean_general = {
     '|':'',
     'vårdera':'',
     'vårdagen':'',
+    'våränader':'vårdnaden',
     ' cnsam ':' ensam ',
     ' ensom ':' ensam ',
     ' ensarn ':' ensam ',
     'gemen-sam':'gemensam',
+    'gemen-\nsam':'gemensam',
     'gemensamme':'xxx',
     'gemensamma barn':'xxx',
     'gemensamma dot':'xxx',
     'gemensamma son':'xxx',
+    'interimis-\ntiskt':'interimistiskt',
     'OMSLUT':'DOMSLUT',
     'MSLUT':'DOMSLUT',
     '\nSLUT':'DOMSLUT',
@@ -170,7 +173,10 @@ clean_general = {
     'rattshjalpslagen':'rättshjälpslagen',
     'rättshjalpslagen':'rättshjälpslagen',
     'rattshjalpslägen':'rättshjälpslagen',
-    "jur kand" : "jur.kand"
+    "jur kand" : "jur.kand",
+    ' - ':'-',
+    ' -':'-',
+    '- ':'-'
     }
 
 clean_partyname = {
@@ -221,6 +227,7 @@ name_pattern = {
 
 nocontant = ['någon', 'inte']
 no_vard = ['umgänge', 'boende', ' bo ']
+no_ruling = ['Dagbok', 'Protokoll', 'TLIGT BESLUT', 'Slutligt Beslut', 'PROTOKOLL', 'DAGBOK']
 
 outcomes_key = ["vård", "umgänge", "boende"]
 
@@ -237,7 +244,7 @@ plaint_terms = [
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
 physicalcust = ['boende','bo tillsammans',' bo ','bosatt']
 party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|\\\
-    tällföreträdare|ÖKANDE|ökande|Hustrun|HUSTRUN|Mannen|MANNEN)'
+    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN)' #added SÖKANDE to get header to I don't need it here anymore
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
@@ -246,6 +253,7 @@ reject_invest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', '
 reject_outcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
 reject_mainhearing = ['skulle ', 'utan', ' ingen', 'inför huvudförhandling']
 remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
+ruling_end = ['YRKANDE', 'BAKGRUND', 'SAKEN', 'BEDÖMNING', 'DOMSKÄL','Yrkande m.m.', 'Bakgrund','Yrkanden m.m.']
 
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 
                  'förhållandet avslutades', 'skildes', 'skiljas', 'skiljer' ]
