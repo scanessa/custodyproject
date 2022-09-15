@@ -16,8 +16,8 @@ from pdf2image import convert_from_path
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'all_scans'
-ROOTDIR = 'P:/2020/14/Kodning/Scans/ML_appendix/remainder/'
-DESTINATION = "P:/2020/14/Kodning/Scans/ML_appendix/0/"
+ROOTDIR = 'P:/2020/14/Tingsratter'
+DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/third500"
 
 error_paths = [] 
 
@@ -132,8 +132,8 @@ def changename_one_folder(rootdir):
     """
     Remove () from filename
     """
-    for file in glob.glob(rootdir + "*.pdf"):
-        file_new = file.replace("-","_99")
+    for file in glob.glob(rootdir + "*.JPG"):
+        file_new = file.replace(".JPG","_appendix.JPG")
         print('OLD: ', file)
         print('NEW: ', file_new)
         os.rename(file, file_new)
@@ -147,21 +147,20 @@ def randomsample(rootdir, destination):
             
             if (
                     not "1. Gemensamma dokument" in dirpath
-                    #and "all_scans" in dirpath
+                    and "all_scans" in dirpath
                     and not "ocr_errors" in dirpath
                     
                 ):
                 
-                
-                paths = glob.glob(dirpath + "/*.jpg")
+                paths = glob.glob(dirpath + "/*.pdf")
                 print(paths)
                 allfiles = [x for x in paths if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
-                prop = round(len(allfiles) * 0.05)
+                prop = round(len(allfiles) * 0.025)
                 
-                filenames = random.sample(allfiles, 200)
+                filenames = random.sample(allfiles, prop)
                 filenames = [os.path.join(dirpath, x) for x in filenames]
-                move_files(filenames, destination)
+                copy_files(filenames, destination)
                 
 
                     

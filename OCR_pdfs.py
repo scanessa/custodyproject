@@ -31,7 +31,7 @@ pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PATH = "P:/2020/14/Kodning/Scans/all_scans/"
+PATH = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/third500/"
 
 #General settings
 LANG = 'swe'
@@ -121,7 +121,7 @@ def reduce_noise(image):
     filename = ''.join(image.split('.jpg')[:-1])
     img = cv2.imread(image)    
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    ret,thresh = cv2.threshold(gray,130,255,cv2.THRESH_BINARY)
+    ret,thresh = cv2.threshold(gray,125,255,cv2.THRESH_BINARY)
     median = cv2.medianBlur(thresh, 3)
 
     cv2.imwrite(filename + '--clean.jpg', median)
@@ -389,7 +389,7 @@ def main():
     #OCR read last page in more detail
     with Pool(60) as p:
         p.map(judge_dets, lastpg)
-    
+
     #Join txt files of the same court document to 1 file
     group_dict = defaultdict(list)
     for fn in glob.glob("*.txt"):
