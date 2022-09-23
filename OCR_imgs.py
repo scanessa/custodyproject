@@ -25,7 +25,6 @@ from fpdf import FPDF
 from io import StringIO
 from multiprocessing import Pool
 from page_dewarp import dewarp_main
-from collections import defaultdict
 
 start_time = time.time()
 pdf_converter = FPDF()
@@ -191,7 +190,10 @@ def save_seperate(all_txt):
             file.close()
 
     for elem in text:
-        if 'SLUT' not in elem:
+        if (
+                'SLUT' not in elem
+                or 'Domslut' not in elem
+                ):
             res[-1].append(elem)
         else:
             res.append([elem])

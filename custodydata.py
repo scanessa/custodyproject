@@ -40,7 +40,8 @@ from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, jud
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_partyname, party_city, shared_phys,stay_in_home_key, secret
 from searchterms import physicalcust, divorce_terms, no_ruling, ruling_end, two_cases_sub, reject_temporary
-from searchterms import contactperson, dismiss_outcome
+from searchterms import contactperson, dismiss_outcome, reject_plaint, plaintcat_shared_key, plaintcat_sole_key
+from searchterms import clean_regex
 
 #General settings
 
@@ -61,9 +62,9 @@ DATA_RULINGS = {
     'initial_legal':[],'initial_physical':[],'temp_legal':[],'temp_physical':[],'temp_visitation':[],
     'outcome':[],'visitation':[], 'contactperson':[], 'visitation_type':[], 'physical_custody':[], 'alimony':[],
     'agreement_legalcustody':[], 'agreement_any':[], 'estate_distribution_executor':[], 'fastinfo':[],
-    'cooperation_talks':[], 'investigation':[], 'mainhearing':[], 'stay_in_home':[],
+    'cooperation_talks':[], 'investigation':[], 'invest_sentence':[],  'mainhearing':[], 'stay_in_home':[],
     'separation_year': [], 'judge':[], 'judge_gender':[], 'judge_text':[], 'page_count': [],
-    'correction_firstpage': [], 'flag': [],'file_path': []
+    'correction_firstpage': [], 'flag': [], 'scan':[], 'file_path': []
     
     }
 
@@ -77,8 +78,8 @@ DATA_REGISTER = {
 start_time = time.time()
 flag = []
 COUNT = 1
-SAVE = 0
-PRINT = 1
+SAVE = 1
+PRINT = 0
 FULLSAMPLE = 0
 
 #Specify folders to search PDFs in
@@ -92,7 +93,7 @@ if FULLSAMPLE == 1: #to create actual dataset
     LAST = ''
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Scans/"
+    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
@@ -163,11 +164,10 @@ def findterms(stringlist, part):
 def findterms_upper(stringlist, part):
     sentenceRes = []
     split = re.split('(?=[.]{1}\s+\n*[A-ZÅÐÄÖÉÜ]|\s\d\s)', part)
-    stringlist = [x.lower() for x in stringlist]
     for sentence in split:
         if all([x in sentence for x in stringlist]):
             sentenceRes.append(sentence)
-    sentenceString = '.'.join(sentenceRes)
+    sentenceString = ''.join(sentenceRes)
     return sentenceString
 
 
@@ -311,13 +311,16 @@ def clean_ocr(topwords, firstpage_form, fulltext_form):
 
 
 
-def clean_text(inp, cleaning_dict):
+def clean_text(inp, cleaning_dict, cleaning_dict_regex):
     """
     Cleans text used as basis for remaining analysis to prevent false positives
     Removes all whitespace between numbers to capture IDs with regexs
     """
-    inp = re.sub(r'(\d)\s+(\d)', r'\1\2', inp)
-
+    #Regex replace
+    for noise, clean in cleaning_dict_regex.items():
+        inp = re.sub(noise, clean, inp)
+    
+    #Standard replace
     for noise, clean in cleaning_dict.items():
         inp = inp.replace(noise, clean)
     
@@ -339,11 +342,16 @@ def get_header(firstpage_form):
     """
     try:
         header1 = (re.split('(DOMSLUT|Domslut\n|SAKEN\n)', firstpage_form))[0]
-        for term in ['PARTER','Parter', 'Kärande', 'KÄRANDE', 'SÖKANDE','DOM']:
+        for term in ['PARTER','Parter','Kärande','KÄRANDE','SÖKANDE','meddelad','DOM']:
             header2 = header1.split(term)
+
             if len(header2) != 1:
                 break
-        header = ''.join(header2[1:])
+        
+        if len(header2) == 1:
+            header = header2[0]
+        else:
+            header = ''.join(header2[1:])
 
     except IndexError:                
         try:
@@ -353,7 +361,6 @@ def get_header(firstpage_form):
                 header = ''.join(firstpage_form.split('')[0:20])
             except IndexError:
                 header = ''.join(firstpage_form)
-
     return header
 
 
@@ -397,6 +404,10 @@ def word_classify(text, entity_req, strictness):
     """
     
     joined_text = []
+    
+    if len(text.split()) > 250:
+        text = ' '.join(text.split()[:250])
+
     split_text = NLP(text)
     in_word=False
     
@@ -445,10 +456,12 @@ def get_partyname(parties, part_for_name):
 
     name_for_part = []
 
-    party_lst = [x.split() for x in parties]
-    party_lst = list(np.concatenate(party_lst).flat)
+    party_lst = [x.split() for x in parties]   
+    
+    if any(isinstance(i, list) for i in party_lst):
+        party_lst = list(np.concatenate(party_lst).flat)
     party_lst = [x.strip(',').strip('(').strip(')') for x in party_lst]
-    #skulle tillkomma
+
     part_for_name = part_for_name.split("advokat")[0]
     if "skulle tillkomma" in part_for_name:
         part_for_name = part_for_name.split("skulle tillkomma")[1]
@@ -506,11 +519,12 @@ def get_party(parties, part_for_name, use_ner):
         name = get_partyname(parties, part_for_name)
         if any(isinstance(i, list) for i in name):
             name = name[0]
+
     else:
         print_output("use_ner=False", '')
         
         part = parties[0]
-        part = clean_text(part, clean_partyname)
+        part = clean_text(part, clean_partyname, clean_regex)
         print_output("Part for name if user_ner = False", part)
         name = dictloop(name_pattern, part, 1, [])
         name = name.split() if name else name
@@ -520,9 +534,11 @@ def get_party(parties, part_for_name, use_ner):
         print_output("Part in loop for parties", part)
         
         if name:
+            name = [x for x in name if len(x)>1]
             for n in name:
                 comp = fuzz.partial_ratio(n.lower(), part.lower())
                 comps.append(comp)
+                
             max_comp = max(comps)
         else:
             max_comp = 0
@@ -609,7 +625,7 @@ def get_response(fulltext, plaint_made):
     elif matches:
         if 'contest' in matches:
             match = 'contest'
-        elif 'contest' in matches:
+        elif 'tvistat' in matches:
             match = 'tvistat'
         elif 'agree' in matches:
             match = 'agree'
@@ -636,22 +652,35 @@ def get_custodybattle(after_domslut, searchterms):
     matches = []
     plaints = []
     
+    after_domslut = after_domslut.replace('1.','1').replace('2.','2').replace('3.','3').replace('4.','4').replace('5.','5').replace('6.','6').replace('7.','7').replace('8.','8').replace('9.','9')
+    
+    for x in ['Yrkande', 'YRKANDE', 'M.M.']:
+        if x in after_domslut:
+            after_domslut = after_domslut.split(x)[1]
+            break
+    
+    print_output("after_domslut for looking for plaint", after_domslut.split('delimit'))
+
     for term in searchterms:
         plaints.append(findterms_upper(term, after_domslut))
-   
-    plaints = ''.join(plaints)    
 
+    plaints = ''.join(plaints)    
+    
     for key in outcomes_key:
         index = plaints.find(key)
         plaint_made = findfirst([key], plaints)
+
         if index > 0:
             print_output("Outcome found in plaint sentence", key)
             print_output("Correspopnding plaint sentence", plaint_made)
             matches.append((index, findfirst(key, plaint_made)))
     
-    matches = sorted(matches, key=lambda x: x[0], reverse=False)
-    
+    matches = sorted(matches, key=lambda x: x[0], reverse=False)  
+    print_output("Matches for plaint", matches)
+    matches = [x for x in matches if not any(i in x[1].lower() for i in reject_plaint)]
+        
     if matches:
+                
         plaint_made = matches[0][1]
         if 'andra hand' in plaint_made:
             p0 = plaint_made.split('andra hand')[0]
@@ -685,9 +714,9 @@ def get_parties(header):
     # Split header into 2 parties
     header = re.sub(two_cases_sub,"Kärande",header)
     parties = re.split(party_split, header)
-    parties = [x.split('\n2, ') for x in parties]
-    parties = list(chain(*parties))    
-    parties = [x for x in parties if x if not x == " " if not 'saken' in x if not x == '\n']
+    parties = [x.split('\n2. ') for x in parties]
+    parties = list(chain(*parties))
+    parties = [x for x in parties if x if len(x.strip()) > 20 if not x == " " if not 'saken' in x if not x == '\n' if not x.strip() == 'Kärande och']
         
     print_output("Parties", parties)
     
@@ -743,10 +772,9 @@ def get_plaint_defend(after_domslut, header, year):
     while num < 10:
         after_domslut = after_domslut.replace(str(num)+'.', str(num)+')')
         num += 1
-        
+
     casetype, plaint_made = get_custodybattle(after_domslut, plaint_terms)
     parties, partyhead = get_parties(header)
-    
 
     if (
             not any(x in header for x in svarande_karande)
@@ -754,7 +782,7 @@ def get_plaint_defend(after_domslut, header, year):
             or ' och ' in partyhead.lower()
             and plaint_made
             ):
-        
+
         print_output("Getting plaint name 1", "")
         use_ner = True
         plaint_part, plaint_name, plaint_full, plaint_number, plaint_lawyer, p_lawyer_part, new_parties = get_party(parties, plaint_made, use_ner)
@@ -764,16 +792,16 @@ def get_plaint_defend(after_domslut, header, year):
         print_output("Getting plaint name 2", "")
         use_ner = False
         plaint_part, plaint_name, plaint_full, plaint_number, plaint_lawyer, p_lawyer_part, new_parties = get_party(parties, parties[0], use_ner)
-    
+
     print_output("Getting defend name", new_parties)
     defend_part, defend_name, defend_full, defend_number, defend_lawyer, d_lawyer_part, _ = get_party(new_parties, ' '.join(new_parties), use_ner)
 
     if 'god man' in ' '.join(new_parties).lower():
         defend_godman = 1
-        
+
     else:
         defend_godman = 0
-    
+
     plaint_made = plaint_made.replace("\n", " ")    
     
     #Flag cases where a child"s ID is in the header (children as plaintiffs in alimony cases)
@@ -1105,14 +1133,14 @@ def get_ruling(fulltext_form):
     except AttributeError:
         ruling_form = ''.join(re.split('\n\n[A-ZÅÄÖÜ]{1}[a-zåäüö]{3,]\s*\n*Tingsrätt',ruling_form))
         print_output("Ruling 2a","")
-    
-    
+        
     for term in ruling_end:
         index = fulltext_form.find(term)
         if index > 0:
             matches.append((term,index))
     
     matches = sorted(matches, key=lambda x: int(x[1]), reverse=False)
+    matches = [x for x in matches if 'saken' not in x[0].lower()]
     print_output("matches", matches)
 
     if not matches:
@@ -1120,39 +1148,18 @@ def get_ruling(fulltext_form):
         second_ruling_splitter = dictloop(ruling_search,ruling_form,0,[])
     else:
         second_ruling_splitter = matches[0][0]
-        print_output("second_ruling_splitter", second_ruling_splitter)
     
     print_output('second_ruling_splitter',second_ruling_splitter)
     
     ruling_form = re.split(second_ruling_splitter, ruling_form)[0]
     after_domslut = ''.join(re.split(second_ruling_splitter, fulltext_form)[1:])
-        
-    try:
-        if searchkey('\d\d\s*–\s*\d\d', ruling_form, 0):
-            ruling1 = re.sub('\s*–\s*','–',ruling_form)
-            ruling2 = re.sub('\s*–\n','–',ruling_form)
-            print_output("Ruling 3", "")
-        else:
-            ruling1 = re.sub('\s*-\s*','-',ruling_form)
-            ruling2 = re.sub('\s*-\n','-',ruling_form)
-            print_output("Ruling 4","")
-        ruling_og = ' '.join(''.join(ruling2).split())
-        
-    except AttributeError:
-        ruling_og = ' '.join(''.join(re.split('(YRKANDEN|Yrkanden)', ruling_form)[0].lower() ).split())
-        if searchkey('\d\d\s*–\s*\d\d', ruling1, 0):
-            ruling_og = re.sub('\s*–\s*','–',ruling_og)
-            ruling_og = re.sub('\s*–\n','–',ruling_og)
-            print_output("Ruling 3a","")
-        else:
-            ruling_og = re.sub('\s*-\s*','-',ruling_og)
-            ruling_og = re.sub('\s*-\n','-',ruling_og)
-            print_output("Ruling 4","")
-            
+    after_domslut = re.split('överklag|Överklag|ÖVERKLAG', after_domslut)[0]
+    
+    ruling_og = ruling_form
     ruling = ruling_og.lower()
     print_output("Ruling: ",ruling)
     
-    return ruling_form, ruling_og, ruling,after_domslut
+    return ruling_form, ruling_og, ruling, after_domslut
 
 
 
@@ -1189,7 +1196,7 @@ def get_childnos(ruling_og, year):
     """
     childid_name = {}
 
-    childnos = re.findall('\d{6,8}\s?.\s?\d{3,4}', ruling_og.lower())
+    childnos = re.findall('\d{6,8}\s?-\s?\n?\d{3,4}', ruling_og.lower())
 
     childnos = [x.replace(' ', '') for x in childnos]
     childnos = list(dict.fromkeys(childnos))
@@ -1216,6 +1223,7 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
     updated_ruling = ruling_og
     
     if childid_name:
+        print_output("childid_name",childid_name)
         for i in childid_name:
             print_output("childid", i)
             names = []
@@ -1253,7 +1261,9 @@ def get_childname(ruling_og, plaint_name, defend_name, year):
 
             childid_name[i] = child_first
             # Remove used part of string from ruling to look for new names
+            
             updated_ruling = ' '.join([x for x in updated_ruling.split(i) if not x == relev])
+            
             
             #Flag kids that have the same names as their parents
             names = [x.lower() for x in names]
@@ -1788,6 +1798,7 @@ def get_investigation(fulltext, fulltext_og):
     """
     found = False
     invest = 0
+    invest_sent = ['']
 
     for term in invest_key:
         if (
@@ -1796,6 +1807,7 @@ def get_investigation(fulltext, fulltext_og):
                 ):
             print_output("Invest 1",term)
             invest = 1
+            invest_sent = findterms([term], fulltext_og)
             found = True
     
     if (
@@ -1806,6 +1818,7 @@ def get_investigation(fulltext, fulltext_og):
             ):
         print_output("Invest 2","")
         invest = 1
+        invest_sent = findterms([' utred', 'ingsrätt'], fulltext_og)
         
     elif (
             not found
@@ -1815,6 +1828,7 @@ def get_investigation(fulltext, fulltext_og):
             ):
         print_output("Invest 3","")
         invest = 1
+        invest_sent = findterms([' utred'], fulltext_og)
         
     else:
         for sentence in findterms([' utred'], fulltext_og).split('.'):
@@ -1825,11 +1839,13 @@ def get_investigation(fulltext, fulltext_og):
                     ):
                 print_output("Invest 4","")
                 invest = 1
+                invest_sent = findterms([' utred'], fulltext_og)
                 break
 
     invest = 0 if "11 kap. 1 § so" in fulltext else invest
+    invest_sent = invest_sent.split('delimit') if type(invest_sent) == str else invest_sent
     
-    return invest
+    return invest, invest_sent
 
 
 
@@ -1939,14 +1955,16 @@ def get_plaintcategory(plaint_made):
     print_output("plaint_made in get_plaintcategory", plaint_made)
     
     #Legal custody
-    if 'vård' in plaint_made and ' gemensam ' in plaint_made:
+    if 'vård' in plaint_made and any(x in plaint_made for x in plaintcat_shared_key):
         plaint_legal = 1
-    elif 'vård' in plaint_made and ' ensam ' in plaint_made:
+    elif 'vård' in plaint_made and any(x in plaint_made for x in plaintcat_sole_key):
         plaint_legal = 2
     elif all(x in plaint_made for x in ['vård',' gemensam ',' ensam ']):
         plaint_legal = 9
     elif 'vård' in plaint_made:
         plaint_legal = 3
+    elif 'i enlighet med' in plaint_made and 'domslut' in plaint_made:
+        plaint_legal = 4
     else:
         plaint_legal = 0
         
@@ -1974,7 +1992,7 @@ def get_plaintcategory(plaint_made):
     plaint_visit = 1 if any(x in plaint_made for x in visitation_key) else 0
 
     #Alimony
-    plaint_alim = 1 if 'underhåll' in plaint_made else 0  
+    plaint_alim = 1 if 'underhål' in plaint_made else 0  
     
     return plaint_legal, plaint_physical, plaint_visit, plaint_alim
 
@@ -2039,18 +2057,18 @@ def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,chil
                 target = findterms(item, searchtext)
                 if target:
                     res = key
+                    break
                 else:
                     res = 0
+            else:
+                continue
+            break
         return res
-    
-    
-    #Initital_legal:  [' om ','vilken','vård',' är ',' gemensam ']
-
 
     #Initial legal
     init_l_dict = {
         1: [
-            ['vård', ' om ' , 'gemensam'],
+            ['vård', ' om' , 'gemensam'],
             [ 'dom' ,'förordnades' ,'delad', 'vård', 'gemensam'],
             ['tillsammans',' har ',' som ',' gemensam ','vårdnad',' om '],
             ['tingsrätt','erinra','vårdnaden','fortfarande',' är ',' gemensam '],
@@ -2102,8 +2120,12 @@ def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,chil
                         and not any(x in target for x in exclude)
                         ):
                     res = key
+                    break
                 else:
                     res = 0
+            else:
+                continue
+            break
         return res
         
     temp_dict = {
@@ -2166,6 +2188,11 @@ def remove_nonruling_pages(full_text):
 
 
 
+def scan_dummy(file):
+    return 1 if 'all_scans' in file else 0
+
+
+
 def filldict_rulings(
         data_rulings, child_id, file, page_count, correction, topwords, fulltext_og,
         after_domslut, ruling, plaint_og, plaint_first, plaint_no, plaint_lawyer,
@@ -2189,7 +2216,7 @@ def filldict_rulings(
     agree_cust, agree_any = get_agreement(domskal, domskal_og, fulltext, out)
     fastinfo = get_fastinfo(fulltext, fulltext_og)
     cooperation = get_cooperation(fulltext_og, fulltext)
-    investigation = get_investigation(fulltext, fulltext_og)
+    investigation, invest_sentence = get_investigation(fulltext, fulltext_og)
     separate = separation_year(fulltext_og, fulltext)
     mainhear = get_mainhearing(fulltext_og)
     judge_string = judge_string.replace('\n', ' ')
@@ -2197,14 +2224,16 @@ def filldict_rulings(
     visitation_type = get_visitation_type(ruling_og)
     p_legalguard, p_lawyer_legalaidact, p_lawyer_title, p_lawyer_name = get_lawyerinfo(p_lawyer_part)
     _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = get_lawyerinfo(d_lawyer_part)
-    child_id = child_id.replace(' ','')
+    child_id = child_id.replace(' ','').replace('\n', '')
     estate_dist = get_estate_dist(fulltext_og)
     stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
     plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
     casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_terms)
     init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,child_first)
+    scan = scan_dummy(file)
     
     data_rulings['initial_legal'].append(init_l)
+    data_rulings['invest_sentence'].append(invest_sentence)
     data_rulings['initial_physical'].append(init_p)
     data_rulings['temp_legal'].append(temp_l)
     data_rulings['temp_physical'].append(temp_p)
@@ -2264,6 +2293,7 @@ def filldict_rulings(
     data_rulings['separation_year'].append(separate)
     data_rulings['mainhearing'].append(mainhear)
     data_rulings['judge_text'].append(judge_string)
+    data_rulings['scan'].append(scan)
 
     return data_rulings
 
@@ -2335,8 +2365,8 @@ def main(file):
         readable = 0
     
     print_output("FULLTEXT", fulltext_form.split('delimiter'))
-    fulltext_form = clean_text(fulltext_form, clean_general)
-    firstpage_form = clean_text(firstpage_form, clean_general)
+    fulltext_form = clean_text(fulltext_form, clean_general, clean_regex)
+    firstpage_form = clean_text(firstpage_form, clean_general, clean_regex)
     header_form = get_header(firstpage_form)
     fulltext_og, fulltext = format_text(fulltext_form)    
     caseno, courtname, date, year = basic_caseinfo(file, topwords)

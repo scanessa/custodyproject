@@ -121,7 +121,7 @@ def changename(rootdir):
     for subdir, dirs, files in os.walk(rootdir, topdown=True):
         for file in files:
             if includes in subdir:
-                file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a")
+                file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a").replace("å","a")
                 print('OLD: ', os.path.join(subdir, file))
                 print('NEW: ', os.path.join(subdir, file_new))
                 os.rename(os.path.join(subdir, file), os.path.join(subdir, file_new))
@@ -132,8 +132,8 @@ def changename_one_folder(rootdir):
     """
     Remove () from filename
     """
-    for file in glob.glob(rootdir + "*.JPG"):
-        file_new = file.replace(".JPG","_appendix.JPG")
+    for file in glob.glob(rootdir + "*.pdf"):
+        file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a").replace("å","a")
         print('OLD: ', file)
         print('NEW: ', file_new)
         os.rename(file, file_new)
@@ -153,7 +153,7 @@ def randomsample(rootdir, destination):
                 ):
                 
                 paths = glob.glob(dirpath + "/*.pdf")
-                print(paths)
+                print(dirpath)
                 allfiles = [x for x in paths if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
                 prop = round(len(allfiles) * 0.025)
@@ -175,4 +175,6 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-randomsample(ROOTDIR, DESTINATION)
+#randomsample(ROOTDIR, DESTINATION)
+#changename(ROOTDIR)
+

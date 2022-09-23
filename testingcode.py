@@ -1,42 +1,10 @@
 import re
-from itertools import chain
 
-def findterms(stringlist, part):
-    sentenceRes = []
-    split = re.split('(?=[.]{1}\s+\n*[A-ZÅÐÄÖÉÜ]|\s\d\s)', part)
-    stringlist = [x.lower() for x in stringlist]
-    for sentence in split:
-        sentence = sentence.lower() + '.'
-        if all([x in sentence for x in stringlist]):
-            sentenceRes.append(sentence)
-    sentenceString = '.'.join(sentenceRes)
-    return sentenceString
+header = '\nKärande och Svarande\nHeidi Edensvård, 780212-0043\nMedborgare i Finland\nParkgatan 754874 Gårdsjö\nOmbud: Advokaten Jan-Otto Meijer\nKronhusgatan 1141105 Göteborg\nSvarande och Kärande\nJonas Edensvård, 740919-5034\nMarklandsgatan 7141105 Göteborg\nOmbud: Advokaten Urban Gilborne\nVästra Hamngatan 1141117 Göteborg\nDDO'
 
-before_plaint = 'vård om  hannis. Is gemensam'
-plaint_first = ['stella','canessa']
-defend_first = ['paula', 'banzhoff']
+party_split = r'\s(?=\w+ärande och Svarande|ÄRANDE OCH SVARANDE|Ombud|ombud|God man|\\\
+    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN|Svarande)'
+parties = re.split(party_split, header)
 
- 
-init_l_dict = {
-    1: [
-        ['vård', ' om ' , 'gemensam'],
-        [ 'dom' ,'förordnades' ,'delad', 'vård', 'gemensam']
-        ],
-    2: [
-        list(chain(*[['har','ensam','vårdnad','om'],plaint_first])),
-        list(chain(*[['dom' ,'förordn' ,' ensam' ,'vård'],plaint_first])),
-        ],
-    3: [
-        list(chain(*[['har','ensam','vårdnad','om'],defend_first])),
-        list(chain(*[['dom' ,'förordn' ,' ensam' ,'vård'],defend_first])),
-        ]
-    }
 
-init_l = 0
-for key, val in init_l_dict.items():
-    for item in val:
-        target = findterms(item, before_plaint)
-        if target:
-            init_l = key
-
-print(init_l)
+print(parties)

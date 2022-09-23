@@ -31,7 +31,7 @@ id_pattern ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
 
 
 caseno_search = {
-    'stockholm':'((\d{1}-\d{2,5}-\d{2,3}))',
+    'stockholm':'((\s\d{1}-\d{3,5}-\d{2,3}))',
     '1':'må.\s*(nr)?[.]?\s*t\s*(\d*\s*.?.?\s*\d*)',
     '2':'\s(t)\s*(\d{2,5}.\d{2})',
     '3':'\n(t)\s*(\d{2,5}.\d{2})'
@@ -132,7 +132,7 @@ ruling_search = {
     '3':'\nYrkanden',
     '4': 'rkanden m.m.',
     '5':'\n\s*[A-ZÅÄÖ., ]{4,}\s*\n',
-    '6': 'SAKEN'
+    '6': 'M. M.\s*\n'
     }
 
 #Define keys for simple word search
@@ -146,9 +146,24 @@ cities = ['alingsås', 'arboga', 'arvika', 'askersund', 'avesta', 'boden', 'boll
 cooperation_key = ['samarbetssamtal','medlingssamtal',' medling', ' medlare']
 contest_key = [['bestritt'], ['bestridit'], ['har','för','egen','del','yrkat'], ['har','istället','yrkat'],['som','slutligen','bestämt','i','sin','talan']]
 contactperson = ['kontaktperson', 'umgängesstöd']
+
+clean_regex = {
+    r'(\d)\s+(\d)': r'\1\2',
+    r'u.{1,4}gänge':r'umgänge',
+    r'\s.{6}ål\s':'underhål',
+    '\s.{2,3}sam\s':' ensam '
+    }
 clean_general = {
     '|':'',
+    ' – ':'–',
+    '– ':'–',
+    ' –':'–',
+    ' - ':'-',
+    ' -':'-',
+    '- ':'-',
+    '--':'-',
     '$':'s',
+    '\n2, ':'\n2. ',
     'vårdera':'',
     'vårdagen':'',
     'våränader':'vårdnaden',
@@ -172,6 +187,7 @@ clean_general = {
     '\'':'',
     '”':'',
     '\"':'',
+    'b.la':'bland annat',
     'rattshjalpslagen':'rättshjälpslagen',
     'rättshjalpslagen':'rättshjälpslagen',
     'rattshjalpslägen':'rättshjälpslagen',
@@ -182,7 +198,15 @@ clean_general = {
     ' - ':'-',
     ' -':'-',
     '- ':'-',
-    'advokatbyrån':'adv.byrån'
+    'advokatbyrån':'adv.byrån',
+    'Huvudkärande':'Kärande',
+    'gensvarande':'svarande',
+    'Huvudsvarande':'Svarande',
+    'genkärande':'kärande',
+    '(mannen)':'mannen',
+    '(hustrun)':'hustrun',
+    '(Mannen)':'Mannen',
+    '(Hustrun)':'Hustrun',
     }
 
 clean_partyname = {
@@ -228,35 +252,44 @@ mainhearing_key = ['huvudförhandling' , ' rättegång ' , 'sakframställning' ,
 name_pattern = {
     '1':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè -]+),\s*\d{6,10}',
     '2':'([A-ZÅÐÄÖÉÜ-]\D+)[,|(|-]\s+',
-    '3':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ]+[A-ZÅÐÄÖÉÜÆ][a-zåäáïüóöéæøßîčćžđšžůúýëçâêè]+)[\n]'
+    '3':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ]+[A-ZÅÐÄÖÉÜÆ][a-zåäáïüóöéæøßîčćžđšžůúýëçâêè]+)[\n]',
+    '4':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè -]+)[.]\s*\d{6,10}',
+    '5':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè -]+)\s*\d{6,10}',
+    '6':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè -]+)\s*född ',
+    '7':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ,-]+),\s*\d{6,10}',
+    '8':'([A-ZÅÐÄÖÉÜÆa-zåäáïüóöéæøßîčćžđšžůúýëçâêè ,-]+)\s*\n*\d{6,10}'
     }
 
 nocontant = ['någon', 'inte']
 no_vard = ['umgänge', 'boende', ' bo ']
 no_ruling = ['Dagbok', 'Protokoll', 'TLIGT BESLUT', 'Slutligt Beslut', 'PROTOKOLL', 'DAGBOK']
 
-outcomes_key = ["vård", "umgänge", "boende", " skall bo "] #not only ' bo ' bc it captures party living in shared home as well
+outcomes_key = ["vård","umgänge","stadigvarande","boende"," skall bo",'underhål'] #not only ' bo ' bc it captures party living in shared home as well
 
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
 party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
-plaint_terms = ['yrka','begär','väckt']
+plaint_terms = [['yrka'],['begär'],['väckt']]
+plaintcat_sole_key = [' ensam', 'erkänn', '\nensam']
+plaintcat_shared_key = [' gemensam ', ' gemensamma vård']
 
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
 physicalcust = ['boende','bo tillsammans',' bo ','bosatt']
+#Included bitrände and God to split lawyer part when ombud or god man have typos in scan
 party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|\\\
-    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN)' #added SÖKANDE to get header to I don't need it here anymore
+    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN|hustrun|mannen|biträde|God )'
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
 reject = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga '] 
 reject_temporary = [' jämväl ']
+reject_plaint = [' ingen ', ' inga ']
 reject_invest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
 reject_outcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
 reject_mainhearing = ['skulle ', 'utan', ' ingen', 'inför huvudförhandling']
 remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
-ruling_end = ['YRKANDE', 'BAKGRUND', 'SAKEN', 'BEDÖMNING', 'DOMSKÄL','Yrkande m.m.', 'Bakgrund','Yrkanden m.m.']
+ruling_end = ['YRKANDE', 'BAKGRUND', 'SAKEN', 'BEDÖMNING', 'DOMSKÄL','Yrkande m.m.', 'Bakgrund','Yrkanden m.m.', 'M.M.\n']
 
 secret = ['sekretess','skyddad','c/o ombudet']
 separation_key = ['separera', 'relationen tog slut', 'förhållandet tog slut', 'relationen avslutades', 

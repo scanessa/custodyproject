@@ -31,7 +31,7 @@ pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PATH = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/third500/"
+PATH = "P:/2020/14/Tingsratter/Halmstads/Domar/all_scans/"
 
 #General settings
 LANG = 'swe'
@@ -256,11 +256,6 @@ def txt_box(dewarp_output, kernal_input):
         if ratio > 1:
             
             roi = img[y:y+h, x:x+w]
-            
-            #cv2.rectangle(img, (x,y),(x+w,y+h),(10,100,0),2)
-            #cv2.putText(img=img, text=str(counter), org=(x, y), fontFace=cv2.FONT_HERSHEY_TRIPLEX, fontScale=1, color=(0, 255, 0),thickness=1)
-            #cv2.imwrite("bbox.jpg",img)
-            
             img_string = pytesseract.image_to_string(roi, lang=LANG, config = CONFIG_TEXTBODY)
             string_list.append(img_string)
             
@@ -330,12 +325,12 @@ def judge_dets(image):
         last = cv2.imread(image)
         
         with open(name[0] + "--pg99.txt", "w") as file:
-            """
+            
             judge_small = txt_box(image, kernal_sign)
             judge_small = final_passage(judge_small)
             judge_small = ' '.join(judge_small)
             file.write(judge_small)
-            """
+            
             judge_large = pytesseract.image_to_string(last, lang=LANG, config = CONFIG_FULL)
             judge_large = final_passage(judge_large)
             judge_large = ' '.join(judge_large)
@@ -410,18 +405,16 @@ def main():
     
 
 
-
 if __name__ == '__main__':
     
     path = PATH
-    files = glob.glob(path + '*.pdf')
     start = time.time()
-
+    
     main()
     
     done = time.time()
     elapsed = done - start
-    print(elapsed)
+    print("Time in minutes: ",elapsed/60)
     
     
 
