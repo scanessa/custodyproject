@@ -39,9 +39,9 @@ from searchterms import cooperation_key, reject_invest, invest_key, outcomes_key
 from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, judgesearch_scans,defend_response
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_partyname, party_city, shared_phys,stay_in_home_key, secret
-from searchterms import physicalcust, divorce_terms, no_ruling, ruling_end, two_cases_sub, reject_temporary
+from searchterms import physicalcust, no_ruling, ruling_end, two_cases_sub, reject_temporary
 from searchterms import contactperson, dismiss_outcome, reject_plaint, plaintcat_shared_key, plaintcat_sole_key
-from searchterms import clean_regex
+from searchterms import clean_regex, divorce_key
 
 #General settings
 
@@ -78,8 +78,8 @@ DATA_REGISTER = {
 start_time = time.time()
 flag = []
 COUNT = 1
-SAVE = 1
-PRINT = 0
+SAVE = 0
+PRINT = 1
 FULLSAMPLE = 0
 
 #Specify folders to search PDFs in
@@ -93,7 +93,8 @@ if FULLSAMPLE == 1: #to create actual dataset
     LAST = ''
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    ROOTDIR = "P:/2020/14/Kodning/Scans/all_scans"
+    #P:/2020/14/Kodning/Test-round-5-Anna/
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
@@ -174,14 +175,20 @@ def findterms_upper(stringlist, part):
 
 def findfirst(stringlist, part):
     sentenceRes = []
+    stringlist = [x.lower() for x in stringlist]
+    
     split = re.split('(?=[.]{1}\s+\n*[A-ZÅÐÄÖÉÜ1-9]|\s\d\s)', part)
+    split = [x for x in split if x]
+
     for sentence in split:
         if all([x in sentence.lower() for x in stringlist]):
             sentenceRes.append(sentence)
+    
     if sentenceRes:
         sentenceString = sentenceRes[0]
     else:
         sentenceString = ''
+
     return sentenceString
 
 
@@ -597,14 +604,15 @@ def get_response(fulltext, plaint_made):
     found. Variable depends on whether defendant agreed to plaint, contested,
     or tvistat (=joint application). 
     
-    Pass: fulltext capitalized, custodybattle capitalized
+    Pass: fulltext capitalized, plaint_made capitalized
     Returns variable outcome as string
     """
     matches = []
-
+    
     for term, resp in defend_response:
         index = fulltext.find(term)
         if index > 0:
+            print_output("Term that indicates a defendent response", term)
             matches.append(resp)
 
     for resp, terms_list in defend_resp_dict.items():
@@ -612,6 +620,7 @@ def get_response(fulltext, plaint_made):
             sentence = findfirst(terms, fulltext)
             index = fulltext.find(sentence)
             if index > 0:
+                print_output("Sentence for defendent response", sentence)
                 matches.append(resp)
     
     print_output("Defendant response",matches)
@@ -636,7 +645,7 @@ def get_response(fulltext, plaint_made):
 
     
 
-def get_custodybattle(after_domslut, searchterms):
+def get_custodybattle(after_domslut, outcome_divorce_key):
     """
     Defines whether case is:
         1) custodybattle where defendant agreed to plaint
@@ -661,12 +670,14 @@ def get_custodybattle(after_domslut, searchterms):
     
     print_output("after_domslut for looking for plaint", after_domslut.split('delimit'))
 
-    for term in searchterms:
+    for term in plaint_terms:
+        print_output("Term responsible for adding sentence to plaints", term)
+        print_output("Corresponding sentence", (findterms_upper(term, after_domslut)).split("delimit"))
         plaints.append(findterms_upper(term, after_domslut))
 
-    plaints = ''.join(plaints)    
-    
-    for key in outcomes_key:
+    plaints = ''.join(plaints)
+        
+    for key in outcome_divorce_key:
         index = plaints.find(key)
         plaint_made = findfirst([key], plaints)
 
@@ -685,7 +696,7 @@ def get_custodybattle(after_domslut, searchterms):
         if 'andra hand' in plaint_made:
             p0 = plaint_made.split('andra hand')[0]
             p1 = plaint_made.split('andra hand')[1]
-            for out in outcomes_key:
+            for out in outcome_divorce_key:
                 if out in p0 and out in p1:
                     plaint_made = p0
                     break
@@ -753,6 +764,39 @@ def get_parties(header):
     return parties, partyhead
 
 
+def add_man_wife_to_party(plaint_name, defend_name):
+    """
+    Determines the gender of each party based on the name and adds mother, mom, wife
+    (father, dad, husband) to list of first names
+    Note:
+        - This is because sometimes judges refer to a party as mother (father) instead
+        of by first name
+
+    """
+    #Gender of plaintiff and defendant based on name
+    plaint_gender = gend.get_gender(' '.join(plaint_name))
+    defend_gender = gend.get_gender(' '.join(defend_name))
+
+    if 'female' in plaint_gender:
+        plaint_name.append('mamman')
+        plaint_name.append('modern')
+        plaint_name.append('hustrun')
+    elif 'male' in plaint_gender:
+        plaint_name.append('fadern')
+        plaint_name.append('pappan')
+        plaint_name.append('mannen')
+    
+    if 'female' in defend_gender:
+        defend_name.append('mamman')
+        defend_name.append('modern')
+        defend_name.append('hustrun')
+    elif 'male' in defend_gender:
+        defend_name.append('fadern')
+        defend_name.append('pappan')
+        defend_name.append('mannen')
+        
+    return plaint_name, defend_name
+
 
 def get_plaint_defend(after_domslut, header, year):
     """
@@ -773,7 +817,7 @@ def get_plaint_defend(after_domslut, header, year):
         after_domslut = after_domslut.replace(str(num)+'.', str(num)+')')
         num += 1
 
-    casetype, plaint_made = get_custodybattle(after_domslut, plaint_terms)
+    casetype, plaint_made = get_custodybattle(after_domslut, outcomes_key)
     parties, partyhead = get_parties(header)
 
     if (
@@ -795,6 +839,7 @@ def get_plaint_defend(after_domslut, header, year):
 
     print_output("Getting defend name", new_parties)
     defend_part, defend_name, defend_full, defend_number, defend_lawyer, d_lawyer_part, _ = get_party(new_parties, ' '.join(new_parties), use_ner)
+    plaint_name, defend_name = add_man_wife_to_party(plaint_name, defend_name)
 
     if 'god man' in ' '.join(new_parties).lower():
         defend_godman = 1
@@ -1620,10 +1665,12 @@ def get_alimony(ruling_og, plaint_first, defend_first):
     for plaintiff, 2 for defendant, 4 when alimony is adjusted to 0,
     if it finds alimony but cannot assign it to a party returns 9, 
     if no alimony is found returns 0, if appendix included in ruling returns 5
+    
+    Use findfirst to avoid getting false negative (eg. Goteborgs, Scan_19._Aug_2022_at_11__527.txt)
 
     """
-    target = findterms(['underhåll'], ruling_og)
-    print_output("Target sentence for alimony search", findterms(['underhåll'], ruling_og))
+    target = findfirst(['underhåll'], ruling_og).lower()
+    print_output("Target sentence for alimony search", target)
     
     if (
             any(x in target for x in ['avslås', 'avskriv'])
@@ -2021,28 +2068,6 @@ def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,chil
     if len(relev)<=1:
         before_plaint = ".".join(before_plaint.split(".")[:10])
         
-    #Gender of plaintiff and defendant based on name
-    plaint_gender = gend.get_gender(' '.join(plaint_first))
-    defend_gender = gend.get_gender(' '.join(defend_first))
-
-    if 'female' in plaint_gender:
-        plaint_first.append('mamman')
-        plaint_first.append('modern')
-        plaint_first.append('hustrun')
-    elif 'male' in plaint_gender:
-        plaint_first.append('fadern')
-        plaint_first.append('pappan')
-        plaint_first.append('mannen')
-    
-    if 'female' in defend_gender:
-        plaint_first.append('mamman')
-        plaint_first.append('modern')
-        plaint_first.append('hustrun')
-    elif 'male' in defend_gender:
-        plaint_first.append('fadern')
-        plaint_first.append('pappan')
-        plaint_first.append('mannen')
-        
     #Capitalize names
     plaint_first = [x.capitalize() for x in plaint_first]
     defend_first = [x.capitalize() for x in defend_first]
@@ -2056,6 +2081,8 @@ def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,chil
             for item in val:
                 target = findterms(item, searchtext)
                 if target:
+                    print_output("Val for initial_", item)
+                    print_output("Corresponding target", target)
                     res = key
                     break
                 else:
@@ -2228,7 +2255,7 @@ def filldict_rulings(
     estate_dist = get_estate_dist(fulltext_og)
     stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
     plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
-    casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_terms)
+    casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_key)
     init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,child_first)
     scan = scan_dummy(file)
     

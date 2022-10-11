@@ -223,19 +223,19 @@ clean_partyname = {
     }
 
 defend_response = [
-    ['medg','agree'],['medgav','agree'],['bevilj','agree'],['bestr','contest'],
-    ['mots','contest'],['contest','framställt eget yrkande'],
-    ['agree', 'accepterar']
+    ['medg','agree'],['medgav','agree'],['bevilj','agree'],
+    ['bestr','contest'],['motsatt','contest'],['framställt eget yrkande','contest'],
+    ['accepterar', 'agree']
                    ]
 dismiss_outcome = ['käromalet ogillas','avvisas','avisar']
-divorce_terms = [['yrka','äktenskaps'], ['begär','äktenskaps'], ['väckt','äktenskaps']]
+divorce_key = ['äkten']
 defend_resp_dict = {
     'agree': [['varken','medg','bestr']],
     'contest': [['egen','del','yrkat'],['inkommit','egna','yrkand']],
     'tvistat': [['part','tvist '],['sedan','parterna','yrkat']]
     }
 
-exclude_phys = ['skyddat', ' inte ']
+exclude_phys = ['skyddat', ' inte ', ' bodelning '] #included bodelning so that plaint_physical does not pick up the plaintiff wanting to remain in the parties' shared property until division of assets is settled
 exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
 fastinfo_key = ['snabbupplysning', 'upplysning', 'snabbyttrande']
@@ -269,7 +269,7 @@ outcomes_key = ["vård","umgänge","stadigvarande","boende"," skall bo",'underh�
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
 party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
-plaint_terms = [['yrka'],['begär'],['väckt']]
+plaint_terms = [['yrkat'],['begär'],['väckt']]
 plaintcat_sole_key = [' ensam', 'erkänn', '\nensam']
 plaintcat_shared_key = [' gemensam ', ' gemensamma vård']
 
@@ -277,7 +277,7 @@ plaintcat_shared_key = [' gemensam ', ' gemensamma vård']
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
 physicalcust = ['boende','bo tillsammans',' bo ','bosatt']
 #Included bitrände and God to split lawyer part when ombud or god man have typos in scan
-party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|\\\
+party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|god man|\\\
     tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN|hustrun|mannen|biträde|God )'
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 

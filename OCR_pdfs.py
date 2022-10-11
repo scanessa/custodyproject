@@ -31,12 +31,14 @@ pdf_converter = FPDF()
 
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-PATH = "P:/2020/14/Tingsratter/Halmstads/Domar/all_scans/"
+PATH = "P:/2020/14/Kodning/Scans/all_scans/"
+#PATH = "P:/2020/14/Tingsratter/Orebro/Domar/all_scans/"
 
 #General settings
 LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 6 --oem 3' 
 CONFIG_FULL = '--psm 11 --oem 3'
+CORES = 15
 
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 
@@ -144,7 +146,9 @@ def get_text(filename):
 
 
 def remove_color(image):
-    """ PIL code for removing blue signature """
+    """ 
+    PIL code for removing blue signature
+    """
     
     im = Image.open(image)
 
@@ -297,7 +301,7 @@ def classify(file):
 
 def ocr_img(image):
     try:
-        remove_color(image)
+        #remove_color(image)
         reduce_noise(image)
         filename = ''.join(image.split('.jpg')[:-1])
         filename = filename +'--clean'
@@ -353,18 +357,23 @@ def main():
 
     #Convert each page in a pdf to an image
     lst = glob.glob(path + '*.pdf')
-    with Pool(60) as p:
+    
+    print(lst)
+    
+    with Pool(CORES) as p:
         p.map(pdf_to_jpg, lst)
     
     #Classify each image as appendix or not
     imgs = glob.glob(path + '*.jpg')
-    with Pool(60) as p:
+    
+    with Pool(CORES) as p:
         p.map(classify, imgs)
-        
+    
+    
     #Save OCR'd text from image to txt file
     imgs = glob.glob(path + '*.jpg')
     imgs = [x for x in imgs if not 'appendix' in x]
-    with Pool(60) as p:
+    with Pool(CORES) as p:
         p.map(ocr_img, imgs)
     
     #Extract more detailed text for judges from last page
@@ -382,7 +391,7 @@ def main():
         lastpg.append(v[-1])
     
     #OCR read last page in more detail
-    with Pool(60) as p:
+    with Pool(CORES) as p:
         p.map(judge_dets, lastpg)
 
     #Join txt files of the same court document to 1 file
@@ -408,6 +417,7 @@ def main():
 if __name__ == '__main__':
     
     path = PATH
+
     start = time.time()
     
     main()
