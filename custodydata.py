@@ -607,8 +607,6 @@ def get_party(parties, part_for_name, use_ner):
     new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
     print_output('new_parties', new_parties)
     
-    print("NEW NAME: ",name)
-    
     return part, name, name_full, number, lawyer, lawyer_part, new_parties
 
 
@@ -1252,6 +1250,7 @@ def get_childnos(ruling_og, year):
 
     childnos = [x.replace(' ', '') for x in childnos]
     childnos = list(dict.fromkeys(childnos))
+
     for num in childnos:
         if len(re.split('\D', num)[0]) == 8:
             childyear = num[:4]
@@ -1965,17 +1964,22 @@ def get_lawyerinfo(lawyer):
     for term in ["advokat", "jur.kand"]:
         if term in lawyer.lower():
             lawyer_title = term
-            lawyer_name = " ".join(lawyer.lower().split(term)[1:]).strip()
-            
+            lawyer_name = ' '.join(lawyer.split(':')[1:])
+            lawyer_name = lawyer_name.replace(term, '')
+
             if lawyer_name.startswith("en"):
                 lawyer_name = lawyer_name.split("en", 1)[1]
-            
+    
             break
+        
         else:
             lawyer_title = 'Not found'
             lawyer_name = lawyer
     
-    lawyer_name = lawyer_name.replace("\n", " ")
+    if 'rättshjälpslagen:' in lawyer_name:
+        lawyer_name = lawyer_name.split('rättshjälpslagen:')[1]
+
+    lawyer_name = lawyer_name.replace("\n", " ").replace(' , ', ' ')
     
     return legalguard, legalaid, lawyer_title, lawyer_name
 
@@ -2195,8 +2199,8 @@ def get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,chil
     init_l = get_val_init(init_l_dict, before_plaint)
     init_p = get_val_init(init_p_dict, before_plaint)
     temp_l = get_val_temp(temp_dict, relev, reject_temporary, ['vård'])
-    temp_l = get_val_temp(temp_dict, relev, reject_temporary, [' bo ', 'boende'])
-    temp_l = get_val_temp(temp_dict, relev, reject_temporary, ['umgänge', 'boende'])
+    temp_p = get_val_temp(temp_dict, relev, reject_temporary, [' bo ', 'boende'])
+    temp_v = get_val_temp(temp_dict, relev, reject_temporary, ['umgänge', 'umgås'])
 
     if (
         findterms(['tingsrätten','interimistiskt','enlighet','med','yrkanden'], relev)

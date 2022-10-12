@@ -137,7 +137,7 @@ ruling_search = {
 
 #Define keys for simple word search
 agreement_key = ['samförståndslösning',  'överens ', 'medger', 'medgett', ' ense ', 'överenskommelse',
-                    'medgivande', 'överenskommit', 'över- ens ', 'medgivit', 'enats ']
+                    'medgivande', 'överenskommit', 'över- ens ', 'medgivit', 'enats ', 'överenkommelse']
 agreement_add = ['framgår' ,'följer','fastställa', 'bäst', 'vård', 'fastställa', 'yrkande']
 agreement_excl = ['med sin', 'bestr', ' talan ', 'avgjord', 'inte ', 'alla frågor som rör barnen'] 
 
@@ -162,8 +162,10 @@ clean_general = {
     ' -':'-',
     '- ':'-',
     '--':'-',
+    '-\n':'',
     '$':'s',
     '\n2, ':'\n2. ',
+    'advo-\nkat': 'advokat',
     'vårdera':'',
     'vårdagen':'',
     'våränader':'vårdnaden',
