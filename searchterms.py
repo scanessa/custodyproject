@@ -194,6 +194,7 @@ clean_general = {
     "jur kand" : "jur.kand",
     "Jur kand" : "jur.kand",
     "jur,kand" : "jur.kand",
+    "jur. kand":"jur.kand",
     'juris kandidaten':'jur.kand',
     ' - ':'-',
     ' -':'-',

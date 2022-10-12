@@ -519,7 +519,6 @@ def get_party(parties, part_for_name, use_ner):
     plaint_lst = []
     comps = []
     lawyer_part = ""
-    #number = "-"
     
     if use_ner:
         print_output("use_ner=True", '')
@@ -529,7 +528,6 @@ def get_party(parties, part_for_name, use_ner):
 
     else:
         print_output("use_ner=False", '')
-        
         part = parties[0]
         part = clean_text(part, clean_partyname, clean_regex)
         print_output("Part for name if user_ner = False", part)
@@ -541,7 +539,7 @@ def get_party(parties, part_for_name, use_ner):
         print_output("Part in loop for parties", part)
         
         if name:
-            name = [x for x in name if len(x)>1]
+            name = [x.strip(',') for x in name if len(x)>1]
             for n in name:
                 comp = fuzz.partial_ratio(n.lower(), part.lower())
                 comps.append(comp)
@@ -587,12 +585,29 @@ def get_party(parties, part_for_name, use_ner):
             #Break loop after part with name is found
             break
     
+    
     name = name.split('delimiter') if type(name) == str else name
+    name = [x for x in name if not 'mannen' in x.lower() if not 'hustrun' in x.lower()]
     name_full = name
-    name = name[:-1] if len(name) > 1 else name
+    last_name = part.split(number)[0].split(',')[0]
+    
+    #Get first names only (remove last name)
+    if len(name) > 1:
+        
+        if part.split(number)[0].count(',') < 2:
+            name = name[:-1]
+    
+        elif (
+                part.split(number)[0].count(',') == 2
+                and any(last_name in n for n in name)
+                ):
+            name = name[1:]
+        
     print_output('parties', parties)
     new_parties = [x for x in parties if not any(i in x for i in plaint_lst)]
     print_output('new_parties', new_parties)
+    
+    print("NEW NAME: ",name)
     
     return part, name, name_full, number, lawyer, lawyer_part, new_parties
 
@@ -868,7 +883,7 @@ def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, doms
     
     # First get defendant city
     if 'medbor' in defend_part:
-        defend_part = ' '.join(re.split(citizen,defend_part))
+        defend_part = ' '.join(re.split(citizen,defend_part.lower()))
     defend_city = ''.join((defend_part.strip(' _\n')).split(' ')[-1])
     
     if any([x in defend_city for x in cities]):
@@ -891,11 +906,12 @@ def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, doms
             and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
             ):
         
-        print_output("Abroad 1 (defend city)",defend_city)
+        print_output("Abroad 1a",any([x in defend_part.lower() for x in countries]))
+        print_output("Abroad 1b",'okänd' in defend_part)
         print_output("Abroad 2",defend_godman == 1  and 'saknar kän' in defend_part)
         print_output("Abroad 3",defend_city.isdecimal() or '@' in defend_city)
         print_output("Abroad 4",any(x in findterms(['inte', 'sverige'], fulltext_og) for x in defend_first))
-        print_output("Abroad 5",findterms(['befinn', 'sig','utomlands'], fulltext_og))
+        print_output("Abroad 5",any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]))
         print_output("Abroad 6",any([x in findterms(['befinn', 'sig'], fulltext_og) for x in countries]))
         print_output("Abroad 7",any([x in findterms(['befinn', 'sig', 'sedan'], domskal_og) for x in countries]))
         print_output("Abroad 8",any(x in findterms(['flytta', 'till', 'inte', 'sverige'], fulltext_og) for x in defend_first))
@@ -1424,6 +1440,7 @@ def get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, p
     findVardn = [x for x in sentences if 'vård' in x.lower() and child_id in x.lower()]
     findVardn = [x for x in sentences if 'vård' in x.lower()] if not findVardn else findVardn
     findVardn = '. '.join(findVardn)
+    findVardn = findVardn.replace('\n', ' ')
     findVardn = findVardn.lower()
     plaint_first = [x.lower()for x in plaint_first]
     defend_first = [x.lower()for x in defend_first]
@@ -1662,7 +1679,7 @@ def get_alimony(ruling_og, plaint_first, defend_first):
     """
     target = findfirst(['underhåll'], ruling_og).lower()
     print_output("Target sentence for alimony search", target)
-    
+
     if (
             any(x in target for x in ['avslås', 'avskriv'])
             or all(x in target for x in [' lämna',' utan ',' bifall'])
@@ -1674,6 +1691,7 @@ def get_alimony(ruling_og, plaint_first, defend_first):
 
     elif target and not any([x in target for x in reject]):
         new_target = target.split(' ska')[0]
+                
         if any(x.lower() in new_target for x in plaint_first):
             alimony = 1
         elif any(x.lower() in new_target for x in defend_first):
