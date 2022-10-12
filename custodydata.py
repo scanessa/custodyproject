@@ -79,7 +79,7 @@ start_time = time.time()
 flag = []
 COUNT = 1
 SAVE = 0
-PRINT = 0
+PRINT = 1
 FULLSAMPLE = 0
 
 #Specify folders to search PDFs in
@@ -690,23 +690,20 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
         if 'andra hand' in plaint_made:
             p0 = plaint_made.split('andra hand')[0]
             p1 = plaint_made.split('andra hand')[1]
-            for out in outcome_divorce_key:
-                if out in p0 and out in p1:
+            for key in outcome_divorce_key:
+                if key in p0 and key in p1:
                     plaint_made = p0
                     break
     
     print_output("Text indicating plaint_made", plaint_made.split("delimiter"))
 
-    if plaint_made and plaint_made != 'joint':
+    if any(x in findterms(['gemensam','ansök'], after_domslut) for x in outcome_divorce_key):
+        print_output("Text indicating joint app", findterms(['gemensam','ansök'], after_domslut))
+        casetype = 'joint application'
+    
+    elif plaint_made:
         casetype = get_response(after_domslut, plaint_made)
     
-    elif (
-            findterms(['gemesam','ansök'], after_domslut)
-            or plaint_made == 'joint'
-            ):
-        print_output("Text indicating joint app", findterms(['gemesam','ansök'], after_domslut))
-        casetype = 'joint application'
-   
     else:
         print_output("No plaint_made or joint app", "")
         casetype = 'no plaints formulated'
