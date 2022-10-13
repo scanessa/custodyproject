@@ -267,7 +267,7 @@ nocontant = ['någon', 'inte']
 no_vard = ['umgänge', 'boende', ' bo ']
 no_ruling = ['Dagbok', 'Protokoll', 'TLIGT BESLUT', 'Slutligt Beslut', 'PROTOKOLL', 'DAGBOK']
 
-outcomes_key = ["vård","umgänge","stadigvarande","boende"," skall bo",'underhål'] #not only ' bo ' bc it captures party living in shared home as well
+outcomes_key = [" vård","umgänge","stadigvarande","boende"," skall bo",'underhål'] #not only ' bo ' bc it captures party living in shared home as well
 
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
