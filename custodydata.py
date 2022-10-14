@@ -79,7 +79,7 @@ start_time = time.time()
 flag = []
 COUNT = 1
 SAVE = 0
-PRINT = 0
+PRINT = 1
 FULLSAMPLE = 0
 
 #Specify folders to search PDFs in
@@ -529,7 +529,18 @@ def get_party(parties, part_for_name, use_ner):
     else:
         print_output("use_ner=False", '')
         part = parties[0]
+        #Preliminary cleaning
         part = clean_text(part, clean_partyname, clean_regex)
+        if 'medbor' in part.lower():
+            part = ' '.join(re.split(citizen,part))
+        for heading in party_headings:
+            if heading in part:
+                part = part.replace(heading, '')
+            elif heading.upper() in part:
+                part = part.replace(heading.upper(), '')
+            if heading.capitalize() in part:
+                part = part.replace(heading.capitalize(), '')
+            
         print_output("Part for name if user_ner = False", part)
         name = dictloop(name_pattern, part, 1, [])
         name = name.split() if name else name
@@ -587,7 +598,6 @@ def get_party(parties, part_for_name, use_ner):
     
     
     name = name.split('delimiter') if type(name) == str else name
-    name = [x for x in name if not 'mannen' in x.lower() if not 'hustrun' in x.lower()]
     name_full = name
     last_name = part.split(number)[0].split(',')[0]
     
@@ -673,10 +683,8 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
     """
     matches = []
     plaints = []
-    
-    after_domslut = after_domslut.replace('1.','1').replace('2.','2').replace('3.','3').replace('4.','4').replace('5.','5').replace('6.','6').replace('7.','7').replace('8.','8').replace('9.','9')
+    after_domslut = after_domslut.replace('1.','1)').replace('2.','2)').replace('3.','3)').replace('4.','4)').replace('5.','5)').replace('6.','6)').replace('7.','7)').replace('8.','8)').replace('9.','9)')
     print_output("after_domslut for looking for plaint", after_domslut.split('delimit'))
-
     for term in plaint_terms:
         print_output("Term responsible for adding sentence to plaints", term)
         print_output("Corresponding sentence", (findterms_upper(term, after_domslut)).split("delimit"))
@@ -720,7 +728,7 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
     else:
         print_output("No plaint_made or joint app", "")
         casetype = 'no plaints formulated'
-    
+
     return casetype, plaint_made
 
 
@@ -872,12 +880,14 @@ def get_plaint_defend(after_domslut, header, year):
     
     #Flag cases where a child"s ID is in the header (children as plaintiffs in alimony cases)
     ids = re.findall('\d{6,10}.\d{4}', header)
+        
     for num in ids:
         if len(re.split('\D', num)[0]) == 8:
             childyear = num[:4]
         else:
             childyear = '19'+num[:2] if int(num[:2])>40 else '20'+num[:2]
         age = int(year) - int(childyear)
+        
         if 0 < age < 19:
             flag.append('Child as plaintiff with ID ' + num)
 
@@ -897,8 +907,6 @@ def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, doms
     """
     
     # First get defendant city
-    if 'medbor' in defend_part:
-        defend_part = ' '.join(re.split(citizen,defend_part.lower()))
     defend_city = ''.join((defend_part.strip(' _\n')).split(' ')[-1])
     
     if any([x in defend_city for x in cities]):
@@ -1256,7 +1264,7 @@ def get_domskal(fulltext_og, ruling_form):
 
 
 
-def get_childnos(ruling_og, year):
+def get_childnos(ruling_og, year,date):
     """
     Search for ID numbers in ruling (would only be given for kids) and return
     dict with ID as index, names for each index added in get_childname
@@ -1264,30 +1272,35 @@ def get_childnos(ruling_og, year):
     childid_name = {}
 
     childnos = re.findall('\d{6,8}\s?-\s?\n?\d{3,4}', ruling_og.lower())
-
     childnos = [x.replace(' ', '') for x in childnos]
     childnos = list(dict.fromkeys(childnos))
-    print(childnos)
+
     for num in childnos:
         if len(re.split('\D', num)[0]) == 8:
             childyear = num[:4]
         else:
             childyear = '19'+num[:2] if int(num[:2])>40 else '20'+num[:2]
+
+        rulmonth = date.split('-')[1]
+        birthmonth = num.split('-')[0][-4]+num.split('-')[0][-3]
+
         age = int(year) - int(childyear)
-        
+
         if 0 < age < 18:
+            childid_name[num] = ''
+        elif age == 18  and birthmonth > rulmonth:
             childid_name[num] = ''
 
     return childid_name
 
 
 
-def get_childname(ruling_og, plaint_name, defend_name, year):
+def get_childname(ruling_og, plaint_name, defend_name, year,date):
     """
     Extract child ID's first from ruling, if not found there from full text,
     otherwise get child's name and use that as ID
     """
-    childid_name = get_childnos(ruling_og, year)
+    childid_name = get_childnos(ruling_og, year,date)
     updated_ruling = ruling_og
     
     if childid_name:
@@ -2292,7 +2305,7 @@ def filldict_rulings(
     stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
     divorce_only, divorce_dummy = get_divorce(out, phys, visit, alimony, stay_in_home, ruling)
     plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
-    casetype_divorce, _ = get_custodybattle(fulltext_og, divorce_key)
+    casetype_divorce, _ = get_custodybattle(after_domslut, divorce_key)
     init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made, after_domslut, plaint_first, defend_first,child_first)
     scan = scan_dummy(file)
     
@@ -2452,7 +2465,7 @@ def main(file):
         if not case_type == '1216B':
             domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
 
-            id_name = get_childname(ruling_og, plaint_first, defend_first, year)
+            id_name = get_childname(ruling_og, plaint_first, defend_first, year,date)
             for child_id in id_name:
                 child_first = id_name[child_id]
                 
