@@ -27,7 +27,7 @@ import time
 start_time = time.time()
 
 #Read in CSV created by domar_preprocessing.py
-output_path  = "P:/2020/14/Kodning/Data/rulings_data_altjudges.csv"
+output_path  = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data_altjudges.csv"
 
 
 def condensed_df(df, keep_cols):
@@ -168,12 +168,15 @@ def clean_names(lst):
 
 def compare_name(df, lst):
     for index,row in df.iterrows():
-        print(".")
         altern_j = []
         noisy_j = row['judge']
+
         for clean_j in lst:
             
-            contain = fuzz.partial_ratio(noisy_j, clean_j)
+            try:
+                contain = fuzz.partial_ratio(noisy_j, clean_j)
+            except:
+                pass
 
             if contain > 90 and noisy_j != clean_j:
                 altern_j.append(clean_j)
@@ -191,7 +194,7 @@ def clean_scanned_judges():
     j_comb= j_scans + j_digital
     
     j_comb = clean_names(j_comb)
-    scans = pd.read_csv("P:/2020/14/Kodning/Data/rulings_data.csv")
+    scans = pd.read_csv("P:/2020/14/Kodning/Test-round-5-Anna/rulings_data_AH_100_v2.csv")
     print("Comparing names...")
     scans = compare_name(scans, j_comb)
     scans.to_csv(output_path, sep = ',', encoding='utf-8-sig')
