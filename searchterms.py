@@ -151,7 +151,8 @@ clean_regex = {
     r'(\d)\s+(\d)': r'\1\2',
     r'u.{1,4}gänge':r'umgänge',
     r'\s.{6}ål\s':'underhål',
-    '\s.{2,3}sam\s':' ensam '
+    '\s.{2,3}sam\s':' ensam ',
+    '(?<=\D)-\n':''
     }
 clean_general = {
     '|':'',
@@ -162,7 +163,6 @@ clean_general = {
     ' -':'-',
     '- ':'-',
     '--':'-',
-    '-\n':'',
     '$':'s',
     '\n2, ':'\n2. ',
     'advo-\nkat': 'advokat',
@@ -230,18 +230,18 @@ defend_response = [
     ['bestr','contest'],['motsatt','contest'],['framställt eget yrkande','contest'],
     ['accepterar', 'agree']
                    ]
-dismiss_outcome = ['käromalet ogillas','avvisas','avisar']
+dismiss_outcome = ['ogillas','avvisas','avisar']
 divorce_key = ['äkten']
 defend_resp_dict = {
     'agree': [['varken','medg','bestr']],
     'contest': [['egen','del','yrkat'],['inkommit','egna','yrkand']],
     'tvistat': [['part','tvist '],['sedan','parterna','yrkat']]
     }
-
+exclude_initial = ['yrka','begär','väckt', 'ansök']
 exclude_phys = ['skyddat', ' inte ', ' bodelning '] #included bodelning so that plaint_physical does not pick up the plaintiff wanting to remain in the parties' shared property until division of assets is settled
 exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
-fastinfo_key = ['snabbupplysning', 'upplysning', 'snabbyttrande']
+fastinfo_key = ['snabbupplysning', 'snabbyttrande']
 footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expeditionstid', 'dom']
 
 invest_key = ['vårdnadsutredning','boendeutredning','umgängesutredning']
@@ -273,9 +273,9 @@ outcomes_key = [" vård","umgänge","stadigvarande","boende"," skall bo",'underh
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
 party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
-plaint_terms = [['yrkat'],['begär'],['väckt']]
-plaintcat_sole_key = [' ensam', 'erkänn', '\nensam']
-plaintcat_shared_key = [' gemensam ', ' gemensamma vård']
+plaint_terms = ['yrkat','begär','väckt']
+plaintcat_sole_key = [' ensam', 'erkänn']
+plaintcat_shared_key = [' gemensam', ' gemensamma vård']
 
 # don't use ' ska ' to capture skall as well
 physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosatt']] 
@@ -292,7 +292,7 @@ reject_plaint = [' ingen ', ' inga ']
 reject_invest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
 reject_outcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  
 reject_mainhearing = ['skulle ', 'utan', ' ingen', 'inför huvudförhandling']
-remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå', 'fortfarande ']
+remind_key = ['bibehålla' ,'påminn' ,'erinra' ,'upply', 'kvarstå'] #removed fortfarande because of false negative in Stockholm Scan_10_Mar_2022_at_09__43
 ruling_end = ['YRKANDE', 'BAKGRUND', 'SAKEN', 'BEDÖMNING', 'DOMSKÄL','Yrkande m.m.', 'Bakgrund','Yrkanden m.m.', 'M.M.\n']
 
 secret = ['sekretess','skyddad','c/o ombudet']
