@@ -32,7 +32,7 @@ pdf_converter = FPDF()
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 PATH = "P:/2020/14/Kodning/Scans/all_scans/"
-#PATH = "P:/2020/14/Tingsratter/Orebro/Domar/all_scans/"
+#PATH = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fourth100/"
 
 #General settings
 LANG = 'swe'
@@ -364,12 +364,12 @@ def main():
         p.map(pdf_to_jpg, lst)
     
     #Classify each image as appendix or not
+    """
     imgs = glob.glob(path + '*.jpg')
     
     with Pool(CORES) as p:
         p.map(classify, imgs)
-    
-    
+    """
     #Save OCR'd text from image to txt file
     imgs = glob.glob(path + '*.jpg')
     imgs = [x for x in imgs if not 'appendix' in x]
