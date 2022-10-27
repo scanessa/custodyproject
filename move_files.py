@@ -17,7 +17,7 @@ from pdf2image import convert_from_path
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'all_scans'
 ROOTDIR = 'P:/2020/14/Tingsratter'
-DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/third500"
+DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fourth100"
 
 error_paths = [] 
 
@@ -156,7 +156,7 @@ def randomsample(rootdir, destination):
                 print(dirpath)
                 allfiles = [x for x in paths if not any(term in x.lower() for term in ["aktbil","dagbok","beslut"])]
                 
-                prop = round(len(allfiles) * 0.025)
+                prop = round(len(allfiles) * 0.004)
                 
                 filenames = random.sample(allfiles, prop)
                 filenames = [os.path.join(dirpath, x) for x in filenames]
@@ -175,6 +175,6 @@ def signature(path):
     print(fp,fn)
     #extract_signature(fp, fn)
 
-#randomsample(ROOTDIR, DESTINATION)
+randomsample(ROOTDIR, DESTINATION)
 #changename(ROOTDIR)
 

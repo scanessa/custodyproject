@@ -78,8 +78,8 @@ DATA_REGISTER = {
 start_time = time.time()
 flag = []
 COUNT = 1
-SAVE = 1
-PRINT = 0
+SAVE = 0
+PRINT = 1
 FULLSAMPLE = 0
 
 #Specify folders to search PDFs in
@@ -93,8 +93,8 @@ if FULLSAMPLE == 1: #to create actual dataset
     LAST = ''
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
-    #ROOTDIR = "P:/2020/14/Kodning/Scans/"
+    #ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    ROOTDIR = "P:/2020/14/Kodning/Scans/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
@@ -686,6 +686,7 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
     """
     matches = []
     plaints = []
+    plaint_made = 'Not found'
     after_domslut = after_domslut.replace('1.','1)').replace('2.','2)').replace('3.','3)').replace('4.','4)').replace('5.','5)').replace('6.','6)').replace('7.','7)').replace('8.','8)').replace('9.','9)')
     after_domslut = after_domslut.replace('\n',' ')
     
@@ -695,20 +696,21 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
         print_output("Corresponding sentence", (findterms_upper([term], after_domslut)).split("delimit"))
         plaints.append(findterms_upper([term], after_domslut))
 
-    plaints = ''.join(plaints)
+    plaints = [x for x in plaints if any(key in x for key in outcome_divorce_key)]
 
-    for key in outcome_divorce_key:
-        index = plaints.find(key)
-        plaint_made = findfirst([key], plaints)
+    print("kuhstall: ",plaints)
+
+    for plaint_made in plaints:
+        plaint_made = plaint_made.strip('. ')
+        index = after_domslut.find(plaint_made)
 
         if index > 0:
             print_output("Correspopnding plaint sentence", plaint_made)
-            print_output("Outcome found in plaint sentence", key)
-            matches.append((index, findfirst(key, plaint_made)))
+            matches.append((index, plaint_made))
     
-    if findterms(['i enlighet med', 'domslut'], plaints):
-        index = plaints.find('i enlighet med')
-        matches.append((index, findfirst(key, plaint_made)))
+        if findterms(['i enlighet med', 'domslut'], plaint_made):
+            index = after_domslut.find('i enlighet med')
+            matches.append((index, plaint_made))
     
     matches = sorted(matches, key=lambda x: x[0], reverse=False)  
     print_output("Matches for plaint", matches)
@@ -949,7 +951,9 @@ def get_defendabroad(defend_part, defend_first, defend_godman, fulltext_og, doms
             and not findterms([' bor ', ' i ', 'barn'], fulltext_og)
             ):
         
-        print_output("Abroad 1a",any([x in defend_part.lower() for x in countries]))
+        for c in countries:
+            if c in defend_part.lower():
+                print_output("Abroad 1a",c)
         print_output("Abroad 1b",'okänd' in defend_part)
         print_output("Abroad 2",defend_godman == 1  and 'saknar kän' in defend_part)
         print_output("Abroad 3",defend_city.isdecimal() or '@' in defend_city)
@@ -1688,7 +1692,7 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
     print_output("Text for physicalcustody", firstsentences)
     
     for term in physicalcust_list:
-        target = findfirst(term, firstsentences)
+        target = findfirst(term, firstsentences).lower()
         print_output("Target sentence for physical custody search", target)
         if (
                 findfirst([child_first.lower(), 'avslås'], target)
@@ -2039,13 +2043,11 @@ def get_lawyerinfo(lawyer):
 
             if lawyer_name.startswith("en"):
                 lawyer_name = lawyer_name.split("en", 1)[1]
-    
+            
             break
-        
         else:
             lawyer_title = 'Not found'
             lawyer_name = lawyer
-    
     if 'rättshjälpslagen:' in lawyer_name:
         lawyer_name = lawyer_name.split('rättshjälpslagen:')[1]
 

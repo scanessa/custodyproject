@@ -123,7 +123,7 @@ def reduce_noise(image):
     filename = ''.join(image.split('.jpg')[:-1])
     img = cv2.imread(image)    
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    ret,thresh = cv2.threshold(gray,125,255,cv2.THRESH_BINARY)
+    ret,thresh = cv2.threshold(gray,145,255,cv2.THRESH_BINARY)
     median = cv2.medianBlur(thresh, 3)
 
     cv2.imwrite(filename + '--clean.jpg', median)
