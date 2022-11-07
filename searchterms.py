@@ -10,8 +10,8 @@ the court rulings and custody cases databases
 OCR_CORR = {
     'Kiärande':'Kärande',
     'KIÄRANDE':'KÄRANDE',
-    'Mal':'Mål',
-    'Mäl':'Mål',
+    'Mal ':'Mål ',
+    'Mäl ':'Mål ',
     'Domskill':'Domskäl',
     'DOMSKILL':'DOMSKÄL',
     '\x0c':'',
@@ -25,7 +25,7 @@ allLetters = '[A-ZÅÐÄÖÉÜÆ][a-zåäáïüóöéæøßîčćžđšžůúý�
 appeal = 'ÖVERKLAG|Överklag|överklag'
 appendix_start = '((?<!se )Bilaga 1|(?<!se )Bilaga A|sida\s+1\s+av)'
 capLetters = '[A-ZÅÐÄÖÉÜÆØÞ]'
-citizen = 'medbor[a-z]*\s*i\s*\D{1,10}'
+citizen = '.edbor[a-z]*\s*i\s*\D{1,15}'
 
 id_pattern ='((\d{6,10}.?.?(\d{4})?)[,]?\s)'
 
@@ -137,7 +137,7 @@ ruling_search = {
 
 #Define keys for simple word search
 agreement_key = ['samförståndslösning',  'överens ', 'medger', 'medgett', ' ense ', 'överenskommelse',
-                    'medgivande', 'överenskommit', 'över- ens ', 'medgivit', 'enats ', 'överenkommelse']
+                    'medgivande', 'överenskommit', 'medgivit', 'enats ', 'överenkommelse']
 agreement_add = ['framgår' ,'följer','fastställa', 'bäst', 'vård', 'fastställa', 'yrkande']
 agreement_excl = ['med sin', 'bestr', ' talan ', 'avgjord', 'inte ', 'alla frågor som rör barnen'] 
 
@@ -212,6 +212,7 @@ clean_general = {
     '(hustrun)':'hustrun',
     '(Mannen)':'Mannen',
     '(Hustrun)':'Hustrun',
+    'inte oförenligt':'ite oförenligt'
     }
 
 clean_partyname = {
@@ -237,9 +238,9 @@ divorce_key = ['äkten']
 defend_resp_dict = {
     'agree': [['varken','medg','bestr']],
     'contest': [['egen','del','yrkat'],['inkommit','egna','yrkand']],
-    'tvistat': [['part','tvist '],['sedan','parterna','yrkat']]
+    'tvistat': [['part','tvist '],['sedan','parterna','yrkat'], ['har i målet tvistat']]
     }
-exclude_initial = ['yrka','begär','väckt', 'ansök']
+exclude_initial = ['yrka','begär','väckt', 'ansök', ' uteslutet ']
 exclude_phys = ['skyddat', ' inte ', ' bodelning '] #included bodelning so that plaint_physical does not pick up the plaintiff wanting to remain in the parties' shared property until division of assets is settled
 exclude_judge = ['telefon','telefax', 'svarande', 'DOM', 'dom', '1']
 
@@ -275,7 +276,7 @@ outcomes_key = [" vård","umgänge","stadigvarande","boende"," skall bo",'underh
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
 party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
-plaint_terms = ['yrkat','yrkade','begär','väckt', 'framställt yrkanden', 'ansökt']
+plaint_terms = ['yrkat','yrkade','begär','väckt', 'framställt yrkanden', 'ansök', 'tvistat']
 plaintcat_sole_key = [' ensam', 'erkänn']
 plaintcat_shared_key = [' gemensam', ' gemensamma vård']
 
@@ -289,7 +290,7 @@ party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
 reject = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga '] 
-reject_temporary = [' jämväl ']
+reject_temporary = [' jämväl ', ' även ']
 reject_plaint = [' ingen ', ' inga ']
 reject_invest = ['avskriv',' ogilla','utan bifall','avslå',' inte ',' inga ', ' utöva '] 
 reject_outcome = ['avskriv',' ogilla','utan bifall','avslå',' inte ','skrivs', 'kvarstå', ' inga ', 'utan']  

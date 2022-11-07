@@ -17,7 +17,7 @@ from pdf2image import convert_from_path
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
 includes = 'all_scans'
 ROOTDIR = 'P:/2020/14/Tingsratter'
-DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fourth100"
+DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fifth100"
 
 error_paths = [] 
 

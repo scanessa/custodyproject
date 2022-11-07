@@ -1,3 +1,6 @@
-import re
+from fuzzywuzzy import fuzz
 
-print(re.sub('(?<=\w)-\n', '', 'str-\ning'))
+part = '\n ela hovde, ragnhild eva marie, 621226-4904\nlillebyvägen 4642383 torslanda'
+n = "stella"
+
+print(fuzz.token_set_ratio(n, part))
