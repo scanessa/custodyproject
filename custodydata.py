@@ -54,14 +54,14 @@ DATA_RULINGS = {
     'child_id':[], 'child_name':[], 'case_no':[], 'court':[], 'date':[], 'casetype_custody':[], 'deldom':[],
     'divorce_only': [], 'divorce': [], 'casetype_divorce':[],'plaintiff_id':[],'plaintiff_name':[],
     'defendant_id':[], 'defendant_name':[],'plaintiff_lawyer':[], 'p_legalguard':[], 
-    'defendant_lawyer':[], 'd_legalguard':[], 'p_lawyer_legalaidact':[], 'd_lawyer_legalaidact':[], 
+    'defendant_lawyer':[], 'd_legalguard':[], 'p_lawyer_legalaid':[], 'd_lawyer_legalaid':[], 
     'p_lawyer_name':[], 'd_lawyer_name':[], 'p_lawyer_title':[], 'd_lawyer_title':[], 
     'defendant_address_secret': [], 'plaintiff_address_secret':[],
     'defendant_abroad':[], 'defendant_unreachable':[], 'plaint_made':[], 
     'plaint_legal':[],'plaint_physical':[],'plaint_visitation':[],'plaint_alimony':[],
     'initial_legal':[],'initial_physical':[],'temp_legal':[],'temp_physical':[],'temp_visitation':[],
     'outcome':[],'visitation':[], 'contactperson':[], 'visitation_type':[], 'physical_custody':[], 'alimony':[],
-    'agreement_legalcustody':[], 'agreement_any':[], 'estate_distribution_executor':[], 'fastinfo':[],
+    'agreement_legalcustody':[], 'agreement_any':[], 'estate_distrib':[], 'fastinfo':[],
     'cooperation_talks':[], 'investigation':[], 'invest_sentence':[],  'mainhearing':[], 'stay_in_home':[],
     'separation_year': [], 'judge':[], 'judge_gender':[], 'judge_text':[], 'page_count': [],
     'correction_firstpage': [], 'flag': [], 'scan':[], 'file_path': []
@@ -2425,14 +2425,14 @@ def filldict_rulings(
     data_rulings['flag'].append(flag)
     data_rulings['child_id'].append(child_id)
     data_rulings['stay_in_home'].append(stay_in_home)
-    data_rulings['estate_distribution_executor'].append(estate_dist)
+    data_rulings['estate_distrib'].append(estate_dist)
     data_rulings['divorce'].append(divorce_dummy)
     data_rulings['p_lawyer_title'].append(p_lawyer_title)
     data_rulings['d_lawyer_title'].append(d_lawyer_title) 
     data_rulings['p_lawyer_name'].append(p_lawyer_name)
     data_rulings['d_lawyer_name'].append(d_lawyer_name) 
-    data_rulings['p_lawyer_legalaidact'].append(p_lawyer_legalaidact)
-    data_rulings['d_lawyer_legalaidact'].append(d_lawyer_legalaidact)  
+    data_rulings['p_lawyer_legalaid'].append(p_lawyer_legalaidact)
+    data_rulings['d_lawyer_legalaid'].append(d_lawyer_legalaidact)  
     data_rulings['d_legalguard'].append(defend_godman)
     data_rulings['p_legalguard'].append(p_legalguard)
     data_rulings['contactperson'].append(contact_person)
