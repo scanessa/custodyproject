@@ -40,7 +40,7 @@ from searchterms import mainhearing_key, exclude_judge, unwanted_judgeterms, jud
 from searchterms import plaint_terms, name_pattern, defend_resp_dict, svarande_karande, clean_general
 from searchterms import clean_partyname, party_city, shared_phys,stay_in_home_key, secret
 from searchterms import physicalcust, no_ruling, ruling_end, two_cases_sub, reject_temporary
-from searchterms import contactperson, dismiss_outcome, reject_plaint, plaintcat_shared_key, plaintcat_sole_key
+from searchterms import contactperson, dismiss_outcome, reject_plaint, plaintcat_shared_key
 from searchterms import clean_regex, divorce_key, exclude_initial
 
 #General settings
@@ -749,7 +749,7 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
         casetype = 'plaint in accordance with ruling'
     
     elif (
-            'ansök' in plaint_made
+            'ansök' in plaint_made and not 'stämning' in plaint_made
             or 'de har även yrkat' in plaint_made.lower()
             or 'parterna har yrkat' in plaint_made.lower()
             ):
@@ -821,8 +821,8 @@ def add_man_wife_to_party(plaint_name, defend_name):
 
     """
     #Gender of plaintiff and defendant based on name
-    plaint_gender = gend.get_gender(' '.join(plaint_name))
-    defend_gender = gend.get_gender(' '.join(defend_name))
+    plaint_gender = gend.get_gender(plaint_name[0])
+    defend_gender = gend.get_gender(defend_name[0])
 
     if 'female' in plaint_gender:
         plaint_name.append('mamman')
@@ -2120,12 +2120,10 @@ def get_plaintcategory(plaint_made):
     #Legal custody
     if ' vård' in plaint_made and any(x in plaint_made for x in plaintcat_shared_key):
         plaint_legal = 1
-    elif ' vård' in plaint_made and any(x in plaint_made for x in plaintcat_sole_key):
+    elif ' vård' in plaint_made:
         plaint_legal = 2
     elif all(x in plaint_made for x in [' vård',' gemensam ',' ensam ']):
         plaint_legal = 9
-    elif ' vård' in plaint_made:
-        plaint_legal = 3
     else:
         plaint_legal = 0
         
@@ -2236,6 +2234,7 @@ def get_initial_temp(plaint_made,after_domslut,out,ruling_og,plaint_first, defen
             ],
         2: [
             [['har','ensam',' vård',' om '],plaint_first],
+            [[' är ','ensam',' vård'],plaint_first],
             [['dom' ,'förordn' ,' ensam' ,' vård'],plaint_first],
             [[' fick ',' ensam '],plaint_first],
             [[' vård','tillkommer',' ensam '],plaint_first],
@@ -2243,6 +2242,7 @@ def get_initial_temp(plaint_made,after_domslut,out,ruling_og,plaint_first, defen
             ],
         3: [
             [['har','ensam',' vård',' om '],defend_first],
+            [[' är ','ensam',' vård'],defend_first],
             [['dom' ,'förordn' ,' ensam' ,' vård'],defend_first],
             [[' fick ',' ensam '],defend_first],
             [[' vård','tillkommer',' ensam '],defend_first],
@@ -2333,7 +2333,7 @@ def get_initial_temp(plaint_made,after_domslut,out,ruling_og,plaint_first, defen
         init_l = get_val_init(init_l_dict, relev)
         init_l = 1 if 'fortsatt' in ruling_og and out == 1 else init_l
     if init_p == 0:
-        init_p = get_val_init(init_l_dict, relev)
+        init_p = get_val_init(init_p_dict, relev)
         init_p = 1 if any(x in findterms(['fortsatt'], ruling_og) for x in physicalcust) else init_p
     
     temp_l = get_val_temp(temp_dict, relev, reject_temporary, [' vård'])

@@ -271,13 +271,12 @@ nocontant = ['någon', 'inte']
 no_vard = ['umgänge', 'boende', ' bo ']
 no_ruling = ['Dagbok', 'Protokoll', 'TLIGT BESLUT', 'Slutligt Beslut', 'PROTOKOLL', 'DAGBOK']
 
-outcomes_key = [" vård","umgänge","stadigvarande","boende"," skall bo",'underhål'] #not only ' bo ' bc it captures party living in shared home as well
+outcomes_key = [" vård","umgänge","stadigvarande","boende"," skall bo",'underhål', 'kontakt med'] #not only ' bo ' bc it captures party living in shared home as well
 
 # Include annan bedömning to take care of double negative (eg INTE annan bedömning should not count as rejection)
 past = ['inledningsvis', 'annan bedömning']
 party_headings = ['mannen', 'hustrun', 'kärande', 'svarande', 'sökande']
 plaint_terms = ['yrkat','yrkade','begär','väckt', 'framställt yrkanden', 'ansök', 'tvistat']
-plaintcat_sole_key = [' ensam', 'erkänn']
 plaintcat_shared_key = [' gemensam', ' gemensamma vård']
 
 # don't use ' ska ' to capture skall as well
@@ -318,4 +317,4 @@ unwanted_judgeterms = ['april','augusti','blekinge','bilaga','december',' den ',
                        'vägnar','vagnar','västra'
                       ]
      
-visitation_key = ['umgänge', 'umgås']
+visitation_key = ['umgänge', 'umgås', 'kontakt med']
