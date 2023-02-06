@@ -20,6 +20,7 @@ import pytesseract
 import cv2
 import pandas as pd
 import glob
+import re
 
 from fpdf import FPDF
 from io import StringIO
@@ -38,7 +39,7 @@ PATH = "P:/2020/14/Kodning/Scans/imgs/Sodertorns/"
 LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 6 --oem 3' 
 CONFIG_FULL = '--psm 11 --oem 3'
-
+CORES = 5
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 
 
@@ -83,7 +84,6 @@ def reduce_noise(image):
     Notes:
         - If median fails, use opening = cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel)
         - Thresh at 130 because with 127 defend ID in Dom T 256-99 not read correctly
-
     """
     filename = ''.join(image.split('.JPG')[:-1])
     img = cv2.imread(image)    
@@ -145,15 +145,19 @@ def sort_contours(contours):
 
 
 def ocr_img(image):
+    """
+    
+
+    """
     try:
         #reduce_noise(image)
         filename = ''.join(image.split('.JPG')[:-1])
         #filename = filename +'--clean'
         dewarp_main(filename + '.jpg')
-    
         name = image.rsplit(".", 1)
         with open(name[0]+"--.txt", "w") as file:
             file.write("\n__newpage__\n")
+            file.write("\n_f_\n" + filename.split('\\')[-1] + "\n_f_\n")
             text = get_text(filename + '--straight.png')
             file.write(text)
             file.close()
@@ -191,8 +195,7 @@ def save_seperate(all_txt):
 
     for elem in text:
         if (
-                'SLUT' not in elem
-                or 'Domslut' not in elem
+                not any(x in elem for x in ['SLUT','Domslut'])
                 ):
             res[-1].append(elem)
         else:
@@ -200,7 +203,9 @@ def save_seperate(all_txt):
     
     for case in res:
         case = '__newpage__'.join(case)
-        with open(path + "case" + str(counter) + ".txt", "w") as file:
+        filename = re.compile('\n_f_\n.*\n_f_\n').findall(case)[-1]
+        filename = filename.replace('\n_f_\n','')
+        with open(path + filename + ".txt", "w") as file:
             file.write(case)
             counter += 1
             file.close()
@@ -215,7 +220,7 @@ def main():
 
     #Save OCR'd text from image to txt file
     imgs = glob.glob(path + '*.JPG')
-    with Pool(60) as p:
+    with Pool(CORES) as p:
         p.map(ocr_img, imgs)
         
     #Join txt files of all cases of the same court to 1 file
@@ -252,6 +257,4 @@ if __name__ == '__main__':
     elapsed = done - start
     print(elapsed)
     
-    
-
 
