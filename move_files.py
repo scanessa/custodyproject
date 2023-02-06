@@ -10,13 +10,14 @@ import os.path
 import re
 import glob
 import random
+import pandas as pd
 from pdf2image import convert_from_path
-#from signature_extractor import extract_signature
-
+from PyPDF2 import PdfFileReader, PdfFileWriter
+from fpdf import FPDF
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
-includes = 'all_scans'
-ROOTDIR = 'P:/2020/14/Tingsratter'
+includes = 'all_cases'
+ROOTDIR = 'P:/2020/14/Tingsratter/Ystads/'
 DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fifth100"
 
 error_paths = [] 
@@ -59,6 +60,14 @@ def copy_files(paths, pdf_dir):
     
     return errors
 
+def get_paths(in_path):
+    data = pd.read_csv(in_path)
+    paths = data['file_path'].tolist()
+    paths = [x.replace('.txt','.pdf') for x in paths]
+    
+    paths = [x for x in paths if not 'Sodertorn' in x]    
+    return list(paths)
+
 def true_file(files):
     for fname in files:
         if not os.path.isfile(fname):
@@ -93,7 +102,7 @@ def convert_to_img(path, no_of_pages):
             print(image_name)
             i = i+1
             img_files.append(image_name)
-        os.remove(file)
+        #os.remove(file)
          
 def newname(rootdir):
     """
@@ -133,7 +142,9 @@ def changename_one_folder(rootdir):
     Remove () from filename
     """
     for file in glob.glob(rootdir + "*.pdf"):
-        file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a").replace("å","a")
+        
+        file_new = file.replace("_rotated","")
+        #file_new = file.replace("(","_").replace(")","").replace(" ","_").replace("ä","a").replace("Ä","A").replace("ö","o").replace("Ö","O").replace("ü","u").replace("Ü","U").replace("Å","A").replace("ä","a").replace("å","a")
         print('OLD: ', file)
         print('NEW: ', file_new)
         os.rename(file, file_new)
@@ -163,18 +174,78 @@ def randomsample(rootdir, destination):
                 copy_files(filenames, destination)
                 
 
-                    
-                    
-def signature(path):
-    
-    split_path = path.split("\\")
-    
-    fp = split_path[0] + "/"
-    fn = split_path[1]
-    
-    print(fp,fn)
-    #extract_signature(fp, fn)
+def rotate_pdf(folder):
+    for file in glob.glob(folder + '*.pdf'):
+        print(file)
+        pdf = PdfFileReader(file)
+        #degrees = pdf.getPage(0).get('/Rotate')
+        degrees = 90
+        #print(file, degrees)
 
-randomsample(ROOTDIR, DESTINATION)
-#changename(ROOTDIR)
+        pdf = PdfFileReader(file)
+        writer = PdfFileWriter()
+        num_pages = pdf.getNumPages()
+        
+        if degrees == 90 or degrees == 270 or degrees == 180:
+            
+            output_file = open(file.split('.pdf')[0] + '_rotated.pdf', 'wb')
+            
+            for i in range(num_pages):
+                page = pdf.getPage(i)
+                page.rotateClockwise(degrees)
+                writer.addPage(page)
+            
+            writer.write(output_file)
+            output_file.close()
+            
+            shutil.move(file,folder + 'old')
 
+
+
+def convert_img_pdf(path):
+    pdf = FPDF()
+    imagelist = glob.glob(path + '*.jpg')
+    print(imagelist)
+    # imagelist is the list with all image filenames
+    
+    for image in imagelist:
+        pdf.add_page()
+        pdf.image(image,0,0,210,297)
+    pdf.output("lastpages.pdf", "F")
+    
+    
+
+def extract_page_pdf(path):
+    """
+    Input: path of files where one page should be extracted
+
+    """
+    
+    for file in glob.glob(path + '*.pdf'):
+        print(file)
+        pdf_file_path = file
+        file_base_name = pdf_file_path.replace('.pdf', '')
+        
+        pdf = PdfFileReader(pdf_file_path)
+        
+        page_num = pdf.numPages - 1
+        
+        print(page_num)
+        
+        pdfWriter = PdfFileWriter()
+        pdfWriter.addPage(pdf.getPage(page_num))
+        
+        with open('{0}_subset.pdf'.format(file_base_name), 'wb') as f:
+            pdfWriter.write(f)
+            f.close()
+
+
+if __name__ == '__main__':
+    print('Executing...')
+    extract_page_pdf("P:/2020/14/Kodning/RA_files/C1/")
+    
+    
+    
+    
+    
+    

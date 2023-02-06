@@ -80,26 +80,22 @@ flag = []
 COUNT = 1
 SAVE = 1
 PRINT = 0
-FULLSAMPLE = 0
+FULLSAMPLE = 1
 
 #Specify folders to search PDFs in
 if FULLSAMPLE == 1: #to create actual dataset
-    ROOTDIR = "P:/2020/14/Tingsratter/"
+    ROOTDIR = "P:/2020/14/Tingsratter/Boras/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Data/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Data/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
-    EXCLUDE = set(['Sodertorns'])
-    INCLUDE = set(['all_scans'])
     LAST = ''
 
 else: #for testing and debugging
-    ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
-    #ROOTDIR = "P:/2020/14/Kodning/Scans/"
-    OUTPUT_REGISTER = "P:/2020/14/Kodning/Test-round-5-Anna/case_register_data.csv"
-    OUTPUT_RULINGS = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data.csv"
+    #ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    ROOTDIR = "P:/2020/14/Kodning/Scans/"
+    OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
+    OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
-    EXCLUDE = set(['exclude','ocr_errors', 'second500', 'first500','third500','fourth100'])
-    INCLUDE = set(['all_scans'])
     LAST = ''
     
     
@@ -200,20 +196,22 @@ def findfirst(stringlist, part):
 
 
 #Main functions
-def paths(ending):
+def paths(ending,incl,excl):
     filecounter = 0
     pdf_files = []
     for subdir, dirs, files in os.walk(ROOTDIR, topdown=True):
-        for term in EXCLUDE:
+        for term in excl:
             if term in dirs:
                 dirs.remove(term)
         for file in files: 
-            for term in INCLUDE:
-                if term in subdir and file.endswith(ending):
-                    filecounter += 1
-                    print(f"Dealing with file {subdir}/{file}")
-                    pdf_dir = (os.path.join(subdir, file))
-                    pdf_files.append(pdf_dir)
+            if (
+                    all(x in subdir for x in incl)
+                    and file.endswith(ending)
+                    ):
+                filecounter += 1
+                print(f"Dealing with file {subdir}/{file}")
+                pdf_dir = (os.path.join(subdir, file))
+                pdf_files.append(pdf_dir)
                     
     print("Total files: ", filecounter)     
     
@@ -280,6 +278,8 @@ def read_file(file):
         if appendix:
             appendix_pageno, fulltext_form = appendix_pages(0)
             lastpage_form = pages_text_formatted[appendix_pageno-1]
+            
+    fulltext_form = ''.join(fulltext_form)
 
     return correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count
 
@@ -503,7 +503,10 @@ def get_partyname(parties, part_for_name):
                 if comp < 2 or part_dist == 100:
                     name_for_part.append(s)  
     else:
-        part = parties[0]
+        try:
+            part = parties[0]
+        except:
+            part = ""
         part = part.replace('Kärande', "").replace('Svarande', "")
         name = (dictloop(name_pattern, part, 1, [])).split()
 
@@ -528,6 +531,7 @@ def get_party(parties, part_for_name, use_ner):
     lawyer_part = ""
     number = "not found"
     lawyer = "not found"
+    name_full = "not found"
     
     if use_ner:
         print_output("use_ner=True", '')
@@ -607,7 +611,7 @@ def get_party(parties, part_for_name, use_ner):
         part = ' '.join(re.split(citizen,part))
 
     name = name.split('delimiter') if type(name) == str else name
-    name_full = name
+    name_full = name if name else name_full
     last_name = part.split(number)[0].split(',')[0]
     name = "not found" if name == None else name
     
@@ -2380,6 +2384,7 @@ def filldict_rulings(
         judge_gender, flag, judge_string, plaint_full, defend_full,
         d_lawyer_part, p_lawyer_part, plaint_made, id_name
         ):
+    
     defend_secret = secret_address(defend_og)
     plaint_secret = secret_address(plaint_og)
     part = part_ruling(topwords)
@@ -2437,12 +2442,10 @@ def filldict_rulings(
     data_rulings['p_legalguard'].append(p_legalguard)
     data_rulings['contactperson'].append(contact_person)
     data_rulings['visitation_type'].append(visitation_type)
-    try:
-        data_rulings['plaintiff_name'].append(' '.join(plaint_full))
-        data_rulings['defendant_name'].append(' '.join(defend_full))
-    except:
-        data_rulings['plaintiff_name'].append(["not found"])
-        data_rulings['defendant_name'].append(["not found"])
+
+    data_rulings['plaintiff_name'].append(' '.join(plaint_full))
+    data_rulings['defendant_name'].append(' '.join(defend_full))
+
     data_rulings['child_name'].append(child_first)
     data_rulings['page_count'].append(page_count)
     data_rulings['correction_firstpage'].append(correction)
@@ -2509,6 +2512,7 @@ def filldict_register(
 
 
 def save(dictionary, SAVE, COUNT, location):
+    
     df = pd.DataFrame(dictionary)
     with pd.option_context('display.max_rows', None, 'display.max_columns', None):
         if PRINT == 1:
@@ -2532,6 +2536,7 @@ def main(file):
         correction, appendix_pageno, fulltext_form, firstpage_form, lastpage_form, page_count = read_file(file)
         topwords = get_topwords(firstpage_form)
         readable = 1
+        judge_string = "N/A"
 
     elif 'all_scans' in file:
         print('\nScan: ', file)
@@ -2605,11 +2610,14 @@ def main(file):
 
 
 #Execute
-scans = paths('.txt')
-print("Scans: ", scans)
+scans = paths('.txt',['all_scans'],['ocr_errors','misclassified','only_appendix','appendix_only'])
+pdfs = paths('.pdf',['all_cases'],[])
+
+all_files = scans
+
 
 #For scanned pdfs
-for file in scans:
+for file in all_files:
     flag = []
     
     if SAVE == 1:
@@ -2621,13 +2629,13 @@ for file in scans:
             print(e)
             flag.append(e)
             dict_rulings = filldict_rulings(
-                DATA_RULINGS, 'error', file, 'error', 'error', 'error', 'error',
-        'error', 'error', 'error', 'error', 'error', 'error',
-        'error', 'error', 'error', 'error', 'error', 
-        'error', 'error', 'error', 'error', 'error', 
-        'error', 'error', 'error', 'error', 'error', 'error', 'error', 'error',
-        'error', flag, 'error', 'error', 'error',
-        'error', 'error', 'error'
+                DATA_RULINGS, "error", file, "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", "error", "error", "error",
+                    "error", flag, "error", "error", "error",
+                    "error", "error", "error", "error"
                     )
             
             save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
@@ -2637,12 +2645,14 @@ for file in scans:
                 'error', 'error', 'error', 'error', 'error', file, flag
                 )
             save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
-            
+            """
             current_path = os.getcwd()
             new_path = current_path + '/ocr_errors/'
             os.chdir(new_path)
             shutil.copy(file,new_path)
             os.chdir(current_path)
+            """
+            
 
     else:
         main(file)

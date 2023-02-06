@@ -32,13 +32,13 @@ pdf_converter = FPDF()
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 #PATH = "P:/2020/14/Kodning/Scans/all_scans/"
-PATH = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fifth100/"
+PATH = "P:/2020/14/Tingsratter/Boras/Domar/all_scans/"
 
 #General settings
 LANG = 'swe'
 CONFIG_TEXTBODY = '--psm 6 --oem 3' 
 CONFIG_FULL = '--psm 11 --oem 3'
-CORES = 5
+CORES = 15
 
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
 

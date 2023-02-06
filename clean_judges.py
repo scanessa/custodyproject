@@ -13,9 +13,6 @@ Code to aims to:
 from fuzzywuzzy import fuzz
 import pandas as pd
 from datetime import date
-import glob
-import cv2
-import pytesseract
 
 # For importing custodydata module, launch python from within Code/custodyproject folder
 import sys
@@ -27,7 +24,7 @@ import time
 start_time = time.time()
 
 #Read in CSV created by domar_preprocessing.py
-output_path  = "P:/2020/14/Kodning/Test-round-5-Anna/rulings_data_altjudges.csv"
+OUTPUT_PATH  = "P:/2020/14/Kodning/Data/cleaned_judges_output_1.csv"
 
 
 def condensed_df(df, keep_cols):
@@ -145,7 +142,7 @@ def main_clean_digital():
     #Print
     with pd.option_context('display.max_rows', None, 'display.max_columns', None): 
         print('\nNew DF\n',df3)
-    df3.to_csv(output_path, sep = ',', encoding='utf-8-sig')
+    df3.to_csv(OUTPUT_PATH, sep = ',', encoding='utf-8-sig')
 
 
 """
@@ -157,6 +154,8 @@ def import_judges(path):
     
     return list(data)
 
+
+
 def clean_names(lst):
     lst = [x for x in lst if not "tingsr" in x]
     lst = [x for x in lst if not " dom " in x]
@@ -166,11 +165,25 @@ def clean_names(lst):
 
     return lst
 
+
+
 def compare_name(df, lst):
+    count = 1
+    
+    print("Here1: ",len(df))
+    
     for index,row in df.iterrows():
+        print(count)
+        print("Here2: ",len(df))
+        count += 1
         altern_j = []
         noisy_j = row['judge']
-
+        
+        reduced_noise_j = noisy_j.replace('##','')
+        #Remove standalone characters at beginning of name
+        reduced_noise_j = ' '.join(reduced_noise_j.split(' ')[1:]) if len(reduced_noise_j.split(' ')[0]) == 1  else reduced_noise_j
+        df.loc[index,'cleaned_name'] = reduced_noise_j
+        
         for clean_j in lst:
             
             try:
@@ -180,10 +193,13 @@ def compare_name(df, lst):
 
             if contain > 90 and noisy_j != clean_j:
                 altern_j.append(clean_j)
+
         if len(altern_j) < 3:
             altern_j = ",". join(altern_j)
             df.loc[index,'alternative_names'] = altern_j
         
+        print("Here3: ",len(df))
+    print("Here FINAL: ",len(df))
     return df
             
     
@@ -194,11 +210,14 @@ def clean_scanned_judges():
     j_comb= j_scans + j_digital
     
     j_comb = clean_names(j_comb)
-    scans = pd.read_csv("P:/2020/14/Kodning/Test-round-5-Anna/rulings_data_AH_100_v2.csv")
+    scans = pd.read_csv("P:/2020/14/Data/Rulings/custody_data_scans_sample1.csv")
     print("Comparing names...")
     scans = compare_name(scans, j_comb)
-    scans.to_csv(output_path, sep = ',', encoding='utf-8-sig')
+    scans.to_csv(OUTPUT_PATH, sep = ',', encoding='utf-8-sig')
     print("Saved")
+
+
+
 
 if __name__ == '__main__':
     clean_scanned_judges()    
