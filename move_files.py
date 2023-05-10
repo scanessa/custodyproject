@@ -14,9 +14,10 @@ import pandas as pd
 from pdf2image import convert_from_path
 from PyPDF2 import PdfFileReader, PdfFileWriter
 from fpdf import FPDF
+from PIL import Image
 
 filepaths_doc = 'P:/2020/14/Kodning/Clean_csvs_move_files/filepaths.txt' 
-includes = 'all_cases'
+includes = 'all_scans'
 ROOTDIR = 'P:/2020/14/Tingsratter/Ystads/'
 DESTINATION = "P:/2020/14/Kodning/Test-round-5-Anna/all_scans/fifth100"
 
@@ -61,11 +62,14 @@ def copy_files(paths, pdf_dir):
     return errors
 
 def get_paths(in_path):
+    """
+    Generate list of file paths from csv file that contains file paths as a single column labeled "file_path"
+    ending = which ending (document type) the file that should be copied has: will be either .pdf, or .JPG, input as string
+
+    """
     data = pd.read_csv(in_path)
     paths = data['file_path'].tolist()
-    paths = [x.replace('.txt','.pdf') for x in paths]
     
-    paths = [x for x in paths if not 'Sodertorn' in x]    
     return list(paths)
 
 def true_file(files):
@@ -203,16 +207,15 @@ def rotate_pdf(folder):
 
 
 def convert_img_pdf(path):
-    pdf = FPDF()
-    imagelist = glob.glob(path + '*.jpg')
+    imagelist = glob.glob(path + '*.JPG')
     print(imagelist)
     # imagelist is the list with all image filenames
     
     for image in imagelist:
-        pdf.add_page()
-        pdf.image(image,0,0,210,297)
-    pdf.output("lastpages.pdf", "F")
-    
+        image_1 = Image.open(image)
+        im_1 = image_1.convert('RGB')
+        im_1.save(image.replace(".JPG",".pdf"))
+        
     
 
 def extract_page_pdf(path):
@@ -242,9 +245,10 @@ def extract_page_pdf(path):
 
 if __name__ == '__main__':
     print('Executing...')
-    extract_page_pdf("P:/2020/14/Kodning/RA_files/C1/")
-    
-    
+    paths_a = get_paths("P:/2020/14/Kodning/RA_files/prep/sample_pid_paths.csv")
+    copy_files(paths_a, "P:/2020/14/Kodning/RA_files/pid/")
+    #extract_page_pdf("P:/2020/14/Kodning/RA_files/pid/")
+    #changename("P:/2020/14/Tingsratter/Lunds/Domar/all_scans/new/")
     
     
     

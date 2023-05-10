@@ -16,7 +16,6 @@ import itertools
 import gender_guesser.detector as gender
 import spacy
 import numpy as np
-import shutil
 
 from fuzzywuzzy import fuzz
 from Levenshtein import distance
@@ -60,7 +59,7 @@ DATA_RULINGS = {
     'defendant_abroad':[], 'defendant_unreachable':[], 'plaint_made':[], 
     'plaint_legal':[],'plaint_physical':[],'plaint_visitation':[],'plaint_alimony':[],
     'initial_legal':[],'initial_physical':[],'temp_legal':[],'temp_physical':[],'temp_visitation':[],
-    'outcome':[],'visitation':[], 'contactperson':[], 'visitation_type':[], 'physical_custody':[], 'alimony':[],
+    'outcome':[],'visitation':[], 'contactperson':[], 'visitation_type':[], 'physical_custody':[],'physical_custody_sentence':[], 'alimony':[],
     'agreement_legalcustody':[], 'agreement_any':[], 'estate_distrib':[], 'fastinfo':[],
     'cooperation_talks':[], 'investigation':[], 'invest_sentence':[],  'mainhearing':[], 'stay_in_home':[],
     'separation_year': [], 'judge':[], 'judge_gender':[], 'judge_text':[], 'page_count': [],
@@ -70,28 +69,27 @@ DATA_RULINGS = {
 
 DATA_REGISTER = {
     
-    'caseid':[], 'type':[], 'casetype':[], 'court':[], 'date':[], 'plaintiff':[],
-    'defendant':[], 'judge':[], 'judgetitle':[], 'filepath':[], 'flag': []
+    'caseid':[], 'type':[], 'casetype':[], 'court':[], 'date':[], 
+    'judge':[], 'judgetitle':[], 'filepath':[], 'flag': []
 
     }
 
 start_time = time.time()
 flag = []
-COUNT = 1
 SAVE = 1
 PRINT = 0
 FULLSAMPLE = 1
 
 #Specify folders to search PDFs in
 if FULLSAMPLE == 1: #to create actual dataset
-    ROOTDIR = "P:/2020/14/Tingsratter/Boras/"
+    ROOTDIR = "P:/2020/14/Tingsratter/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Data/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Data/rulings_data.csv"
     JUDGE_LIST = "P:/2020/14/Data/Judges/list_of_judges_cleaned.xls"
     LAST = ''
 
 else: #for testing and debugging
-    #ROOTDIR = "P:/2020/14/Kodning/Test-round-5-Anna/"
+    #ROOTDIR = "P:/2020/14/Tingsratter/Jonkoping"
     ROOTDIR = "P:/2020/14/Kodning/Scans/"
     OUTPUT_REGISTER = "P:/2020/14/Kodning/Scans/case_register_data.csv"
     OUTPUT_RULINGS = "P:/2020/14/Kodning/Scans/rulings_data.csv"
@@ -507,8 +505,12 @@ def get_partyname(parties, part_for_name):
             part = parties[0]
         except:
             part = ""
-        part = part.replace('Kärande', "").replace('Svarande', "")
-        name = (dictloop(name_pattern, part, 1, [])).split()
+        
+        try:
+            part = part.replace('Kärande', "").replace('Svarande', "")
+            name = (dictloop(name_pattern, part, 1, [])).split()
+        except:
+            name = "Not found"
 
     return name
         
@@ -524,6 +526,7 @@ def get_party(parties, part_for_name, use_ner):
         capturing the words before 6-10 consecutive numbers
         - name = name[0] if len(name)>1 else name: sometimes names are captured twice 
         (eg Marie Meier Marie Meier) -> if name[0] causes errors can use set as well
+        - Changed not found in name = ["not found"] if name == None else name to list because otherwise cannot add man wife terms to string variable
     """
     
     plaint_lst = []
@@ -532,6 +535,7 @@ def get_party(parties, part_for_name, use_ner):
     number = "not found"
     lawyer = "not found"
     name_full = "not found"
+    part = "not found"
     
     if use_ner:
         print_output("use_ner=True", '')
@@ -587,7 +591,7 @@ def get_party(parties, part_for_name, use_ner):
             if index + 1 < len(parties):
 
                 next_el = parties[index+1]
-                print_output("Element for lawyer", next_el)
+                print_output("Element for lawyer", next_el.split('delimit'))
                 
                 if any([x in next_el.lower() for x in lawyer_key]):
                     lawyer = 1
@@ -613,7 +617,7 @@ def get_party(parties, part_for_name, use_ner):
     name = name.split('delimiter') if type(name) == str else name
     name_full = name if name else name_full
     last_name = part.split(number)[0].split(',')[0]
-    name = "not found" if name == None else name
+    name = ["not found"] if name == None else name
     
     #Get first names only (remove last name)
     if len(name) > 1:
@@ -704,7 +708,7 @@ def get_custodybattle(after_domslut, outcome_divorce_key):
         
     after_domslut = after_domslut.replace('\n',' ')
     
-    #print_output("after_domslut for looking for plaint", after_domslut.split('delimit'))
+    print_output("after_domslut for looking for plaint", after_domslut.split('delimit'))
     for term in plaint_terms:
         print_output("Term responsible for adding sentence to plaints", term)
         
@@ -827,7 +831,7 @@ def add_man_wife_to_party(plaint_name, defend_name):
     #Gender of plaintiff and defendant based on name
     plaint_gender = gend.get_gender(plaint_name[0])
     defend_gender = gend.get_gender(defend_name[0])
-
+    
     if 'female' in plaint_gender:
         plaint_name.append('mamman')
         plaint_name.append('modern')
@@ -1020,7 +1024,10 @@ def secret_address(party):
 def get_judge(doc_type, fulltext_og, fulltext, lastpage_form):
     """
     Extracts judge name and title from readable documents
+    Initialize judge title as not found to prevent errors
     """
+    judge_title = "Not found"
+    
     if doc_type == 'slutligt beslut' or doc_type == 'protokoll':
         judge_name = dictloop(judgetitle_search, fulltext_og, 2, ['telefon','telefax'])
         judge_title = dictloop(judgetitle_search, fulltext_og, 1, ['telefon','telefax'])
@@ -1199,7 +1206,7 @@ def get_doctype(file, topwords, fulltext_og):
 
 
 
-def get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form):
+def get_casetype(fulltext_og, ruling, firstpage_form):
     """
     Get type of custody ruling:
     1216A = custody battles of non-divorcing parents
@@ -1209,15 +1216,18 @@ def get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form):
     """
     fulltext = fulltext_og.lower()
     firstpage = firstpage_form.lower()
+    firstpart = firstpage.split('domslut')[0] if 'domslut' in firstpage else firstpage
     
     if (
-            any([x in defend for x in legalguardian_terms])
-            or any([x in plaint for x in legalguardian_terms])
+            any([x in firstpart for x in legalguardian_terms])
             or any([x in fulltext for x in ['overflyttas','ensamkommande flyktingbarn']])
-            or 'vårdnadshavare' in findterms(['förordnad'], fulltext_og)
+            or 'vårdnadshavare' in findterms(['förordna'], fulltext_og)
             ):
         
         case_type = '1216B'
+        print_output('Casetype, Rule 1', any([x in firstpart for x in legalguardian_terms]))
+        print_output('Casetype, Rule 2', any([x in fulltext for x in ['overflyttas','ensamkommande flyktingbarn']]))
+        print_output('Casetype, Rule 3', 'vårdnadshavare' in findterms(['förordnad'], fulltext_og))
         
     elif (
             'de har inga gemensamma barn' in fulltext
@@ -1235,6 +1245,8 @@ def get_casetype(defend, plaint, fulltext_og, ruling, firstpage_form):
         
     else:
         case_type = 'Not found'
+    
+    print_output('Case_type', case_type)
 
     return case_type
 
@@ -1290,9 +1302,7 @@ def get_ruling(fulltext_form):
     
     ruling_og = ruling_form
     ruling = ruling_og.lower()
-    print_output("Ruling: ",ruling)
-    print_output("after_domslut: ",after_domslut)
-        
+
     return ruling_form, ruling_og, ruling, after_domslut
 
 
@@ -1330,7 +1340,7 @@ def get_childnos(ruling_og, year,date):
     """
     childid_name = {}
 
-    childnos = re.findall('\d{6,8}\s?-\s?\n?\d{3,4}', ruling_og.lower())
+    childnos = re.findall('\d{6,8}\s?.\s?\n?\d{3,4}', ruling_og.lower())
     childnos = [x.replace(' ', '') for x in childnos]
     childnos = list(dict.fromkeys(childnos))
     for num in childnos:
@@ -1725,6 +1735,8 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
     firstsentences = '. '.join(ruling_og.split('.')[:10])
     firstsentences = firstsentences.replace('. . ', '.').replace(' . ', '.')
     print_output("Text for physicalcustody", firstsentences)
+    phys = 0
+    phys_sentence = ''
     
     for term in physicalcust_list:
         target = findfirst(term, firstsentences).lower()
@@ -1734,7 +1746,8 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
                 or findfirst([child_first.lower(), ' lämna',' utan ',' bifall'], target.lower())
                 or findfirst([child_first.lower(), 'avskriv'], target.lower())
                 ): 
-            phys = 4  
+            phys = 4
+            phys_sentence = target.replace('\n','')
             break
         
         elif (
@@ -1742,6 +1755,7 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
                 and any([x in target.lower() for x in shared_phys])
                 ):
             phys = 1
+            phys_sentence = target.replace('\n','')
             break
         
         elif (
@@ -1750,6 +1764,7 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
                 and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 2
+            phys_sentence = target.replace('\n','')
             break
         
         elif (
@@ -1758,12 +1773,10 @@ def get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_fir
                 and not any([x in target.lower() for x in exclude_phys])
                 ):
             phys = 3
+            phys_sentence = target.replace('\n','')
             break
-        
-        else:
-            phys = 0
             
-    return phys
+    return phys, phys_sentence
 
 
 
@@ -2385,35 +2398,120 @@ def filldict_rulings(
         d_lawyer_part, p_lawyer_part, plaint_made, id_name
         ):
     
-    defend_secret = secret_address(defend_og)
-    plaint_secret = secret_address(plaint_og)
-    part = part_ruling(topwords)
-    
-    defend_abroad = get_defendabroad(defend_og, defend_first, defend_godman, fulltext_og, domskal_og)
-    defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
-    out = get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, plaint_first, defend_first)
-    visit = get_visitation(child_first, ruling_og, plaint_first, defend_first, id_name)
-    phys = get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_first)
-    alimony = get_alimony(ruling_og, plaint_first, defend_first)
-    agree_cust, agree_any = get_agreement(domskal, domskal_og, fulltext, out)
-    fastinfo = get_fastinfo(fulltext, fulltext_og)
-    cooperation = get_cooperation(fulltext_og, fulltext)
-    investigation, invest_sentence = get_investigation(fulltext, fulltext_og)
-    separate = separation_year(fulltext_og, fulltext)
-    mainhear = get_mainhearing(fulltext_og)
-    judge_string = judge_string.replace('\n', ' ')
-    contact_person = get_contactp(ruling)
-    visitation_type = get_visitation_type(ruling_og)
-    p_legalguard, p_lawyer_legalaidact, p_lawyer_title, p_lawyer_name = get_lawyerinfo(p_lawyer_part)
-    _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = get_lawyerinfo(d_lawyer_part)
-    child_id = child_id.replace(' ','').replace('\n', '')
-    estate_dist = get_estate_dist(fulltext_og)
-    stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
-    divorce_only, divorce_dummy = get_divorce(out, phys, visit, alimony, stay_in_home, ruling)
-    plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
-    casetype_divorce, _ = get_custodybattle(after_domslut, divorce_key)
-    init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made,after_domslut,out,ruling_og,plaint_first, defend_first,child_first)
-    scan = scan_dummy(file)
+    try:
+        defend_secret = secret_address(defend_og)
+        #defend_secret = 5/0 #plug in error to test idea
+    except:
+        defend_secret = "error"
+    try:
+        plaint_secret = secret_address(plaint_og)
+    except:
+        plaint_secret = "error"
+    try:
+        part = part_ruling(topwords)
+    except:
+        part= "error"
+    try:
+        defend_abroad = get_defendabroad(defend_og, defend_first, defend_godman, fulltext_og, domskal_og)
+    except:
+        defend_abroad = "error"
+    try:
+        defend_unreach = defend_unreachable(defend_first, defend_godman, fulltext_og)
+    except:
+        defend_unreach = "error"
+    try:
+        out = get_outcome(fulltext_og, ruling_og, firstpage_form, child_id, child_first, plaint_first, defend_first)
+    except:
+        out = "error"
+    try:
+        visit = get_visitation(child_first, ruling_og, plaint_first, defend_first, id_name)
+    except:
+        visit = "error"
+    try:
+        phys, phys_sentence = get_physicalcustody(ruling_og, ruling, plaint_first, defend_first, child_first)
+    except:
+        phys = "error"
+        phys_sentence = "error"
+    try:
+        alimony = get_alimony(ruling_og, plaint_first, defend_first)
+    except:
+        alimony = "error"
+    try:
+        agree_cust, agree_any = get_agreement(domskal, domskal_og, fulltext, out)
+    except:
+        agree_cust, agree_any = "error"
+    try:
+        fastinfo = get_fastinfo(fulltext, fulltext_og)
+    except:
+        fastinfo = "error"
+    try:
+        cooperation = get_cooperation(fulltext_og, fulltext)
+    except: 
+        cooperation = "error"
+    try:
+        investigation, invest_sentence = get_investigation(fulltext, fulltext_og)
+    except:
+        investigation, invest_sentence = "error"
+    try:
+        separate = separation_year(fulltext_og, fulltext)
+    except:
+        separate = "error"
+    try:
+        mainhear = get_mainhearing(fulltext_og)
+    except: 
+        mainhear = "error"
+    try:
+        judge_string = judge_string.replace('\n', ' ')
+    except:
+        judge_string = "error"
+    try:
+        contact_person = get_contactp(ruling)
+    except:
+        contact_person = "error"
+    try: 
+        visitation_type = get_visitation_type(ruling_og)
+    except:
+        visitation_type = "error"
+    try: 
+        p_legalguard, p_lawyer_legalaidact, p_lawyer_title, p_lawyer_name = get_lawyerinfo(p_lawyer_part)
+    except:
+        p_legalguard, p_lawyer_legalaidact, p_lawyer_title, P_lawyer_name = "error"
+    try: 
+        _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = get_lawyerinfo(d_lawyer_part)
+    except:
+        _ , d_lawyer_legalaidact, d_lawyer_title, d_lawyer_name = "error"
+    try: 
+        child_id = child_id.replace(' ','').replace('\n', '')
+    except:
+        child_id = "error"
+    try: 
+        estate_dist = get_estate_dist(fulltext_og)
+    except:
+        estate_dist = "error"
+    try: 
+        stay_in_home = get_stay_in_home(ruling_og, plaint_first, defend_first)
+    except:
+        stay_in_home = "error"
+    try: 
+        divorce_only, divorce_dummy = get_divorce(out, phys, visit, alimony, stay_in_home, ruling)
+    except: 
+        divorce_only, divorce_dummy = "error"
+    try: 
+        plaint_legal, plaint_physical, plaint_visit, plaint_alim = get_plaintcategory(plaint_made)
+    except:
+        plaint_legal, plaint_physical 
+    try: 
+        casetype_divorce, _ = get_custodybattle(after_domslut, divorce_key)
+    except: 
+        casetype_divorce, _ = "error"
+    try: 
+        init_l, init_p, temp_l, temp_p, temp_v = get_initial_temp(plaint_made,after_domslut,out,ruling_og,plaint_first, defend_first,child_first)
+    except:
+        init_l, init_p, temp_l, temp_p, temp_v = "error"
+    try: 
+        scan = scan_dummy(file)
+    except:
+        scan = "error"
     
     data_rulings['initial_legal'].append(init_l)
     data_rulings['invest_sentence'].append(invest_sentence)
@@ -2469,6 +2567,7 @@ def filldict_rulings(
     data_rulings['outcome'].append(out)   
     data_rulings['visitation'].append(visit)
     data_rulings['physical_custody'].append(phys)
+    data_rulings['physical_custody_sentence'].append(phys_sentence)
     data_rulings['alimony'].append(alimony)                
     data_rulings['agreement_legalcustody'].append(agree_cust)    
     data_rulings['agreement_any'].append(agree_any)  
@@ -2480,12 +2579,16 @@ def filldict_rulings(
     data_rulings['judge_text'].append(judge_string)
     data_rulings['scan'].append(scan)
     
+    print_output("RULINGS DATASET", data_rulings)
+    
     return data_rulings
 
 
 
+
+
 def filldict_register(
-        data_register, case_type, defend_no, plaint_no, date,
+        data_register, case_type, date,
         courtname, doc_type, caseno, judge, judgetitle, file, flag
         ):
     
@@ -2495,8 +2598,6 @@ def filldict_register(
     data_register['casetype'].append(case_type)
     data_register['judge'].append(judge)   
     data_register['judgetitle'].append(judgetitle) 
-    data_register['defendant'].append(defend_no)            
-    data_register['plaintiff'].append(plaint_no)
     data_register['date'].append(date)
     data_register["court"].append(courtname)
     data_register['type'].append(doc_type)  
@@ -2511,17 +2612,14 @@ def filldict_register(
 
 
 
-def save(dictionary, SAVE, COUNT, location):
+def save(dictionary, SAVE, location):
     
     df = pd.DataFrame(dictionary)
     with pd.option_context('display.max_rows', None, 'display.max_columns', None):
         if PRINT == 1:
             print(df)
     if SAVE == 1:
-        if COUNT == 1:
-            df.to_csv(location, sep = ',', encoding='utf-8-sig', header=True)
-        else:
-            df.to_csv(location, mode = 'a', sep = ',', encoding='utf-8-sig', header=False)
+        df.to_csv(location, sep = ',', encoding='utf-8-sig', header=True)
 
 
 
@@ -2563,18 +2661,21 @@ def main(file):
         judge, judgetitle = get_judge(doc_type, fulltext_og, fulltext, lastpage_form)
     else:
         judge, judgetitle = get_judge_scans(judge_string)
-
-    judge_gender = gend.get_gender((judge.replace('-', ' ')).split()[0])
-
-    if doc_type == 'dom' or doc_type == 'deldom':
     
+    print_output('Doc_type', doc_type)
+    
+    #Get the type of case if the document is in a ruling format
+    if doc_type == 'dom' or doc_type == 'deldom':
+        
         ruling_form, ruling_og, ruling, after_domslut = get_ruling(fulltext_form)
-        plaint_og, plaint_first, plaint_full, plaint_no, plaint_lawyer, p_lawyer_part, defend_og, defend_first, defend_full, defend_no, defend_lawyer, d_lawyer_part, defend_godman, casetype, plaint_made = get_plaint_defend(after_domslut, header_form, year)
-        case_type = get_casetype(defend_og, plaint_og, fulltext_og, ruling, firstpage_form)
-
+        case_type = get_casetype(fulltext_og, ruling, firstpage_form)
+        
+        #Only process custody or divorce cases
         if not case_type == '1216B':
             domskal_og, domskal = get_domskal(fulltext_og, ruling_form)
-
+            judge_gender = gend.get_gender((judge.replace('-', ' ')).split()[0])
+            plaint_og, plaint_first, plaint_full, plaint_no, plaint_lawyer, p_lawyer_part, defend_og, defend_first, defend_full, defend_no, defend_lawyer, d_lawyer_part, defend_godman, casetype, plaint_made = get_plaint_defend(after_domslut, header_form, year)
+            
             id_name = get_childname(ruling_og, plaint_first, defend_first, year,date)
             for child_id in id_name:
                 child_first = id_name[child_id]
@@ -2589,11 +2690,29 @@ def main(file):
                     judge_gender, flag, judge_string, plaint_full, defend_full,
                     d_lawyer_part, p_lawyer_part, plaint_made, id_name
                     )
-                save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
+        else:
+            dict_rulings = filldict_rulings(
+                DATA_RULINGS, "error_legal_guardian_case", file, "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", "error", "error", "error",
+                    "error", flag, "error", "error", "error",
+                    "error", "error", "error", "error"
+                    )
             
     else:
         case_type = 'N/A'
-        
+        dict_rulings = filldict_rulings(
+                DATA_RULINGS, "error_no_ruling", file, "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", "error",
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", 
+                    "error", "error", "error", "error", "error", "error", "error", "error",
+                    "error", flag, "error", "error", "error",
+                    "error", "error", "error", "error"
+                    )
+
         try:
             plaint_og, plaint_first, plaint_full, plaint_no, plaint_lawyer, p_lawyer_part, defend_og, defend_first, defend_full, defend_no, defend_lawyer, d_lawyer_part, defend_godman, casetype, plaint_made = get_plaint_defend(fulltext_form, header_form, year)
         except:
@@ -2601,19 +2720,20 @@ def main(file):
 
     # Save case register to csv
     dict_register = filldict_register(
-        DATA_REGISTER, case_type, defend_no, plaint_no, date,
-        courtname, doc_type, caseno, judge, judgetitle, file, flag
+        DATA_REGISTER, case_type, date, courtname, doc_type, caseno, 
+        judge, judgetitle, file, flag
         )
-    
-    save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
+        
+    return dict_rulings, dict_register
 
 
 
 #Execute
-scans = paths('.txt',['all_scans'],['ocr_errors','misclassified','only_appendix','appendix_only'])
+scans = paths('.txt',['all_scans'],['ocr_errors','disregard', 'new'])
 pdfs = paths('.pdf',['all_cases'],[])
 
-all_files = scans
+all_files = scans + pdfs
+#print("--Runtime until here: ", (time.time()-stop1_time))
 
 
 #For scanned pdfs
@@ -2622,8 +2742,10 @@ for file in all_files:
     
     if SAVE == 1:
         try:
-            main(file)
+            stop1_time = time.time()
+            dict_rulings, dict_register = main(file)
             print('+')
+            print("--Runtime in seconds for this file: ", (time.time()-stop1_time))
             
         except Exception as e:
             print(e)
@@ -2637,25 +2759,19 @@ for file in all_files:
                     "error", flag, "error", "error", "error",
                     "error", "error", "error", "error"
                     )
-            
-            save(dict_rulings, SAVE, COUNT, OUTPUT_RULINGS)
-            
+                        
             dict_register = filldict_register(
-                DATA_REGISTER, 'error', 'error', 'error', 'error',
-                'error', 'error', 'error', 'error', 'error', file, flag
+                DATA_REGISTER, 'error', 'error', 'error', 'error', 'error', 
+                'error', 'error', file, flag
                 )
-            save(dict_register, SAVE, COUNT, OUTPUT_REGISTER)
-            """
-            current_path = os.getcwd()
-            new_path = current_path + '/ocr_errors/'
-            os.chdir(new_path)
-            shutil.copy(file,new_path)
-            os.chdir(current_path)
-            """
-            
 
     else:
         main(file)
+        
+#Save
+if SAVE == 1:
+    save(dict_rulings, SAVE, OUTPUT_RULINGS)
+    save(dict_register, SAVE, OUTPUT_REGISTER)
 
 
 end_time = time.time()

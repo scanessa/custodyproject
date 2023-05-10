@@ -24,7 +24,7 @@ import time
 start_time = time.time()
 
 #Read in CSV created by domar_preprocessing.py
-OUTPUT_PATH  = "P:/2020/14/Kodning/Data/cleaned_judges_output_1.csv"
+OUTPUT_PATH  = "P:/2020/14/Kodning/Data/cleaned_judges_output_1_Sodertorns.csv"
 
 
 def condensed_df(df, keep_cols):
@@ -210,7 +210,7 @@ def clean_scanned_judges():
     j_comb= j_scans + j_digital
     
     j_comb = clean_names(j_comb)
-    scans = pd.read_csv("P:/2020/14/Data/Rulings/custody_data_scans_sample1.csv")
+    scans = pd.read_csv("P:/2020/14/Data/Rulings/custody_data_scans_sample_Sodertorns.csv")
     print("Comparing names...")
     scans = compare_name(scans, j_comb)
     scans.to_csv(OUTPUT_PATH, sep = ',', encoding='utf-8-sig')

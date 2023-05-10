@@ -32,7 +32,7 @@ pdf_converter = FPDF()
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 #PATH = "P:/2020/14/Kodning/Scans/all_scans/"
-PATH = "P:/2020/14/Tingsratter/Boras/Domar/all_scans/"
+PATH = "P:/2020/14/Tingsratter/Goteborgs/Domar/all_scans/new/"
 
 #General settings
 LANG = 'swe'

@@ -33,6 +33,7 @@ pdf_converter = FPDF()
 #Define paths
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 PATH = "P:/2020/14/Tingsratter/Sodertorns/Domar/all_scans/"
+#PATH = "P:/2020/14/Kodning/Scans/imgs/Sodertorns/"
 
 #General settings
 LANG = 'swe'
@@ -40,6 +41,18 @@ CONFIG_TEXTBODY = '--psm 6 --oem 3'
 CONFIG_FULL = '--psm 11 --oem 3'
 CORES = 5
 kernal_sign = cv2.getStructuringElement(cv2.MORPH_RECT, (11,11))
+numbers = re.compile(r'(\d+)')
+
+
+
+def numericalSort(value):
+    """
+    Sort key for sorting file paths according to numbers at the end of file name
+
+    """
+    parts = numbers.split(value)
+    parts[1::2] = map(int, parts[1::2])
+    return parts
 
 
 
@@ -171,6 +184,12 @@ def ocr_img(image):
 
 
 def save_seperate(all_txt):
+    """
+    Split all.txt document, which contains the text for all images, into different
+    .txt documents seperate by case
+    Identifies different cases by pages that contain SLUT; this is set as start page where new case starts
+
+    """
     path = PATH
     os.chdir(path)
     res = []
@@ -180,18 +199,21 @@ def save_seperate(all_txt):
     text = all_txt.split("__newpage__")
     firsts = [x for x in text if 'SLUT' in x]
     
+    #Identify first pages
     for f in firsts:
         temp = text.index(f)
         indices.append(temp)
     
     indices = indices[0]
+    
+    #Add text of cases that have no start page to seperate file
     if indices != 0:
         unassigned = ''.join(text[:indices])
         text = text[indices:]
-        with open(path + "case_no_start_page.txt", "w") as file:
+        with open(path + "cases_with_no_start_page.txt", "w") as file:
             file.write(unassigned)
             file.close()
-
+    
     for elem in text:
         if (
                 not any(x in elem for x in ['SLUT','Domslut'])
@@ -213,9 +235,6 @@ def save_seperate(all_txt):
 def main():
     path = PATH
     os.chdir(path)
-    
-
-    #To do: classify each image as appendix or not
 
     #Save OCR'd text from image to txt file
     imgs = glob.glob(path + '*.JPG')
@@ -223,8 +242,9 @@ def main():
         p.map(ocr_img, imgs)
         
     #Join txt files of all cases of the same court to 1 file
+    txt_files = glob.glob("*.txt")
     with open(path + "all.txt", "wb") as outfile:
-        for f in glob.glob("*.txt"):
+        for f in sorted(txt_files, key = numericalSort):
             with open(f, "rb") as infile:
                 outfile.write(infile.read())
                 

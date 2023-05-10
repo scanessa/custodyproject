@@ -250,7 +250,7 @@ footer = ['telefax', 'e-post', 'telefon', 'besöksadress', 'postadress', 'expedi
 invest_key = ['vårdnadsutredning','boendeutredning','umgängesutredning']
 
 lawyer_key = ['ombud', 'god man',  'advokat', 'rättshjälpslagen']
-legalguardian_terms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt']
+legalguardian_terms = ["social", "kommun", "nämnden", "stadsjurist", 'stadsdel', 'familjerätt', 'ammaråklagare']
 
 mainhearing_key = ['huvudförhandling' , ' rättegång ' , 'sakframställning' , ' förhör ', 
                    'tingsrättens förhandling','huvud- förhandling', 'vittnesförhör',
@@ -284,7 +284,7 @@ physicalcust_list = [['boende'],['bo tillsammans'],[' ska',' bo '],[' ska','bosa
 physicalcust = ['boende','bo tillsammans',' bo ','bosatt']
 #Included bitrände and God to split lawyer part when ombud or god man have typos in scan
 party_split = r'\s(?=\w+VARANDE|varande|Svarande|Ombud|ombud|God man|god man|\\\
-    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN|hustrun|mannen|biträde|God )'
+    tällföreträdare|ökande|Hustrun|HUSTRUN|Mannen|MANNEN|hustrun|mannen|Motpart|motpart|biträde|God )'
 party_city = '([0-9]{2}[ \t][A-ZÅÐÄÖÉÜÆØÞ].+[^\n])'
 
 residence_key = [['kvarsittningsrätt'], ['har','rätt','att',' kvar','bo ','gemensamma','bostad','till','bodelning','sker']]
