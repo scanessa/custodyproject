@@ -57,7 +57,7 @@ python machine_learning/ml_appendix_classifier.py
 ```
 
 ## Contributing
-Contributions are welcome! Please create a pull request or open an issue if you have suggestions for improvements.
+Since the sole purpose of this project is the creation of a data set for a research project, please refrain from spontaneous contributions. Any comments about the existing code are appreciated and should be directed to canessa [at] ifo [.] de.
 
 ## License
 This project is open-source. Please check the repository for licensing details.
