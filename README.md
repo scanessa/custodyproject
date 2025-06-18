@@ -39,6 +39,7 @@ This project was developed to create court data for a research study on the econ
 Ensure you have the following installed:
 - Python 3.x
 - Required dependencies (install with `pip install -r requirements.txt` if applicable)
+- Swedish BERT Model bert-base-swedish-cased, installation guide here: https://huggingface.co/KB/bert-base-swedish-cased
 
 ### Running the OCR Processing
 ```bash
