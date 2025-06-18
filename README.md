@@ -42,7 +42,7 @@ Ensure you have the following installed:
 
 ### Running the OCR Processing
 ```bash
-python OCR_scans/ocr_processing.py
+python OCR_scans/ocr_pdfs.py
 ```
 
 ### Extracting Court Data
